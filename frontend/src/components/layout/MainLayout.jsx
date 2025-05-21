@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Box, CssBaseline, Toolbar, Typography, AppBar, Drawer, List, Divider, IconButton, ListItem, ListItemIcon, ListItemText } from '@mui/material';
-import { Dashboard, SupervisorAccount, School, ExitToApp, Menu as MenuIcon } from '@mui/icons-material';
+import { Dashboard, SupervisorAccount, School, ExitToApp, Menu as MenuIcon, Description, Person, Assignment } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 
@@ -51,13 +51,30 @@ const MainLayout = () => {
           </ListItem>
         )}
 
-        {hasRole('ADVISOR') && (
-          <ListItem button onClick={() => handleNavigation('/advisor/students')}>
+        {hasRole('STUDENT') && (
+          <ListItem button onClick={() => handleNavigation('/student/documents')}>
             <ListItemIcon>
-              <School />
+              <Description />
             </ListItemIcon>
-            <ListItemText primary="Meus Orientandos" />
+            <ListItemText primary="Minhas Monografias" />
           </ListItem>
+        )}
+
+        {hasRole('ADVISOR') && (
+          <>
+            <ListItem button onClick={() => handleNavigation('/advisor/documents')}>
+              <ListItemIcon>
+                <Assignment />
+              </ListItemIcon>
+              <ListItemText primary="Orientações" />
+            </ListItem>
+            <ListItem button onClick={() => handleNavigation('/advisor/students')}>
+              <ListItemIcon>
+                <Person />
+              </ListItemIcon>
+              <ListItemText primary="Meus Orientandos" />
+            </ListItem>
+          </>
         )}
       </List>
       <Divider />
