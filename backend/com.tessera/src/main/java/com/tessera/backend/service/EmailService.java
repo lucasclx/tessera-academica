@@ -2,26 +2,35 @@ package com.tessera.backend.service;
 
 import com.tessera.backend.entity.User;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Service
 public class EmailService {
+    
+    private static final Logger logger = LoggerFactory.getLogger(EmailService.class);
     
     @Autowired(required = false)
     private JavaMailSender mailSender;
     
+    @Value("${spring.mail.test-connection:true}")
+    private boolean mailEnabled;
+    
     private boolean isMailSenderAvailable() {
-        return mailSender != null;
+        return mailSender != null && mailEnabled;
     }
     
     public void sendNewRegistrationNotification(String adminEmail, User newUser) {
         if (!isMailSenderAvailable()) {
             // Log em vez de enviar email
-            System.out.println("Simulando envio de email para: " + adminEmail);
-            System.out.println("Assunto: Nova solicitação de cadastro - Tessera Acadêmica");
-            System.out.println("Corpo: Nome: " + newUser.getName() + ", Email: " + newUser.getEmail());
+            logger.info("Simulando envio de email para: {}", adminEmail);
+            logger.info("Assunto: Nova solicitação de cadastro - Tessera Acadêmica");
+            logger.info("Corpo: Nome: {}, Email: {}", newUser.getName(), newUser.getEmail());
             return;
         }
         
@@ -38,15 +47,20 @@ public class EmailService {
                 "Equipe Tessera Acadêmica"
         );
         
-        mailSender.send(message);
+        try {
+            mailSender.send(message);
+            logger.info("Email de notificação enviado para: {}", adminEmail);
+        } catch (Exception e) {
+            logger.error("Erro ao enviar email: {}", e.getMessage());
+        }
     }
     
     public void sendRegistrationApprovedEmail(String userEmail, String notes) {
         if (!isMailSenderAvailable()) {
             // Log em vez de enviar email
-            System.out.println("Simulando envio de email para: " + userEmail);
-            System.out.println("Assunto: Cadastro Aprovado - Tessera Acadêmica");
-            System.out.println("Corpo: Cadastro aprovado com notas: " + notes);
+            logger.info("Simulando envio de email para: {}", userEmail);
+            logger.info("Assunto: Cadastro Aprovado - Tessera Acadêmica");
+            logger.info("Corpo: Cadastro aprovado com notas: {}", notes);
             return;
         }
         
@@ -66,15 +80,21 @@ public class EmailService {
                 "Equipe Tessera Acadêmica";
         
         message.setText(messageText);
-        mailSender.send(message);
+        
+        try {
+            mailSender.send(message);
+            logger.info("Email de aprovação enviado para: {}", userEmail);
+        } catch (Exception e) {
+            logger.error("Erro ao enviar email: {}", e.getMessage());
+        }
     }
     
     public void sendRegistrationRejectedEmail(String userEmail, String reason) {
         if (!isMailSenderAvailable()) {
             // Log em vez de enviar email
-            System.out.println("Simulando envio de email para: " + userEmail);
-            System.out.println("Assunto: Cadastro Não Aprovado - Tessera Acadêmica");
-            System.out.println("Corpo: Cadastro rejeitado com motivo: " + reason);
+            logger.info("Simulando envio de email para: {}", userEmail);
+            logger.info("Assunto: Cadastro Não Aprovado - Tessera Acadêmica");
+            logger.info("Corpo: Cadastro rejeitado com motivo: {}", reason);
             return;
         }
         
@@ -90,6 +110,11 @@ public class EmailService {
                 "Equipe Tessera Acadêmica"
         );
         
-        mailSender.send(message);
+        try {
+            mailSender.send(message);
+            logger.info("Email de rejeição enviado para: {}", userEmail);
+        } catch (Exception e) {
+            logger.error("Erro ao enviar email: {}", e.getMessage());
+        }
     }
 }

@@ -1,5 +1,6 @@
 package com.tessera.backend.controller;
 
+import com.tessera.backend.dto.DashboardStatsDTO;
 import com.tessera.backend.dto.RegistrationApprovalDTO;
 import com.tessera.backend.dto.RegistrationRejectionDTO;
 import com.tessera.backend.entity.RegistrationRequest;
@@ -60,5 +61,32 @@ public class AdminController {
         
         adminService.rejectRegistration(id, admin, rejectionDTO);
         return ResponseEntity.ok().body("Solicitação rejeitada");
+    }
+    
+    // Novo endpoint para estatísticas do dashboard
+    @GetMapping("/stats")
+    public ResponseEntity<DashboardStatsDTO> getDashboardStats() {
+        return ResponseEntity.ok(adminService.getDashboardStats());
+    }
+    
+    // Endpoint para gerenciar usuários
+    @GetMapping("/users")
+    public ResponseEntity<Page<User>> getUsers(
+            Pageable pageable,
+            @RequestParam(required = false) String status) {
+        return ResponseEntity.ok(adminService.getUsers(pageable, status));
+    }
+    
+    @PutMapping("/users/{id}/status")
+    public ResponseEntity<?> updateUserStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody UserStatusUpdateDTO statusUpdateDTO,
+            Authentication authentication) {
+        
+        User admin = userRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+        
+        adminService.updateUserStatus(id, admin, statusUpdateDTO);
+        return ResponseEntity.ok().body("Status do usuário atualizado com sucesso");
     }
 }
