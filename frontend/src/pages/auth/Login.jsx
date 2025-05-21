@@ -1,21 +1,24 @@
 import React, { useState, useContext } from 'react';
-import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
-import { Formik, Form, Field } from 'formik';
-import * as Yup from 'yup';
-import { TextField, Button, Typography, Container, Box, Paper, Avatar, Link, Grid } from '@mui/material';
-import { LockOutlined } from '@mui/icons-material';
-import { toast } from 'react-toastify';
+import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
+import { 
+  TextField, 
+  Button, 
+  Typography, 
+  Container, 
+  Box, 
+  CssBaseline, 
+  Avatar, 
+  Link, 
+  Grid, 
+  Paper 
+} from '@mui/material';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { AuthContext } from '../../context/AuthContext';
-
-const LoginSchema = Yup.object().shape({
-  email: Yup.string()
-    .email('Email inválido')
-    .required('Email é obrigatório'),
-  password: Yup.string()
-    .required('Senha é obrigatória')
-});
+import { toast } from 'react-toastify';
 
 const Login = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -23,10 +26,14 @@ const Login = () => {
 
   const from = location.state?.from?.pathname || '/';
 
-  const handleSubmit = async (values) => {
+  const handleEmailChange = (e) => setEmail(e.target.value);
+  const handlePasswordChange = (e) => setPassword(e.target.value);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setIsSubmitting(true);
     try {
-      await login(values.email, values.password);
+      await login(email, password);
       toast.success('Login realizado com sucesso!');
       navigate(from, { replace: true });
     } catch (error) {
@@ -37,68 +44,87 @@ const Login = () => {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Paper elevation={3} sx={{ p: 4, mt: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Avatar sx={{ m: 1, bgcolor: 'primary.main' }}>
-          <LockOutlined />
-        </Avatar>
-        <Typography component="h1" variant="h5">
-          Login - Tessera Acadêmica
-        </Typography>
-        <Box sx={{ mt: 1, width: '100%' }}>
-          <Formik
-            initialValues={{ email: '', password: '' }}
-            validationSchema={LoginSchema}
-            onSubmit={handleSubmit}
-          >
-            {({ errors, touched }) => (
-              <Form>
-                <Field
-                  as={TextField}
-                  margin="normal"
-                  fullWidth
-                  id="email"
-                  label="Email"
-                  name="email"
-                  autoComplete="email"
-                  autoFocus
-                  error={touched.email && Boolean(errors.email)}
-                  helperText={touched.email && errors.email}
-                />
-                <Field
-                  as={TextField}
-                  margin="normal"
-                  fullWidth
-                  name="password"
-                  label="Senha"
-                  type="password"
-                  id="password"
-                  autoComplete="current-password"
-                  error={touched.password && Boolean(errors.password)}
-                  helperText={touched.password && errors.password}
-                />
-                <Button
-                  type="submit"
-                  fullWidth
-                  variant="contained"
-                  sx={{ mt: 3, mb: 2 }}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? 'Entrando...' : 'Entrar'}
-                </Button>
-                <Grid container>
-                  <Grid item>
-                    <Link component={RouterLink} to="/register" variant="body2">
-                      {"Não tem uma conta? Cadastre-se"}
-                    </Link>
-                  </Grid>
-                </Grid>
-              </Form>
-            )}
-          </Formik>
-        </Box>
-      </Paper>
-    </Container>
+    <Box 
+      sx={{ 
+        display: 'flex',
+        minHeight: '100vh',
+        width: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: 'background.default'
+      }}
+    >
+      <Container component="main" maxWidth="xs">
+        <CssBaseline />
+        <Paper 
+          elevation={3} 
+          sx={{ 
+            p: 4, 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center',
+            width: '100%'
+          }}
+        >
+          <Avatar sx={{ m: 1, bgcolor: 'primary.main' }}>
+            <LockOutlinedIcon />
+          </Avatar>
+          
+          <Typography component="h1" variant="h5">
+            Login - Tessera Acadêmica
+          </Typography>
+          
+          <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1, width: '100%' }}>
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              id="email"
+              label="Email"
+              name="email"
+              autoComplete="email"
+              autoFocus
+              value={email}
+              onChange={handleEmailChange}
+            />
+            
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              name="password"
+              label="Senha"
+              type="password"
+              id="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={handlePasswordChange}
+            />
+            
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              sx={{ mt: 3, mb: 2 }}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Entrando...' : 'Entrar'}
+            </Button>
+            
+            <Grid container>
+              <Grid item xs>
+                {/* Espaço reservado para link de "Esqueci a senha" se necessário */}
+              </Grid>
+              <Grid item>
+                <Link component={RouterLink} to="/register" variant="body2">
+                  {"Não tem uma conta? Cadastre-se"}
+                </Link>
+              </Grid>
+            </Grid>
+          </Box>
+        </Paper>
+      </Container>
+    </Box>
   );
 };
 

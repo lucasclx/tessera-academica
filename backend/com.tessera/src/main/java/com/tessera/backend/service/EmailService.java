@@ -9,10 +9,22 @@ import org.springframework.stereotype.Service;
 @Service
 public class EmailService {
     
-    @Autowired
+    @Autowired(required = false)
     private JavaMailSender mailSender;
     
+    private boolean isMailSenderAvailable() {
+        return mailSender != null;
+    }
+    
     public void sendNewRegistrationNotification(String adminEmail, User newUser) {
+        if (!isMailSenderAvailable()) {
+            // Log em vez de enviar email
+            System.out.println("Simulando envio de email para: " + adminEmail);
+            System.out.println("Assunto: Nova solicitação de cadastro - Tessera Acadêmica");
+            System.out.println("Corpo: Nome: " + newUser.getName() + ", Email: " + newUser.getEmail());
+            return;
+        }
+        
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(adminEmail);
         message.setSubject("Nova solicitação de cadastro - Tessera Acadêmica");
@@ -30,6 +42,14 @@ public class EmailService {
     }
     
     public void sendRegistrationApprovedEmail(String userEmail, String notes) {
+        if (!isMailSenderAvailable()) {
+            // Log em vez de enviar email
+            System.out.println("Simulando envio de email para: " + userEmail);
+            System.out.println("Assunto: Cadastro Aprovado - Tessera Acadêmica");
+            System.out.println("Corpo: Cadastro aprovado com notas: " + notes);
+            return;
+        }
+        
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(userEmail);
         message.setSubject("Cadastro Aprovado - Tessera Acadêmica");
@@ -50,6 +70,14 @@ public class EmailService {
     }
     
     public void sendRegistrationRejectedEmail(String userEmail, String reason) {
+        if (!isMailSenderAvailable()) {
+            // Log em vez de enviar email
+            System.out.println("Simulando envio de email para: " + userEmail);
+            System.out.println("Assunto: Cadastro Não Aprovado - Tessera Acadêmica");
+            System.out.println("Corpo: Cadastro rejeitado com motivo: " + reason);
+            return;
+        }
+        
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(userEmail);
         message.setSubject("Cadastro Não Aprovado - Tessera Acadêmica");

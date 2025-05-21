@@ -1,0 +1,28 @@
+.register-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  width: 100%;
+  padding: 20px;
+  background-color: #fff;
+  box-sizing: border-box;
+}
+
+/* Reset para remover qualquer possível rodapé preto */
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background-color: #fff !important;
+}
+
+body {
+  overflow-x: hidden;
+  background-color: #fff !important;
+}
+
+/* Remove quaisquer estilos pretos em divs que possam estar causando o rodapé */
+#root > div {
+  background-color: #fff !important;
+}

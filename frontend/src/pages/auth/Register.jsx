@@ -1,43 +1,58 @@
 import React, { useState } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import { Formik, Form, Field } from 'formik';
-import * as Yup from 'yup';
-import { TextField, Button, Typography, Container, Box, Paper, Avatar, Link, Grid, MenuItem } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import { 
+  TextField, 
+  Button, 
+  Typography, 
+  Box,
+  Paper, 
+  Avatar
+} from '@mui/material';
 import { PersonAddOutlined } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import authService from '../../services/authService';
-
-const RegisterSchema = Yup.object().shape({
-  name: Yup.string()
-    .required('Nome é obrigatório'),
-  email: Yup.string()
-    .email('Email inválido')
-    .required('Email é obrigatório'),
-  password: Yup.string()
-    .min(6, 'Senha deve ter pelo menos 6 caracteres')
-    .required('Senha é obrigatória'),
-  confirmPassword: Yup.string()
-    .oneOf([Yup.ref('password'), null], 'Senhas devem ser iguais')
-    .required('Confirmação de senha é obrigatória'),
-  role: Yup.string()
-    .required('Papel é obrigatório'),
-  institution: Yup.string()
-    .required('Instituição é obrigatória'),
-  department: Yup.string()
-    .required('Departamento é obrigatório'),
-  justification: Yup.string()
-    .required('Justificativa é obrigatória')
-    .min(20, 'Justificativa deve ter pelo menos 20 caracteres')
-});
+import './Register.css'; // Vamos adicionar um arquivo CSS para sobrescrever quaisquer estilos globais problemáticos
 
 const Register = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    institution: '',
+    department: '',
+    justification: '',
+    role: 'STUDENT'
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (values) => {
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Validação básica
+    if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword 
+        || !formData.institution || !formData.department || !formData.justification) {
+      toast.error('Por favor, preencha todos os campos');
+      return;
+    }
+    
+    if (formData.password !== formData.confirmPassword) {
+      toast.error('As senhas não coincidem');
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
-      const { confirmPassword, ...registerData } = values;
+      const { confirmPassword, ...registerData } = formData;
       await authService.register(registerData);
       toast.success('Cadastro realizado com sucesso! Aguarde a aprovação do administrador.');
       navigate('/login');
@@ -48,155 +63,164 @@ const Register = () => {
     }
   };
 
+  const goToLogin = () => {
+    navigate('/login');
+  };
+
   return (
-    <Container component="main" maxWidth="md">
-      <Paper elevation={3} sx={{ p: 4, mt: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Avatar sx={{ m: 1, bgcolor: 'secondary.main' }}>
+    <div className="register-container">
+      <Paper 
+        elevation={3} 
+        sx={{ 
+          maxWidth: 500,
+          width: '100%',
+          mx: 'auto',
+          p: 3,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          borderRadius: 1
+        }}
+      >
+        <Avatar sx={{ bgcolor: '#f44336', m: 1 }}>
           <PersonAddOutlined />
         </Avatar>
-        <Typography component="h1" variant="h5">
+        
+        <Typography component="h1" variant="h5" sx={{ mb: 3 }}>
           Cadastro - Tessera Acadêmica
         </Typography>
-        <Box sx={{ mt: 1, width: '100%' }}>
-          <Formik
-            initialValues={{
-              name: '',
-              email: '',
-              password: '',
-              confirmPassword: '',
-              role: '',
-              institution: '',
-              department: '',
-              justification: ''
+        
+        <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="name"
+            label="Nome Completo"
+            name="name"
+            autoComplete="name"
+            value={formData.name}
+            onChange={handleChange}
+            sx={{ mb: 2 }}
+          />
+          
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="email"
+            label="Email"
+            name="email"
+            autoComplete="email"
+            value={formData.email}
+            onChange={handleChange}
+            sx={{ mb: 2 }}
+          />
+          
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            name="password"
+            label="Senha"
+            type="password"
+            id="password"
+            autoComplete="new-password"
+            value={formData.password}
+            onChange={handleChange}
+            sx={{ mb: 2 }}
+          />
+          
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            name="confirmPassword"
+            label="Confirmar Senha"
+            type="password"
+            id="confirmPassword"
+            value={formData.confirmPassword}
+            onChange={handleChange}
+            sx={{ mb: 2 }}
+          />
+          
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="institution"
+            label="Instituição"
+            name="institution"
+            value={formData.institution}
+            onChange={handleChange}
+            sx={{ mb: 2 }}
+          />
+          
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="department"
+            label="Departamento"
+            name="department"
+            value={formData.department}
+            onChange={handleChange}
+            sx={{ mb: 2 }}
+          />
+          
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            id="justification"
+            label="Justificativa para uso do sistema"
+            name="justification"
+            multiline
+            rows={4}
+            value={formData.justification}
+            onChange={handleChange}
+            sx={{ mb: 3 }}
+          />
+          
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            sx={{ 
+              mt: 2, 
+              mb: 2,
+              bgcolor: '#1976d2',
+              color: 'white',
+              height: 48,
+              '&:hover': {
+                bgcolor: '#1565c0'
+              }
             }}
-            validationSchema={RegisterSchema}
-            onSubmit={handleSubmit}
+            disabled={isSubmitting}
           >
-            {({ errors, touched }) => (
-              <Form>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <Field
-                      as={TextField}
-                      fullWidth
-                      id="name"
-                      label="Nome Completo"
-                      name="name"
-                      autoComplete="name"
-                      error={touched.name && Boolean(errors.name)}
-                      helperText={touched.name && errors.name}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Field
-                      as={TextField}
-                      fullWidth
-                      id="email"
-                      label="Email"
-                      name="email"
-                      autoComplete="email"
-                      error={touched.email && Boolean(errors.email)}
-                      helperText={touched.email && errors.email}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Field
-                      as={TextField}
-                      select
-                      fullWidth
-                      id="role"
-                      label="Papel no Sistema"
-                      name="role"
-                      error={touched.role && Boolean(errors.role)}
-                      helperText={touched.role && errors.role}
-                    >
-                      <MenuItem value="STUDENT">Aluno</MenuItem>
-                      <MenuItem value="ADVISOR">Orientador</MenuItem>
-                    </Field>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Field
-                      as={TextField}
-                      fullWidth
-                      name="password"
-                      label="Senha"
-                      type="password"
-                      id="password"
-                      autoComplete="new-password"
-                      error={touched.password && Boolean(errors.password)}
-                      helperText={touched.password && errors.password}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Field
-                      as={TextField}
-                      fullWidth
-                      name="confirmPassword"
-                      label="Confirmar Senha"
-                      type="password"
-                      id="confirmPassword"
-                      error={touched.confirmPassword && Boolean(errors.confirmPassword)}
-                      helperText={touched.confirmPassword && errors.confirmPassword}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Field
-                      as={TextField}
-                      fullWidth
-                      id="institution"
-                      label="Instituição"
-                      name="institution"
-                      error={touched.institution && Boolean(errors.institution)}
-                      helperText={touched.institution && errors.institution}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Field
-                      as={TextField}
-                      fullWidth
-                      id="department"
-                      label="Departamento"
-                      name="department"
-                      error={touched.department && Boolean(errors.department)}
-                      helperText={touched.department && errors.department}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Field
-                      as={TextField}
-                      fullWidth
-                      id="justification"
-                      label="Justificativa para uso do sistema"
-                      name="justification"
-                      multiline
-                      rows={4}
-                      error={touched.justification && Boolean(errors.justification)}
-                      helperText={touched.justification && errors.justification}
-                    />
-                  </Grid>
-                </Grid>
-                <Button
-                  type="submit"
-                  fullWidth
-                  variant="contained"
-                  sx={{ mt: 3, mb: 2 }}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? 'Cadastrando...' : 'Cadastrar'}
-                </Button>
-                <Grid container justifyContent="flex-end">
-                  <Grid item>
-                    <Link component={RouterLink} to="/login" variant="body2">
-                      Já tem uma conta? Faça login
-                    </Link>
-                  </Grid>
-                </Grid>
-              </Form>
-            )}
-          </Formik>
+            CADASTRAR
+          </Button>
+          
+          <Box sx={{ 
+            width: '100%', 
+            textAlign: 'center',
+            mt: 2
+          }}>
+            <Button
+              onClick={goToLogin}
+              sx={{ 
+                textTransform: 'uppercase',
+                color: '#1976d2',
+                fontWeight: 'bold',
+                fontSize: '0.85rem'
+              }}
+            >
+              JÁ TEM UMA CONTA? FAÇA LOGIN
+            </Button>
+          </Box>
         </Box>
       </Paper>
-    </Container>
+    </div>
   );
 };
 

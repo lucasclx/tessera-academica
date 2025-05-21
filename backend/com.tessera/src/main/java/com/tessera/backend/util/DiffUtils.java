@@ -1,36 +1,36 @@
 package com.tessera.backend.util;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.LinkedList;
 
 import org.springframework.stereotype.Component;
 
-import name.fraser.neil.plaintext.diff_match_patch;
-import name.fraser.neil.plaintext.diff_match_patch.Diff;
+import org.bitbucket.cowwoc.diffmatchpatch.DiffMatchPatch;
+import org.bitbucket.cowwoc.diffmatchpatch.DiffMatchPatch.Diff;
+import org.bitbucket.cowwoc.diffmatchpatch.DiffMatchPatch.Patch;
 
 @Component
 public class DiffUtils {
     
-    private final diff_match_patch dmp = new diff_match_patch();
+    private final DiffMatchPatch dmp = new DiffMatchPatch();
     
     /**
      * Gera um diff entre dois textos
      */
     public String generateDiff(String oldText, String newText) {
-        List<Diff> diffs = dmp.diff_main(oldText, newText);
-        dmp.diff_cleanupSemantic(diffs);
+        LinkedList<Diff> diffs = (LinkedList<Diff>) dmp.diffMain(oldText, newText);
+        dmp.diffCleanupSemantic(diffs);
         
-        return dmp.diff_toDelta(diffs);
+        return dmp.diffToDelta(diffs);
     }
     
     /**
      * Aplica um diff a um texto
      */
     public String applyDiff(String text, String diffDelta) {
-        List<Diff> diffs = dmp.diff_fromDelta(text, diffDelta);
+        LinkedList<Diff> diffs = (LinkedList<Diff>) dmp.diffFromDelta(text, diffDelta);
         
-        List<diff_match_patch.Patch> patches = dmp.patch_make(text, diffs);
-        Object[] result = dmp.patch_apply((ArrayList<diff_match_patch.Patch>) patches, text);
+        LinkedList<Patch> patches = dmp.patchMake(text, diffs);
+        Object[] result = dmp.patchApply(patches, text);
         
         return (String) result[0];
     }
@@ -39,9 +39,9 @@ public class DiffUtils {
      * Renderiza um diff como HTML com <ins> e <del>
      */
     public String renderDiffHtml(String oldText, String newText) {
-        List<Diff> diffs = dmp.diff_main(oldText, newText);
-        dmp.diff_cleanupSemantic(diffs);
+        LinkedList<Diff> diffs = (LinkedList<Diff>) dmp.diffMain(oldText, newText);
+        dmp.diffCleanupSemantic(diffs);
         
-        return dmp.diff_prettyHtml(diffs);
+        return dmp.diffPrettyHtml(diffs);
     }
 }
