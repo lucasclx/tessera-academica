@@ -24,10 +24,10 @@ import org.springframework.web.filter.CorsFilter;
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
-    
+
     @Autowired
     private UserDetailsServiceImpl userDetailsService;
-    
+
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
@@ -56,19 +56,26 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/register", "/auth/login").permitAll()
+                .requestMatchers(
+                        "/auth/register",
+                        "/auth/login",
+                        // Libera os endpoints do Swagger/OpenAPI
+                        "/v3/api-docs/**",
+                        "/swagger-ui/**",
+                        "/swagger-ui.html"
+                ).permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
-                .requestMatchers("/advisor/**").hasRole("ADVISOR")
-                .requestMatchers("/student/**").hasRole("STUDENT")
+                .requestMatchers("/advisor/**").hasRole("ADVISOR") // Se você tiver essa role e endpoints
+                .requestMatchers("/student/**").hasRole("STUDENT") // Se você tiver essa role e endpoints
                 .anyRequest().authenticated()
             );
-        
+
         http.authenticationProvider(authenticationProvider());
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-        
+
         return http.build();
     }
-    
+
     @Bean
     public CorsFilter corsFilter() {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -81,7 +88,7 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", config);
         return new CorsFilter(source);
     }
-    
+
     @Bean
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -11,8 +11,10 @@ import java.util.Optional;
 
 @Repository
 public interface RegistrationRequestRepository extends JpaRepository<RegistrationRequest, Long> {
-    
+
     Page<RegistrationRequest> findByStatus(RequestStatus status, Pageable pageable);
-    
+
     Optional<RegistrationRequest> findByUserId(Long userId);
+
+    long countByStatus(RequestStatus status); // <-- ADICIONE ESTE MÉTODO PARA CONTAGEM
 }
