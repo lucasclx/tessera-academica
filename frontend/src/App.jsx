@@ -23,7 +23,7 @@ import Dashboard from './pages/dashboard/Dashboard.jsx';
 
 // Páginas de estudante
 import MyDocuments from './pages/student/MyDocuments.jsx';
-import DocumentView from './pages/student/DocumentView.jsx';
+import DocumentEditor from './pages/student/DocumentEditor.jsx'; // Novo editor
 import DocumentCompare from './pages/student/DocumentCompare.jsx';
 
 // Páginas de orientador
@@ -41,7 +41,17 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <ToastContainer autoClose={3000} hideProgressBar />
+        <ToastContainer 
+          position="top-right"
+          autoClose={3000} 
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+        />
         <Routes>
           {/* Rotas públicas */}
           <Route path="/login" element={<Login />} />
@@ -63,9 +73,14 @@ function App() {
             <Route path="student" element={<StudentRoute />}>
               <Route index element={<Navigate to="documents" replace />} />
               <Route path="documents" element={<MyDocuments />} />
-              <Route path="documents/:id" element={<DocumentView />} />
-              <Route path="documents/:id/edit" element={<DocumentView edit={true} />} />
+              
+              {/* Nova rota para o editor - suporta criação e edição */}
+              <Route path="documents/new" element={<DocumentEditor />} />
+              <Route path="documents/:id" element={<DocumentEditor />} />
+              
+              {/* Rota para comparação de versões */}
               <Route path="documents/:id/compare" element={<DocumentCompare />} />
+              <Route path="documents/:id/compare/:v1/:v2" element={<DocumentCompare />} />
             </Route>
 
             {/* Rotas de orientador */}
@@ -74,6 +89,7 @@ function App() {
               <Route path="students" element={<MyStudents />} />
               <Route path="documents" element={<AdvisingDocuments />} />
               <Route path="documents/:id" element={<DocumentReview />} />
+              <Route path="documents/:id/review" element={<DocumentReview />} />
             </Route>
           </Route>
 

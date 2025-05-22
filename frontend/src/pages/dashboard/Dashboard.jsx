@@ -63,12 +63,25 @@ const Dashboard = () => {
         }
       } catch (error) {
         console.error('Erro ao carregar documentos:', error);
+        // Não mostrar erro se o usuário não tem documentos ainda
+        setRecentDocuments([]);
+        setStats({
+          totalDocuments: 0,
+          pendingReview: 0,
+          approved: 0,
+          inRevision: 0
+        });
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    // Só buscar dados se não for admin
+    if (!hasRole('ADMIN')) {
+      fetchData();
+    } else {
+      setLoading(false);
+    }
   }, [hasRole]);
 
   const getStatusChip = (status) => {
@@ -85,6 +98,14 @@ const Dashboard = () => {
         return <Chip label="Finalizado" size="small" color="info" />;
       default:
         return <Chip label={status} size="small" />;
+    }
+  };
+
+  const handleDocumentClick = (document) => {
+    if (hasRole('STUDENT')) {
+      navigate(`/student/documents/${document.id}`);
+    } else if (hasRole('ADVISOR')) {
+      navigate(`/advisor/documents/${document.id}`);
     }
   };
 
@@ -183,7 +204,7 @@ const Dashboard = () => {
                   variant="contained" 
                   color="primary"
                   fullWidth
-                  onClick={() => navigate('/student/documents')}
+                  onClick={() => navigate('/student/documents/new')}
                 >
                   Nova Monografia
                 </Button>
@@ -361,7 +382,7 @@ const Dashboard = () => {
                           },
                           cursor: 'pointer'
                         }}
-                        onClick={() => navigate('/student/documents')}
+                        onClick={() => navigate('/student/documents/new')}
                       >
                         <Edit color="primary" sx={{ fontSize: 40, mr: 2 }} />
                         <Box>
@@ -413,9 +434,7 @@ const Dashboard = () => {
                             borderRadius: 1,
                             mb: 1
                           }}
-                          onClick={() => navigate(hasRole('STUDENT') ? 
-                            `/student/documents/${document.id}` : 
-                            `/advisor/documents/${document.id}`)}
+                          onClick={() => handleDocumentClick(document)}
                           secondaryAction={
                             <Box>
                               {getStatusChip(document.status)}
@@ -467,7 +486,7 @@ const Dashboard = () => {
                         color="primary" 
                         startIcon={<Add />}
                         sx={{ mt: 1 }}
-                        onClick={() => navigate('/student/documents')}
+                        onClick={() => navigate('/student/documents/new')}
                       >
                         Criar Nova Monografia
                       </Button>
