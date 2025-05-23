@@ -1,9 +1,16 @@
 import React, { useContext } from 'react';
 import { Outlet } from 'react-router-dom';
-import { Box, CssBaseline, Toolbar, Typography, AppBar, Drawer, List, Divider, IconButton, ListItem, ListItemIcon, ListItemText } from '@mui/material';
-import { Dashboard, SupervisorAccount, School, ExitToApp, Menu as MenuIcon, Description, Person, Assignment } from '@mui/icons-material';
+import { 
+  Box, CssBaseline, Toolbar, Typography, AppBar, Drawer, List, Divider, 
+  IconButton, ListItem, ListItemIcon, ListItemText 
+} from '@mui/material';
+import { 
+  Dashboard, SupervisorAccount, School, ExitToApp, Menu as MenuIcon, 
+  Description, Person, Assignment, Notifications // NOVO
+} from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
+import NotificationBell from '../notifications/NotificationBell'; // NOVO
 
 const drawerWidth = 240;
 
@@ -40,6 +47,14 @@ const MainLayout = () => {
             <Dashboard />
           </ListItemIcon>
           <ListItemText primary="Dashboard" />
+        </ListItem>
+
+        {/* NOVO - Item de menu para notificações */}
+        <ListItem button onClick={() => handleNavigation('/notifications')}>
+          <ListItemIcon>
+            <Notifications />
+          </ListItemIcon>
+          <ListItemText primary="Notificações" />
         </ListItem>
         
         {hasRole('ADMIN') && (
@@ -109,9 +124,11 @@ const MainLayout = () => {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             {currentUser?.name}
           </Typography>
+          {/* NOVO - Adicionar NotificationBell */}
+          <NotificationBell />
         </Toolbar>
       </AppBar>
       <Box
@@ -124,7 +141,7 @@ const MainLayout = () => {
           open={mobileOpen}
           onClose={handleDrawerToggle}
           ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
+            keepMounted: true,
           }}
           sx={{
             display: { xs: 'block', sm: 'none' },
