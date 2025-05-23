@@ -31,3 +31,33 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Arquivos existentes...
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.staging
+.env.development
+
+# Application specific
+application-*.properties
+!application.properties
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
