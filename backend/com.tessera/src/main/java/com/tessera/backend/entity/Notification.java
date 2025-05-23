@@ -17,7 +17,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "notifications")
+@Table(name = "notifications") // Table name remains "notifications"
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -45,7 +45,11 @@ public class Notification {
     @Column(nullable = false)
     private NotificationPriority priority = NotificationPriority.NORMAL;
     
-    private boolean read = false;
+    // CORRIGIDO: Renomeado o campo de 'read' para 'is_read' (no banco) ou 'isRead' (na entidade)
+    // Usando @Column para definir o nome da coluna no banco como 'is_read' para evitar conflito.
+    // O nome do campo na entidade será 'isRead'.
+    @Column(name = "is_read") // Explicitly name the column in the database
+    private boolean isRead = false; // Field name in Java
     
     @Column(name = "entity_id")
     private Long entityId; // ID do documento, versão, comentário etc.

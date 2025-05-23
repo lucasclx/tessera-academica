@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@Transactional(readOnly = true)
+@Transactional(readOnly = true) // Good practice for read-only services/methods
 public class UserService {
 
     private final UserRepository userRepository;
@@ -23,11 +23,16 @@ public class UserService {
     }
 
     public List<AdvisorDTO> getApprovedAdvisors() {
-        List<User> advisors = userRepository.findByRoles_NameAndStatus("ADVISOR", UserStatus.APPROVED);
+        // CORRIGIDO: Chamando o método com o nome correto (sem underscore)
+        List<User> advisors = userRepository.findByRolesNameAndStatus("ADVISOR", UserStatus.APPROVED);
         return advisors.stream()
                 .map(user -> new AdvisorDTO(user.getId(), user.getName()))
                 .collect(Collectors.toList());
     }
 
     // Outros métodos futuros relacionados a usuários podem ser adicionados aqui
+    // Ex: getUserProfile, updateProfile, etc.
+    public User findUserByEmail(String email) {
+        return userRepository.findByEmail(email).orElse(null); // Exemplo
+    }
 }

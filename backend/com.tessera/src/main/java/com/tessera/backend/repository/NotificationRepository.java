@@ -18,41 +18,38 @@ import com.tessera.backend.entity.User;
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
     
     // Buscar notificações não lidas por usuário
-    List<Notification> findByUserAndReadFalseOrderByCreatedAtDesc(User user);
+    // CORRIGIDO: usa isRead
+    List<Notification> findByUserAndIsReadFalseOrderByCreatedAtDesc(User user);
     
     // Contar notificações não lidas
-    long countByUserAndReadFalse(User user);
+    // CORRIGIDO: usa isRead
+    long countByUserAndIsReadFalse(User user);
     
-    // ADICIONANDO: Contar todas as notificações do usuário
     long countByUser(User user);
     
-    // Buscar todas as notificações paginadas por usuário
     Page<Notification> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
     
-    // Buscar notificação específica do usuário
     Optional<Notification> findByIdAndUser(Long id, User user);
     
-    // Buscar por tipo e usuário
     List<Notification> findByUserAndTypeOrderByCreatedAtDesc(User user, NotificationType type);
     
-    // Buscar notificações recentes (últimas 24h)
     @Query("SELECT n FROM Notification n WHERE n.user = :user AND n.createdAt >= :since ORDER BY n.createdAt DESC")
     List<Notification> findRecentNotifications(@Param("user") User user, @Param("since") LocalDateTime since);
     
     // Marcar múltiplas notificações como lidas
+    // CORRIGIDO: usa isRead
     @Modifying
-    @Query("UPDATE Notification n SET n.read = true, n.readAt = :readAt WHERE n.user = :user AND n.read = false")
+    @Query("UPDATE Notification n SET n.isRead = true, n.readAt = :readAt WHERE n.user = :user AND n.isRead = false")
     int markAllAsReadForUser(@Param("user") User user, @Param("readAt") LocalDateTime readAt);
     
-    // Buscar notificações relacionadas a uma entidade específica
     List<Notification> findByUserAndEntityTypeAndEntityId(User user, String entityType, Long entityId);
     
-    // Deletar notificações expiradas
     @Modifying
     @Query("DELETE FROM Notification n WHERE n.expiresAt IS NOT NULL AND n.expiresAt < :now")
     int deleteExpiredNotifications(@Param("now") LocalDateTime now);
     
     // Buscar notificações para digest de email
-    @Query("SELECT n FROM Notification n WHERE n.user = :user AND n.read = false AND n.createdAt >= :since")
+    // CORRIGIDO: usa isRead
+    @Query("SELECT n FROM Notification n WHERE n.user = :user AND n.isRead = false AND n.createdAt >= :since")
     List<Notification> findUnreadSince(@Param("user") User user, @Param("since") LocalDateTime since);
 }

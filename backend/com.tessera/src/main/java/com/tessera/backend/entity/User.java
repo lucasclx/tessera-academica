@@ -13,7 +13,7 @@ import java.util.Set;
 
 @Entity
 @Table(name = "users")
-@Data
+@Data // ESSENCIAL!
 @NoArgsConstructor
 @AllArgsConstructor
 public class User {

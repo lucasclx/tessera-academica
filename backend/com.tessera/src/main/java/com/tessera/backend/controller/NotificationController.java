@@ -9,7 +9,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
+// import org.springframework.web.bind.annotation.PostMapping; // PostMapping não usado aqui
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -91,8 +91,8 @@ public class NotificationController {
     @GetMapping("/settings")
     public ResponseEntity<NotificationSettingsDTO> getNotificationSettings(Authentication authentication) {
         User currentUser = getCurrentUser(authentication);
-        UserNotificationSettings settings = notificationService.getUserNotificationSettings(currentUser);
-        NotificationSettingsDTO dto = mapSettingsToDTO(settings);
+        // CORRIGIDO: O serviço já retorna o DTO
+        NotificationSettingsDTO dto = notificationService.getUserNotificationSettings(currentUser);
         return ResponseEntity.ok(dto);
     }
 
@@ -101,11 +101,12 @@ public class NotificationController {
             @Valid @RequestBody NotificationSettingsDTO settingsDTO,
             Authentication authentication) {
         User currentUser = getCurrentUser(authentication);
-        UserNotificationSettings settings = mapDTOToSettings(settingsDTO);
-        settings.setUser(currentUser);
+        // Mapear DTO para Entidade ANTES de passar para o serviço
+        UserNotificationSettings settingsEntity = mapDTOToSettingsEntity(settingsDTO);
+        settingsEntity.setUser(currentUser); // Associar o usuário à entidade
         
-        UserNotificationSettings updatedSettings = notificationService.updateNotificationSettings(currentUser, settings);
-        NotificationSettingsDTO responseDTO = mapSettingsToDTO(updatedSettings);
+        // CORRIGIDO: O serviço espera a entidade UserNotificationSettings
+        NotificationSettingsDTO responseDTO = notificationService.updateNotificationSettings(currentUser, settingsEntity);
         
         return ResponseEntity.ok(responseDTO);
     }
@@ -116,26 +117,14 @@ public class NotificationController {
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
     }
 
-    private NotificationSettingsDTO mapSettingsToDTO(UserNotificationSettings settings) {
-        NotificationSettingsDTO dto = new NotificationSettingsDTO();
-        dto.setId(settings.getId());
-        dto.setEmailEnabled(settings.isEmailEnabled());
-        dto.setEmailDocumentUpdates(settings.isEmailDocumentUpdates());
-        dto.setEmailComments(settings.isEmailComments());
-        dto.setEmailApprovals(settings.isEmailApprovals());
-        dto.setBrowserEnabled(settings.isBrowserEnabled());
-        dto.setBrowserDocumentUpdates(settings.isBrowserDocumentUpdates());
-        dto.setBrowserComments(settings.isBrowserComments());
-        dto.setBrowserApprovals(settings.isBrowserApprovals());
-        dto.setDigestFrequency(settings.getDigestFrequency());
-        dto.setQuietHoursStart(settings.getQuietHoursStart());
-        dto.setQuietHoursEnd(settings.getQuietHoursEnd());
-        return dto;
-    }
-
-    private UserNotificationSettings mapDTOToSettings(NotificationSettingsDTO dto) {
+    // Mapper de DTO para Entidade UserNotificationSettings
+    private UserNotificationSettings mapDTOToSettingsEntity(NotificationSettingsDTO dto) {
         UserNotificationSettings settings = new UserNotificationSettings();
-        settings.setId(dto.getId());
+        // Não setar ID aqui se for uma nova entidade ou se o ID for gerenciado pelo serviço/JPA.
+        // Se o DTO pode carregar um ID para atualização, o serviço precisa lidar com findOrCreate.
+        // A lógica atual em NotificationService (getOrCreateUserSettings) já lida com isso.
+        // settings.setId(dto.getId()); // O ID será gerenciado pelo getOrCreateUserSettings no serviço
+
         settings.setEmailEnabled(dto.isEmailEnabled());
         settings.setEmailDocumentUpdates(dto.isEmailDocumentUpdates());
         settings.setEmailComments(dto.isEmailComments());
@@ -149,4 +138,7 @@ public class NotificationController {
         settings.setQuietHoursEnd(dto.getQuietHoursEnd());
         return settings;
     }
+
+    // O mapSettingsEntityToDTO não é mais necessário aqui, pois o serviço já retorna DTO para GET.
+    // private NotificationSettingsDTO mapSettingsEntityToDTO(UserNotificationSettings settings) { ... }
 }

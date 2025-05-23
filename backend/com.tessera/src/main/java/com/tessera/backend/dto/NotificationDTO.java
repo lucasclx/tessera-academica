@@ -17,7 +17,10 @@ public class NotificationDTO {
     private String message;
     private NotificationType type;
     private NotificationPriority priority;
-    private boolean read;
+    
+    // CORRIGIDO: Campo renomeado
+    private boolean isRead; // Changed from 'read' to 'isRead'
+    
     private Long entityId;
     private String entityType;
     private String actionUrl;

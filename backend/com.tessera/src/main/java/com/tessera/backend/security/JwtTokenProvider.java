@@ -1,8 +1,14 @@
 package com.tessera.backend.security;
 
-import io.jsonwebtoken.*;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
-import io.jsonwebtoken.security.SignatureException; // Import específico para SignatureException
+import io.jsonwebtoken.security.SignatureException; // Use this for newer versions
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,7 +16,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-// import org.springframework.security.core.userdetails.UserDetails; // Não é estritamente necessário aqui
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
@@ -20,7 +25,7 @@ import java.util.Date;
 import java.util.stream.Collectors;
 
 @Component
-public class JwtTokenProvider {
+public class JwtTokenProvider { // Certifique-se que esta é a única classe pública no arquivo
 
     private static final Logger logger = LoggerFactory.getLogger(JwtTokenProvider.class);
 
@@ -32,9 +37,6 @@ public class JwtTokenProvider {
 
     private Key getSigningKey() {
         byte[] keyBytes = jwtSecret.getBytes();
-        // Para HS512, a chave deve ter um tamanho adequado (ex: 64 bytes).
-        // Se a chave for menor, pode ser necessário usar SignatureAlgorithm.HS256
-        // ou garantir que a chave em application.properties seja longa o suficiente.
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
@@ -53,11 +55,11 @@ public class JwtTokenProvider {
         return Jwts.builder()
                 .setSubject(userPrincipal.getUsername()) 
                 .claim("roles", authorities)
-                .claim("id", userPrincipal.getId())         // CLAIM "id" ADICIONADO
-                .claim("name", userPrincipal.getName())     // CLAIM "name" ADICIONADO
+                .claim("id", userPrincipal.getId())
+                .claim("name", userPrincipal.getName())
                 .setIssuedAt(new Date())
                 .setExpiration(expiryDate)
-                .signWith(getSigningKey(), SignatureAlgorithm.HS512) // Especificando algoritmo
+                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
                 .compact();
     }
 
@@ -67,7 +69,6 @@ public class JwtTokenProvider {
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
-
         return claims.getSubject();
     }
 
@@ -78,6 +79,8 @@ public class JwtTokenProvider {
                 .build()
                 .parseClaimsJws(authToken);
             return true;
+        } catch (SignatureException ex) { 
+            logger.error("Falha na validação da assinatura JWT: {}", ex.getMessage());
         } catch (MalformedJwtException ex) {
             logger.error("Token JWT inválido: {}", ex.getMessage());
         } catch (ExpiredJwtException ex) {
@@ -85,9 +88,7 @@ public class JwtTokenProvider {
         } catch (UnsupportedJwtException ex) {
             logger.error("Token JWT não suportado: {}", ex.getMessage());
         } catch (IllegalArgumentException ex) {
-            logger.error("Claims JWT vazias: {}", ex.getMessage());
-        } catch (SignatureException ex) { 
-            logger.error("Falha na validação da assinatura JWT: {}", ex.getMessage());
+            logger.error("Claims JWT vazias ou argumento inválido: {}", ex.getMessage());
         }
         return false;
     }
@@ -99,15 +100,22 @@ public class JwtTokenProvider {
                 .parseClaimsJws(token)
                 .getBody();
         
-        String rolesClaim = claims.get("roles", String.class); // Obter como String
+        String rolesClaim = claims.get("roles", String.class);
         Collection<? extends GrantedAuthority> authorities =
                 Arrays.stream(rolesClaim != null ? rolesClaim.split(",") : new String[0])
+                        .filter(role -> role != null && !role.trim().isEmpty())
                         .map(SimpleGrantedAuthority::new)
                         .collect(Collectors.toList());
         
-        org.springframework.security.core.userdetails.User principal = 
-                new org.springframework.security.core.userdetails.User(claims.getSubject(), "", authorities);
+        UserDetailsImpl userDetails = new UserDetailsImpl(
+                claims.get("id", Long.class),
+                claims.get("name", String.class),
+                claims.getSubject(), 
+                "", 
+                authorities,
+                true 
+        );
         
-        return new UsernamePasswordAuthenticationToken(principal, token, authorities);
+        return new UsernamePasswordAuthenticationToken(userDetails, token, authorities);
     }
 }

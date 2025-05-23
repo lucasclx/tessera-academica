@@ -23,6 +23,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Page<User> findByStatus(UserStatus status, Pageable pageable);
 
-    // MÉTODO CORRIGIDO (com underscore em Roles_Name)
-    List<User> findByRoles_NameAndStatus(String roleName, UserStatus status);
+    // MÉTODO CORRIGIDO: Removido o underscore, usando camelCase para o relacionamento.
+    // Spring Data JPA interpreta isso como "roles.name"
+    List<User> findByRolesNameAndStatus(String roleName, UserStatus status);
 }

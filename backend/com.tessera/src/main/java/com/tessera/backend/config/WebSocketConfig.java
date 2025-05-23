@@ -1,3 +1,4 @@
+// ARQUIVO: src/main/java/com/tessera/backend/config/WebSocketConfig.java
 package com.tessera.backend.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,20 +14,20 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Autowired
-    private WebSocketAuthChannelInterceptor webSocketAuthChannelInterceptor;
+    private WebSocketAuthChannelInterceptor webSocketAuthChannelInterceptor; // This should be the separate class
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        config.enableSimpleBroker("/topic", "/user");
+        config.enableSimpleBroker("/topic", "/user"); // "/user" for user-specific messages
         config.setApplicationDestinationPrefixes("/app");
-        config.setUserDestinationPrefix("/user");
+        config.setUserDestinationPrefix("/user"); // Important for user-specific destinations
     }
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("*")
-                .withSockJS();
+        registry.addEndpoint("/ws") // Main WebSocket endpoint
+                .setAllowedOriginPatterns("*") // Allow all origins for development, restrict in production
+                .withSockJS(); // Use SockJS for fallback options
     }
 
     @Override
