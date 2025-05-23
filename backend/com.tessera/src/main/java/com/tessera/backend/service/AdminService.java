@@ -1,9 +1,9 @@
 package com.tessera.backend.service;
 
-import com.tessera.backend.dto.DashboardStatsDTO; // Adicionar import
+import com.tessera.backend.dto.DashboardStatsDTO;
 import com.tessera.backend.dto.RegistrationApprovalDTO;
 import com.tessera.backend.dto.RegistrationRejectionDTO;
-import com.tessera.backend.dto.UserStatusUpdateDTO; // Adicionar import
+import com.tessera.backend.dto.UserStatusUpdateDTO;
 import com.tessera.backend.entity.RegistrationRequest;
 import com.tessera.backend.entity.RequestStatus;
 import com.tessera.backend.entity.User;
@@ -16,10 +16,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils; // Adicionar import para StringUtils
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
-import java.util.List; // Adicionar import
+// List e Collectors não são mais necessários aqui se getApprovedAdvisors foi removido
+// import java.util.List; 
+// import java.util.stream.Collectors;
 
 @Service
 public class AdminService {
@@ -52,7 +54,6 @@ public class AdminService {
         request.setAdminNotes(approvalDTO.getAdminNotes());
         registrationRequestRepository.save(request);
 
-        // Notificar usuário
         emailService.sendRegistrationApprovedEmail(user.getEmail(), approvalDTO.getAdminNotes());
     }
 
@@ -63,14 +64,13 @@ public class AdminService {
 
         User user = request.getUser();
         user.setStatus(UserStatus.REJECTED);
-        user.setRejectionReason(rejectionDTO.getRejectionReason()); // Salva a razão da rejeição no usuário
+        user.setRejectionReason(rejectionDTO.getRejectionReason());
         userRepository.save(user);
 
         request.setStatus(RequestStatus.REJECTED);
-        request.setAdminNotes(rejectionDTO.getRejectionReason()); // Salva a razão também nas notas do admin na requisição
+        request.setAdminNotes(rejectionDTO.getRejectionReason());
         registrationRequestRepository.save(request);
 
-        // Notificar usuário
         emailService.sendRegistrationRejectedEmail(user.getEmail(), rejectionDTO.getRejectionReason());
     }
 
@@ -79,13 +79,11 @@ public class AdminService {
                 .orElseThrow(() -> new ResourceNotFoundException("Solicitação de registro não encontrada"));
     }
 
-    // MÉTODO ADICIONADO
     public DashboardStatsDTO getDashboardStats() {
-        // Implementação de exemplo - você precisará buscar os dados reais
         long totalUsers = userRepository.count();
-        long totalStudents = userRepository.countByRolesName("STUDENT"); // Assumindo que você tem um método assim ou lógica similar
-        long totalAdvisors = userRepository.countByRolesName("ADVISOR"); // Assumindo que você tem um método assim ou lógica similar
-        long pendingRegistrations = registrationRequestRepository.countByStatus(RequestStatus.PENDING); // Assumindo que você tem um método assim
+        long totalStudents = userRepository.countByRolesName("STUDENT");
+        long totalAdvisors = userRepository.countByRolesName("ADVISOR");
+        long pendingRegistrations = registrationRequestRepository.countByStatus(RequestStatus.PENDING);
 
         return new DashboardStatsDTO(
             (int) totalUsers,
@@ -95,22 +93,18 @@ public class AdminService {
         );
     }
 
-    // MÉTODO ADICIONADO
     public Page<User> getUsers(Pageable pageable, String status) {
         if (StringUtils.hasText(status)) {
             try {
                 UserStatus userStatus = UserStatus.valueOf(status.toUpperCase());
-                return userRepository.findByStatus(userStatus, pageable); // Você pode precisar criar este método no UserRepository
+                return userRepository.findByStatus(userStatus, pageable);
             } catch (IllegalArgumentException e) {
-                // Tratar status inválido, talvez lançar uma exceção ou retornar lista vazia/todos
-                // Por enquanto, retornando todos se o status for inválido
                 return userRepository.findAll(pageable);
             }
         }
         return userRepository.findAll(pageable);
     }
 
-    // MÉTODO ADICIONADO
     @Transactional
     public void updateUserStatus(Long userId, User admin, UserStatusUpdateDTO statusUpdateDTO) {
         User user = userRepository.findById(userId)
@@ -120,15 +114,14 @@ public class AdminService {
         if (statusUpdateDTO.getStatus() == UserStatus.APPROVED) {
             user.setApprovalDate(LocalDateTime.now());
             user.setApprovedBy(admin);
-            user.setRejectionReason(null); // Limpar razão de rejeição se estiver aprovando
-            emailService.sendRegistrationApprovedEmail(user.getEmail(), statusUpdateDTO.getReason()); // Usar 'reason' como 'adminNotes'
+            user.setRejectionReason(null);
+            emailService.sendRegistrationApprovedEmail(user.getEmail(), statusUpdateDTO.getReason());
         } else if (statusUpdateDTO.getStatus() == UserStatus.REJECTED) {
             user.setRejectionReason(statusUpdateDTO.getReason());
             emailService.sendRegistrationRejectedEmail(user.getEmail(), statusUpdateDTO.getReason());
         }
-        // Para PENDING, geralmente não se altera status manualmente para PENDING aqui,
-        // mas se houver essa lógica, adicione-a.
-
         userRepository.save(user);
     }
+
+    // MÉTODO getApprovedAdvisors REMOVIDO DAQUI
 }
