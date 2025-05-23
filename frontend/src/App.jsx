@@ -5,7 +5,7 @@ import 'react-toastify/dist/ReactToastify.css';
 
 // Contextos
 import { AuthProvider } from './context/AuthContext.jsx';
-import { NotificationProvider } from './context/NotificationContext.jsx'; // NOVO
+import { NotificationProvider } from './context/NotificationContext.jsx';
 
 // Layouts
 import MainLayout from './components/layout/MainLayout.jsx';
@@ -32,7 +32,7 @@ import MyStudents from './pages/advisor/MyStudents.jsx';
 import AdvisingDocuments from './pages/advisor/AdvisingDocuments.jsx';
 import DocumentReview from './pages/advisor/DocumentReview.jsx';
 
-// NOVAS PÁGINAS - Notificações
+// CORREÇÃO: Importar do diretório correto
 import NotificationsPage from './pages/notifications/NotificationsPage.jsx';
 import NotificationSettings from './pages/settings/NotificationSettings.jsx';
 
@@ -45,7 +45,7 @@ import StudentRoute from './components/common/StudentRoute.jsx';
 function App() {
   return (
     <AuthProvider>
-      <NotificationProvider> {/* NOVO - Envolver com NotificationProvider */}
+      <NotificationProvider>
         <Router>
           <ToastContainer 
             position="top-right"
@@ -68,7 +68,7 @@ function App() {
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
 
-              {/* NOVAS ROTAS - Notificações */}
+              {/* Rotas de Notificações */}
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="settings/notifications" element={<NotificationSettings />} />
 

@@ -31,7 +31,6 @@ public class AdminService {
     @Autowired
     private EmailService emailService;
     
-    // ADICIONANDO: Injeção do serviço de eventos de notificação
     @Autowired
     private NotificationEventService notificationEventService;
 
@@ -52,7 +51,6 @@ public class AdminService {
 
         emailService.sendRegistrationApprovedEmail(user.getEmail(), approvalDTO.getAdminNotes());
         
-        // ADICIONANDO: Disparar evento de notificação
         notificationEventService.onUserApproved(user, admin);
     }
 
@@ -72,7 +70,6 @@ public class AdminService {
 
         emailService.sendRegistrationRejectedEmail(user.getEmail(), rejectionDTO.getRejectionReason());
         
-        // ADICIONANDO: Disparar evento de notificação
         notificationEventService.onUserRejected(user, admin, rejectionDTO.getRejectionReason());
     }
 
@@ -90,7 +87,6 @@ public class AdminService {
             user.setRejectionReason(null);
             emailService.sendRegistrationApprovedEmail(user.getEmail(), statusUpdateDTO.getReason());
             
-            // ADICIONANDO: Disparar evento de notificação se status mudou
             if (oldStatus != UserStatus.APPROVED) {
                 notificationEventService.onUserApproved(user, admin);
             }
@@ -98,7 +94,6 @@ public class AdminService {
             user.setRejectionReason(statusUpdateDTO.getReason());
             emailService.sendRegistrationRejectedEmail(user.getEmail(), statusUpdateDTO.getReason());
             
-            // ADICIONANDO: Disparar evento de notificação se status mudou
             if (oldStatus != UserStatus.REJECTED) {
                 notificationEventService.onUserRejected(user, admin, statusUpdateDTO.getReason());
             }
@@ -106,119 +101,35 @@ public class AdminService {
         
         userRepository.save(user);
     }
-    
-    // Resto dos métodos permanecem inalterados...
-    // (getPendingRegistrations, getRegistrationDetails, etc.)
-} de eventos de notificação
-    @Autowired
-    private NotificationEventService notificationEventService;
-    
-    @Transactional
-    public DocumentDTO createDocument(DocumentDTO documentDTO, User currentUser) {
-        // Verificar se o estudante e o orientador existem
-        User student = userRepository.findById(documentDTO.getStudentId())
-                .orElseThrow(() -> new ResourceNotFoundException("Estudante não encontrado"));
-        
-        User advisor = userRepository.findById(documentDTO.getAdvisorId())
-                .orElseThrow(() -> new ResourceNotFoundException("Orientador não encontrado"));
-        
-        // Verificar se o usuário atual é o estudante ou tem permissão administrativa
-        if (!currentUser.getId().equals(student.getId()) && 
-            !currentUser.getRoles().stream().anyMatch(r -> r.getName().equals("ADMIN"))) {
-            throw new RuntimeException("Você não tem permissão para criar documentos para este estudante");
-        }
-        
-        Document document = new Document();
-        document.setTitle(documentDTO.getTitle());
-        document.setDescription(documentDTO.getDescription());
-        document.setStudent(student);
-        document.setAdvisor(advisor);
-        document.setStatus(DocumentStatus.DRAFT);
-        
-        document = documentRepository.save(document);
-        
-        // ADICIONANDO: Disparar evento de notificação
-        notificationEventService.onDocumentCreated(document, currentUser);
-        
-        return mapToDTO(document);
+
+    public Page<RegistrationRequest> getPendingRegistrations(Pageable pageable) {
+        return registrationRequestRepository.findByStatus(RequestStatus.PENDING, pageable);
     }
-    
-    @Transactional
-    public DocumentDTO changeStatus(Long id, DocumentStatus newStatus, User currentUser, String reason) {
-        Document document = documentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Documento não encontrado"));
-        
-        // Armazenar status anterior para comparação
-        DocumentStatus oldStatus = document.getStatus();
-        
-        // Verificar permissões baseadas no fluxo de trabalho
-        if (newStatus == DocumentStatus.SUBMITTED) {
-            // Somente o aluno pode submeter
-            if (!currentUser.getId().equals(document.getStudent().getId())) {
-                throw new RuntimeException("Apenas o estudante pode submeter o documento");
-            }
-            document.setSubmittedAt(LocalDateTime.now());
-            
-            // ADICIONANDO: Disparar evento de notificação
-            notificationEventService.onDocumentSubmitted(document, currentUser);
-            
-        } else if (newStatus == DocumentStatus.REVISION || newStatus == DocumentStatus.APPROVED) {
-            // Somente o orientador pode aprovar ou solicitar revisão
-            if (!currentUser.getId().equals(document.getAdvisor().getId())) {
-                throw new RuntimeException("Apenas o orientador pode aprovar ou solicitar revisão");
-            }
-            
-            if (newStatus == DocumentStatus.APPROVED) {
-                document.setApprovedAt(LocalDateTime.now());
-            }
-        } else if (newStatus == DocumentStatus.FINALIZED) {
-            // Verificar se foi aprovado antes de finalizar
-            if (document.getStatus() != DocumentStatus.APPROVED) {
-                throw new RuntimeException("O documento deve ser aprovado antes de ser finalizado");
-            }
-            
-            // Ambos podem finalizar
-            if (!currentUser.getId().equals(document.getStudent().getId()) && 
-                !currentUser.getId().equals(document.getAdvisor().getId())) {
-                throw new RuntimeException("Apenas o estudante ou orientador podem finalizar");
-            }
-        }
-        
-        // Atualizar status
-        document.setStatus(newStatus);
-        
-        // Se rejeitar, salvar motivo
-        if (reason != null && !reason.trim().isEmpty()) {
-            document.setRejectionReason(reason);
-            document.setRejectedAt(LocalDateTime.now());
-        }
-        
-        document = documentRepository.save(document);
-        
-        // ADICIONANDO: Disparar evento de notificação se o status mudou
-        if (oldStatus != newStatus) {
-            notificationEventService.onDocumentStatusChanged(document, oldStatus, currentUser);
-        }
-        
-        return mapToDTO(document);
+
+    public RegistrationRequest getRegistrationDetails(Long id) {
+        return registrationRequestRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Solicitação não encontrada com ID: " + id));
     }
-    
-    // Resto dos métodos permanecem inalterados...
-    // (getDocument, getDocumentsByStudent, etc.)
-    
-    private DocumentDTO mapToDTO(Document document) {
-        DocumentDTO dto = new DocumentDTO();
-        dto.setId(document.getId());
-        dto.setTitle(document.getTitle());
-        dto.setDescription(document.getDescription());
-        dto.setStatus(document.getStatus());
-        dto.setStudentId(document.getStudent().getId());
-        dto.setAdvisorId(document.getAdvisor().getId());
-        dto.setStudentName(document.getStudent().getName());
-        dto.setAdvisorName(document.getAdvisor().getName());
-        dto.setCreatedAt(document.getCreatedAt());
-        dto.setUpdatedAt(document.getUpdatedAt());
+
+    public DashboardStatsDTO getDashboardStats() {
+        long totalUsers = userRepository.count();
+        long totalStudents = userRepository.countByRolesName("STUDENT");
+        long totalAdvisors = userRepository.countByRolesName("ADVISOR");
+        long pendingRegistrations = registrationRequestRepository.countByStatus(RequestStatus.PENDING);
         
-        return dto;
+        return new DashboardStatsDTO(
+            (int) totalUsers,
+            (int) totalStudents,
+            (int) totalAdvisors,
+            (int) pendingRegistrations
+        );
+    }
+
+    public Page<User> getUsers(Pageable pageable, String status) {
+        if (StringUtils.hasText(status)) {
+            UserStatus userStatus = UserStatus.valueOf(status.toUpperCase());
+            return userRepository.findByStatus(userStatus, pageable);
+        }
+        return userRepository.findAll(pageable);
     }
 }
