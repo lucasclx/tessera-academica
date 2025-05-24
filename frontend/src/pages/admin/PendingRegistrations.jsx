@@ -1,21 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Container, Typography, Paper, Table, TableBody, TableCell, 
-  TableContainer, TableHead, TableRow, Button, Box, 
-  TablePagination, Chip
+  Container, 
+  Typography, 
+  Paper, 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableContainer, 
+  TableHead, 
+  TableRow, 
+  Button, 
+  Box, 
+  TablePagination, 
+  Chip,
+  CircularProgress,
+  Avatar,
+  TextField,
+  InputAdornment
 } from '@mui/material';
+import { 
+  Person, 
+  Email, 
+  Business, 
+  Search,
+  CheckCircle,
+  Cancel
+} from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import adminService from '../../services/adminService';
-import moment from 'moment';
 
 const PendingRegistrations = () => {
+  const navigate = useNavigate();
   const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalElements, setTotalElements] = useState(0);
-  const navigate = useNavigate();
 
   useEffect(() => {
     fetchRegistrations();
@@ -25,14 +47,30 @@ const PendingRegistrations = () => {
     setLoading(true);
     try {
       const data = await adminService.getPendingRegistrations(page, rowsPerPage);
-      setRegistrations(data.content);
-      setTotalElements(data.totalElements);
+      
+      let filteredData = data.content || [];
+      
+      // Filtro de busca simples
+      if (searchTerm) {
+        filteredData = filteredData.filter(reg => 
+          reg.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          reg.user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          reg.institution.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+      
+      setRegistrations(filteredData);
+      setTotalElements(data.totalElements || 0);
     } catch (error) {
+      console.error('Erro ao carregar solicitações:', error);
       toast.error('Erro ao carregar solicitações de cadastro');
-      console.error(error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRowClick = (registration) => {
+    navigate(`/admin/registrations/${registration.id}`);
   };
 
   const handleChangePage = (event, newPage) => {
@@ -44,36 +82,94 @@ const PendingRegistrations = () => {
     setPage(0);
   };
 
-  const handleViewDetails = (id) => {
-    navigate(`/admin/registrations/${id}`);
-  };
-
-  const getRoleLabel = (role) => {
-    switch (role) {
+  const getRoleChip = (role) => {
+    switch(role) {
       case 'STUDENT':
-        return <Chip label="Aluno" color="primary" size="small" />;
+        return <Chip label="Estudante" size="small" color="primary" />;
       case 'ADVISOR':
-        return <Chip label="Orientador" color="secondary" size="small" />;
+        return <Chip label="Orientador" size="small" color="secondary" />;
       default:
         return <Chip label={role} size="small" />;
     }
   };
 
+  // Empty State Simples
+  const renderEmptyState = () => {
+    if (loading) return null;
+
+    return (
+      <Box sx={{ textAlign: 'center', py: 6 }}>
+        {searchTerm ? (
+          <>
+            <Search sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+            <Typography variant="h6" gutterBottom color="text.secondary">
+              Nenhuma solicitação encontrada
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Não encontramos solicitações para "{searchTerm}"
+            </Typography>
+            <Button variant="outlined" onClick={() => setSearchTerm('')}>
+              Limpar Busca
+            </Button>
+          </>
+        ) : (
+          <>
+            <CheckCircle sx={{ fontSize: 64, color: 'success.main', mb: 2 }} />
+            <Typography variant="h6" gutterBottom color="text.secondary">
+              Todas as solicitações foram processadas!
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Não há solicitações de cadastro pendentes no momento.
+            </Typography>
+          </>
+        )}
+      </Box>
+    );
+  };
+
   return (
     <Container>
+      {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           Solicitações de Cadastro Pendentes
         </Typography>
+        <Typography variant="subtitle1" color="text.secondary">
+          Aprove ou rejeite solicitações de novos usuários
+        </Typography>
       </Box>
-      
-      <Paper elevation={3}>
-        <TableContainer>
+
+      {/* Busca */}
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          fullWidth
+          variant="outlined"
+          placeholder="Buscar por nome, email ou instituição..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
+
+      {/* Tabela ou Loading */}
+      {loading && registrations.length === 0 ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : registrations.length === 0 ? (
+        renderEmptyState()
+      ) : (
+        <TableContainer component={Paper} elevation={2}>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Nome</TableCell>
-                <TableCell>Email</TableCell>
+                <TableCell>Usuário</TableCell>
                 <TableCell>Papel</TableCell>
                 <TableCell>Instituição</TableCell>
                 <TableCell>Data</TableCell>
@@ -81,53 +177,74 @@ const PendingRegistrations = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center">Carregando...</TableCell>
+              {registrations.map((reg) => (
+                <TableRow 
+                  key={reg.id} 
+                  hover 
+                  onClick={() => handleRowClick(reg)}
+                  sx={{ cursor: 'pointer' }}
+                >
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Avatar sx={{ width: 32, height: 32, fontSize: '0.875rem' }}>
+                        {reg.user.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                      </Avatar>
+                      <Box>
+                        <Typography variant="subtitle2">{reg.user.name}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {reg.user.email}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    {reg.user.roles.map(role => (
+                      <Box key={role.name} sx={{ mb: 0.5 }}>
+                        {getRoleChip(role.name)}
+                      </Box>
+                    ))}
+                  </TableCell>
+                  <TableCell>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {reg.institution}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {reg.department}
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    {new Date(reg.createdAt).toLocaleDateString('pt-BR')}
+                  </TableCell>
+                  <TableCell align="right">
+                    <Button 
+                      variant="outlined" 
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRowClick(reg);
+                      }}
+                    >
+                      Detalhes
+                    </Button>
+                  </TableCell>
                 </TableRow>
-              ) : registrations.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center">Não há solicitações pendentes.</TableCell>
-                </TableRow>
-              ) : (
-                registrations.map((reg) => (
-                  <TableRow key={reg.id}>
-                    <TableCell>{reg.user.name}</TableCell>
-                    <TableCell>{reg.user.email}</TableCell>
-                    <TableCell>
-                      {reg.user.roles.map(role => 
-                        <Box key={role.name} sx={{ my: 0.5 }}>
-                          {getRoleLabel(role.name)}
-                        </Box>
-                      )}
-                    </TableCell>
-                    <TableCell>{reg.institution}</TableCell>
-                    <TableCell>{moment(reg.createdAt).format('DD/MM/YYYY HH:mm')}</TableCell>
-                    <TableCell align="right">
-                      <Button 
-                        variant="outlined" 
-                        color="primary" 
-                        onClick={() => handleViewDetails(reg.id)}
-                      >
-                        Detalhes
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
+              ))}
             </TableBody>
           </Table>
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25]}
+            component="div"
+            count={totalElements}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+            labelRowsPerPage="Itens por página:"
+          />
         </TableContainer>
-        <TablePagination
-          rowsPerPageOptions={[5, 10, 25]}
-          component="div"
-          count={totalElements}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-        />
-      </Paper>
+      )}
     </Container>
   );
 };
