@@ -80,6 +80,13 @@
             <version>2.2.0</version>
         </dependency>
 
+
+		<!-- Adicionar esta dependência no pom.xml, na seção <dependencies> -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-thymeleaf</artifactId>
+		</dependency>
+
         <dependency>
             <groupId>org.bitbucket.cowwoc</groupId>
             <artifactId>diff-match-patch</artifactId>

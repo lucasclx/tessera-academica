@@ -10,10 +10,17 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 
 @Service
 public class BackupService {
     
+
+    private static final Logger logger = LoggerFactory.getLogger(BackupService.class);
+
+
     @Value("${tessera.backup.enabled:true}")
     private boolean backupEnabled;
     

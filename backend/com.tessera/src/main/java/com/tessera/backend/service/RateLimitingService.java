@@ -1,4 +1,3 @@
-// src/main/java/com/tessera/backend/service/RateLimitingService.java
 package com.tessera.backend.service;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -10,7 +9,6 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class RateLimitingService {
@@ -43,103 +41,178 @@ public class RateLimitingService {
     private int commentWindowMinutes;
     
     // Maps para armazenar contadores em memória
-    // Para produção, considere usar Redis ou outro cache distribuído
     private final ConcurrentHashMap<String, RequestTracker> apiTrackers = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, RequestTracker> loginTrackers = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, RequestTracker> documentTrackers = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, RequestTracker> commentTrackers = new ConcurrentHashMap<>();
     
- // src/main/java/com/tessera/backend/service/RateLimitingService.java (continuação)
-
-/**
- * Classe para rastrear requisições por janela de tempo
- */
-private static class RequestTracker {
-    private final AtomicInteger count = new AtomicInteger(0);
-    private final AtomicLong windowStart = new AtomicLong(System.currentTimeMillis());
-    private final long windowSizeMs;
-    
-    public RequestTracker(long windowSizeMs) {
-        this.windowSizeMs = windowSizeMs;
-    }
-    
-    public boolean isAllowed(int maxRequests) {
-        long now = System.currentTimeMillis();
-        long currentWindowStart = windowStart.get();
+    /**
+     * Classe interna para rastrear requests
+     */
+    private static class RequestTracker {
+        private final AtomicInteger count = new AtomicInteger(0);
+        private LocalDateTime windowStart;
+        private final int windowMinutes;
         
-        // Se a janela expirou, reiniciar
-        if (now - currentWindowStart >= windowSizeMs) {
-            if (windowStart.compareAndSet(currentWindowStart, now)) {
-                count.set(1);
-                return true;
+        public RequestTracker(int windowMinutes) {
+            this.windowMinutes = windowMinutes;
+            this.windowStart = LocalDateTime.now();
+        }
+        
+        public synchronized boolean isAllowed(int maxRequests) {
+            LocalDateTime now = LocalDateTime.now();
+            
+            // Reset window if expired
+            if (ChronoUnit.MINUTES.between(windowStart, now) >= windowMinutes) {
+                count.set(0);
+                windowStart = now;
             }
+            
+            int currentCount = count.incrementAndGet();
+            return currentCount <= maxRequests;
         }
         
-        // Incrementar e verificar limite
-        return count.incrementAndGet() <= maxRequests;
-    }
-    
-    public int getCurrentCount() {
-        long now = System.currentTimeMillis();
-        if (now - windowStart.get() >= windowSizeMs) {
-            return 0;
+        public int getCurrentCount() {
+            return count.get();
         }
-        return count.get();
+        
+        public LocalDateTime getWindowStart() {
+            return windowStart;
+        }
     }
     
-    public long getTimeUntilReset() {
-        long now = System.currentTimeMillis();
-        long elapsed = now - windowStart.get();
-        return Math.max(0, windowSizeMs - elapsed);
-    }
-}
-
-// Métodos públicos para o serviço
-public boolean isLoginAllowed(String identifier) {
-    return checkRateLimit(loginTrackers, identifier, maxLoginAttempts, loginWindowMinutes * 60 * 1000L);
-}
-
-public boolean isApiRequestAllowed(String identifier) {
-    return checkRateLimit(apiTrackers, identifier, maxApiRequests, apiWindowMinutes * 60 * 1000L);
-}
-
-public boolean isDocumentCreationAllowed(String identifier) {
-    return checkRateLimit(documentTrackers, identifier, maxDocumentCreates, documentWindowMinutes * 60 * 1000L);
-}
-
-public boolean isCommentCreationAllowed(String identifier) {
-    return checkRateLimit(commentTrackers, identifier, maxCommentCreates, commentWindowMinutes * 60 * 1000L);
-}
-
-private boolean checkRateLimit(ConcurrentHashMap<String, RequestTracker> trackers, 
-                              String identifier, int maxRequests, long windowMs) {
-    RequestTracker tracker = trackers.computeIfAbsent(identifier, 
-        k -> new RequestTracker(windowMs));
-    
-    boolean allowed = tracker.isAllowed(maxRequests);
-    
-    if (!allowed) {
-        logger.warn("Rate limit exceeded for identifier: {} (current: {}, max: {})", 
-                   identifier, tracker.getCurrentCount(), maxRequests);
+    /**
+     * Verifica se tentativa de login é permitida
+     */
+    public boolean isLoginAllowed(String identifier) {
+        return checkRateLimit(loginTrackers, identifier, maxLoginAttempts, loginWindowMinutes, "LOGIN");
     }
     
-    return allowed;
-}
-
-// Limpeza periódica de trackers antigos
-@Scheduled(fixedRate = 300000) // 5 minutos
-public void cleanupExpiredTrackers() {
-    long now = System.currentTimeMillis();
+    /**
+     * Verifica se request de API é permitida
+     */
+    public boolean isApiRequestAllowed(String identifier) {
+        return checkRateLimit(apiTrackers, identifier, maxApiRequests, apiWindowMinutes, "API");
+    }
     
-    cleanupMap(apiTrackers, now, apiWindowMinutes * 60 * 1000L);
-    cleanupMap(loginTrackers, now, loginWindowMinutes * 60 * 1000L);
-    cleanupMap(documentTrackers, now, documentWindowMinutes * 60 * 1000L);
-    cleanupMap(commentTrackers, now, commentWindowMinutes * 60 * 1000L);
-}
-
-private void cleanupMap(ConcurrentHashMap<String, RequestTracker> map, long now, long windowMs) {
-    map.entrySet().removeIf(entry -> {
-        RequestTracker tracker = entry.getValue();
-        return tracker.getTimeUntilReset() == 0;
-    });
+    /**
+     * Verifica se criação de documento é permitida
+     */
+    public boolean isDocumentCreationAllowed(String identifier) {
+        return checkRateLimit(documentTrackers, identifier, maxDocumentCreates, documentWindowMinutes, "DOCUMENT_CREATE");
+    }
+    
+    /**
+     * Verifica se criação de comentário é permitida
+     */
+    public boolean isCommentCreationAllowed(String identifier) {
+        return checkRateLimit(commentTrackers, identifier, maxCommentCreates, commentWindowMinutes, "COMMENT_CREATE");
+    }
+    
+    /**
+     * Método genérico para verificar rate limit
+     */
+    private boolean checkRateLimit(ConcurrentHashMap<String, RequestTracker> trackers, 
+                                  String identifier, int maxRequests, int windowMinutes, String action) {
+        
+        RequestTracker tracker = trackers.computeIfAbsent(identifier, 
+            k -> new RequestTracker(windowMinutes));
+        
+        boolean allowed = tracker.isAllowed(maxRequests);
+        
+        if (!allowed) {
+            logger.warn("Rate limit exceeded for {} - Action: {}, Count: {}/{}, Window: {} minutes", 
+                       identifier, action, tracker.getCurrentCount(), maxRequests, windowMinutes);
+        } else {
+            logger.debug("Rate limit check passed for {} - Action: {}, Count: {}/{}", 
+                        identifier, action, tracker.getCurrentCount(), maxRequests);
+        }
+        
+        return allowed;
+    }
+    
+    /**
+     * Obtém informações do rate limit atual
+     */
+    public RateLimitInfo getRateLimitInfo(String identifier, String type) {
+        ConcurrentHashMap<String, RequestTracker> trackers;
+        int maxRequests;
+        int windowMinutes;
+        
+        switch (type.toUpperCase()) {
+            case "LOGIN":
+                trackers = loginTrackers;
+                maxRequests = maxLoginAttempts;
+                windowMinutes = loginWindowMinutes;
+                break;
+            case "API":
+                trackers = apiTrackers;
+                maxRequests = maxApiRequests;
+                windowMinutes = apiWindowMinutes;
+                break;
+            case "DOCUMENT":
+                trackers = documentTrackers;
+                maxRequests = maxDocumentCreates;
+                windowMinutes = documentWindowMinutes;
+                break;
+            case "COMMENT":
+                trackers = commentTrackers;
+                maxRequests = maxCommentCreates;
+                windowMinutes = commentWindowMinutes;
+                break;
+            default:
+                return null;
+        }
+        
+        RequestTracker tracker = trackers.get(identifier);
+        if (tracker == null) {
+            return new RateLimitInfo(0, maxRequests, LocalDateTime.now().plusMinutes(windowMinutes));
+        }
+        
+        LocalDateTime resetTime = tracker.getWindowStart().plusMinutes(windowMinutes);
+        return new RateLimitInfo(tracker.getCurrentCount(), maxRequests, resetTime);
+    }
+    
+    /**
+     * Limpa trackers expirados para liberar memória
+     */
+    public void cleanupExpiredTrackers() {
+        LocalDateTime now = LocalDateTime.now();
+        
+        cleanupTrackersMap(apiTrackers, now, apiWindowMinutes);
+        cleanupTrackersMap(loginTrackers, now, loginWindowMinutes);
+        cleanupTrackersMap(documentTrackers, now, documentWindowMinutes);
+        cleanupTrackersMap(commentTrackers, now, commentWindowMinutes);
+        
+        logger.debug("Cleanup de rate limit trackers concluído");
+    }
+    
+    private void cleanupTrackersMap(ConcurrentHashMap<String, RequestTracker> trackers, 
+                                   LocalDateTime now, int windowMinutes) {
+        trackers.entrySet().removeIf(entry -> {
+            LocalDateTime windowStart = entry.getValue().getWindowStart();
+            return ChronoUnit.MINUTES.between(windowStart, now) > windowMinutes * 2; // Keep for 2 windows
+        });
+    }
+    
+    /**
+     * Classe para informações do rate limit
+     */
+    public static class RateLimitInfo {
+        private final int currentCount;
+        private final int maxRequests;
+        private final LocalDateTime resetTime;
+        
+        public RateLimitInfo(int currentCount, int maxRequests, LocalDateTime resetTime) {
+            this.currentCount = currentCount;
+            this.maxRequests = maxRequests;
+            this.resetTime = resetTime;
+        }
+        
+        public int getCurrentCount() { return currentCount; }
+        public int getMaxRequests() { return maxRequests; }
+        public LocalDateTime getResetTime() { return resetTime; }
+        public int getRemainingRequests() { return Math.max(0, maxRequests - currentCount); }
+        public boolean isLimitReached() { return currentCount >= maxRequests; }
+    }
 }
