@@ -20,7 +20,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import documentService from '../../services/documentService';
+import { documentService } from "../../services";
 
 const Dashboard = () => {
   const { currentUser, hasRole } = useContext(AuthContext);

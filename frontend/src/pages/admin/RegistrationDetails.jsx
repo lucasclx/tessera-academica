@@ -9,7 +9,7 @@ import {
 import { CheckCircle, Cancel } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import moment from 'moment';
-import adminService from '../../services/adminService';
+import { adminService } from "../../services";
 
 const RegistrationDetails = () => {
   const { id } = useParams();

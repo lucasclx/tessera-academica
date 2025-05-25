@@ -1,12 +1,11 @@
-import { createPage } from '../../utils/minimal';
-import documentService from '../../services/documentService';
+import { createPage } from '../../utils';
+import { documentService } from "../../services";
 
-const MyDocumentsPage = createPage({
+export default createPage({
   title: "Minhas Monografias",
   service: documentService,
   fetchFunctionName: 'getMyDocumentsPaged',
   createPath: "/student/documents/new",
-  viewPath: "/student/documents/:id"
+  viewPath: "/student/documents/:id",
+  tableType: 'studentDocuments'
 });
-
-export default MyDocumentsPage;

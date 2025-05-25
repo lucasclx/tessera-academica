@@ -1,4 +1,4 @@
-// src/utils/minimal.jsx - VERSÃO EXPANDIDA CONSOLIDADA
+// src/utils/index.js - ARQUIVO CONSOLIDADO DE TODOS OS UTILITÁRIOS
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
@@ -16,13 +16,14 @@ import {
   CheckCircle, Warning, Info, Send, Person, SupervisorAccount, School,
   Assignment, Schedule, Notifications, NotificationsActive, Computer,
   Email, VolumeUp, Settings as SettingsIcon, MarkEmailRead, Launch,
-  NavigateNext, RestoreOutlined, NotificationsActiveOutlined
+  NavigateNext, RestoreOutlined, NotificationsActiveOutlined,
+  Business, FormatBold, FormatItalic, FormatListBulleted
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
 
 // ============================================================================
-// CONSTANTES E CONFIGURAÇÕES
+// CONSTANTES E CONFIGURAÇÕES CONSOLIDADAS
 // ============================================================================
 
 export const STATUS_CONFIG = {
@@ -49,12 +50,40 @@ export const NOTIFICATION_TYPES = {
   DOCUMENT_CREATED: 'DOCUMENT_CREATED',
   DOCUMENT_SUBMITTED: 'DOCUMENT_SUBMITTED',
   DOCUMENT_APPROVED: 'DOCUMENT_APPROVED',
+  DOCUMENT_REJECTED: 'DOCUMENT_REJECTED',
+  DOCUMENT_REVISION_REQUESTED: 'DOCUMENT_REVISION_REQUESTED',
+  DOCUMENT_FINALIZED: 'DOCUMENT_FINALIZED',
+  VERSION_CREATED: 'VERSION_CREATED',
+  VERSION_UPDATED: 'VERSION_UPDATED',
   COMMENT_ADDED: 'COMMENT_ADDED',
-  USER_REGISTERED: 'USER_REGISTERED'
+  COMMENT_REPLIED: 'COMMENT_REPLIED',
+  COMMENT_RESOLVED: 'COMMENT_RESOLVED',
+  USER_REGISTERED: 'USER_REGISTERED',
+  USER_APPROVED: 'USER_APPROVED',
+  USER_REJECTED: 'USER_REJECTED',
+  DEADLINE_APPROACHING: 'DEADLINE_APPROACHING',
+  DEADLINE_OVERDUE: 'DEADLINE_OVERDUE',
+  TASK_ASSIGNED: 'TASK_ASSIGNED'
+};
+
+export const APP_CONFIG = {
+  api: {
+    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
+    websocketUrl: import.meta.env.VITE_WEBSOCKET_URL || 'http://localhost:8080/api/ws',
+    timeout: parseInt(import.meta.env.VITE_API_TIMEOUT) || 30000
+  },
+  app: {
+    name: import.meta.env.VITE_APP_NAME || 'Tessera Acadêmica',
+    version: import.meta.env.VITE_APP_VERSION || '1.0.0'
+  },
+  features: {
+    enableNotifications: import.meta.env.VITE_ENABLE_NOTIFICATIONS === 'true',
+    enableWebSocket: import.meta.env.VITE_ENABLE_WEBSOCKET === 'true'
+  }
 };
 
 // ============================================================================
-// UTILITY FUNCTIONS
+// UTILITY FUNCTIONS CONSOLIDADAS
 // ============================================================================
 
 export const formatTimeAgo = (dateString) => {
@@ -80,8 +109,20 @@ export const getNotificationIcon = (type) => {
     'DOCUMENT_CREATED': '📄',
     'DOCUMENT_SUBMITTED': '📤',
     'DOCUMENT_APPROVED': '✅',
+    'DOCUMENT_REJECTED': '❌',
+    'DOCUMENT_REVISION_REQUESTED': '🔄',
+    'DOCUMENT_FINALIZED': '🎯',
+    'VERSION_CREATED': '📝',
+    'VERSION_UPDATED': '✏️',
     'COMMENT_ADDED': '💬',
-    'USER_REGISTERED': '👤'
+    'COMMENT_REPLIED': '↩️',
+    'COMMENT_RESOLVED': '✔️',
+    'USER_REGISTERED': '👤',
+    'USER_APPROVED': '✅',
+    'USER_REJECTED': '❌',
+    'DEADLINE_APPROACHING': '⏰',
+    'DEADLINE_OVERDUE': '🚨',
+    'TASK_ASSIGNED': '📋'
   };
   return icons[type] || '📢';
 };
@@ -96,8 +137,154 @@ export const getPriorityColor = (priority) => {
   return colors[priority] || colors.NORMAL;
 };
 
+export const getStatusConfig = (status, type = 'document') => {
+  return STATUS_CONFIG[status] || {
+    label: status || 'Desconhecido',
+    color: 'default',
+    icon: null
+  };
+};
+
+export const renderMarkdownContent = (text) => {
+  if (!text || text.trim() === '') {
+    return <Typography color="textSecondary" sx={{p: 2, fontStyle: 'italic'}}>Conteúdo não disponível.</Typography>;
+  }
+  
+  let html = text
+    .replace(/^# (.*$)/gm, '<h1 style="font-size: 1.8em; margin-top: 1em; margin-bottom: 0.5em;">$1</h1>')
+    .replace(/^## (.*$)/gm, '<h2 style="font-size: 1.5em; margin-top: 0.8em; margin-bottom: 0.4em;">$1</h2>')
+    .replace(/^### (.*$)/gm, '<h3 style="font-size: 1.2em; margin-top: 0.6em; margin-bottom: 0.3em;">$1</h3>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/__(.*?)__/g, '<u>$1</u>')
+    .replace(/^- (.*$)/gm, '<ul style="margin-left: 20px;"><li>$1</li></ul>')
+    .replace(/^\d+\. (.*$)/gm, '<ol style="margin-left: 20px;"><li>$1</li></ol>')
+    .replace(/\n\n/g, '</p><p style="margin-bottom: 1em;">')
+    .replace(/\n/g, '<br>');
+
+  if (!html.match(/^<(h[1-3]|ul|ol)/)) html = `<p style="margin-bottom: 1em;">${html}`;
+  if (!html.endsWith('</p>')) html += '</p>';
+  html = html.replace(/<\/ul>\s*<ul.*?>/g, '').replace(/<\/ol>\s*<ol.*?>/g, '');
+
+  return <div dangerouslySetInnerHTML={{ __html: html }} />;
+};
+
 // ============================================================================
-// HOOKS CUSTOMIZADOS
+// CONFIGURAÇÕES DE COLUNAS PARA TABELAS
+// ============================================================================
+
+export const getTableColumns = (type) => {
+  const configs = {
+    studentDocuments: [
+      {
+        id: 'title',
+        label: 'Título',
+        render: (row) => (
+          <Box>
+            <Typography variant="subtitle2" color="primary">{row.title || "Sem Título"}</Typography>
+            <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 250 }}>
+              {row.description || "Sem descrição"}
+            </Typography>
+          </Box>
+        )
+      },
+      {
+        id: 'status',
+        label: 'Status',
+        render: (row) => <StatusChip status={row.status} />
+      },
+      {
+        id: 'advisorName',
+        label: 'Orientador',
+        render: (row) => row.advisorName || 'Não definido'
+      },
+      {
+        id: 'updatedAt',
+        label: 'Atualizado',
+        render: (row) => row.updatedAt ? format(new Date(row.updatedAt), 'dd/MM/yy') : '-'
+      }
+    ],
+    
+    advisorDocuments: [
+      {
+        id: 'title',
+        label: 'Título',
+        render: (row) => (
+          <Box>
+            <Typography variant="subtitle2" color="primary">{row.title || "Sem Título"}</Typography>
+            <Typography variant="caption" color="text.secondary">
+              {row.description ? `${row.description.substring(0, 60)}...` : "Sem descrição"}
+            </Typography>
+          </Box>
+        )
+      },
+      {
+        id: 'studentName',
+        label: 'Estudante',
+        render: (row) => (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Avatar sx={{ width: 32, height: 32, fontSize: '0.875rem' }}>
+              {row.studentName ? row.studentName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : '?'}
+            </Avatar>
+            <Typography variant="body2">{row.studentName || "Desconhecido"}</Typography>
+          </Box>
+        )
+      },
+      {
+        id: 'status',
+        label: 'Status',
+        render: (row) => <StatusChip status={row.status} />
+      },
+      {
+        id: 'updatedAt',
+        label: 'Atualizado',
+        render: (row) => row.updatedAt ? format(new Date(row.updatedAt), 'dd/MM/yy') : '-'
+      }
+    ],
+    
+    pendingRegistrations: [
+      {
+        id: 'user',
+        label: 'Usuário',
+        render: (item) => (
+          <Box>
+            <Typography variant="subtitle2" color="primary">
+              {item.user?.name || "N/A"}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {item.user?.email || "N/A"}
+            </Typography>
+          </Box>
+        )
+      },
+      {
+        id: 'role',
+        label: 'Papel',
+        render: (item) => {
+          const role = item.user?.roles?.[0]?.name;
+          const config = STATUS_CONFIG[role] || { label: role, color: 'default' };
+          return <Chip label={config.label} color={config.color} size="small" />;
+        }
+      },
+      {
+        id: 'institution',
+        label: 'Instituição',
+        render: (item) => item.institution || "N/A"
+      },
+      {
+        id: 'createdAt',
+        label: 'Data',
+        render: (item) => item.createdAt ? 
+          format(new Date(item.createdAt), 'dd/MM/yy HH:mm') : '-'
+      }
+    ]
+  };
+  
+  return configs[type] || configs.studentDocuments;
+};
+
+// ============================================================================
+// HOOKS CUSTOMIZADOS CONSOLIDADOS
 // ============================================================================
 
 export const useData = (fetchFn, deps = []) => {
@@ -139,7 +326,7 @@ export const usePaginatedData = ({ fetchFunction, initialPageSize = 10, dependen
 };
 
 // ============================================================================
-// COMPONENTES UI BÁSICOS
+// COMPONENTES UI CONSOLIDADOS
 // ============================================================================
 
 export const StatusChip = ({ status, variant = 'filled', size = 'small', showIcon = true }) => {
@@ -288,7 +475,7 @@ export const PageHeader = ({
 };
 
 // ============================================================================
-// SKELETON LOADERS
+// SKELETON LOADERS CONSOLIDADOS
 // ============================================================================
 
 export const TableSkeleton = ({ rows = 5, columns = 4 }) => (
@@ -354,7 +541,7 @@ export const PageSkeleton = () => (
 );
 
 // ============================================================================
-// EMPTY STATES
+// EMPTY STATES CONSOLIDADOS
 // ============================================================================
 
 export const EmptyState = ({
@@ -397,7 +584,7 @@ export const EmptyState = ({
 };
 
 // ============================================================================
-// DATA TABLE
+// DATA TABLE CONSOLIDADA
 // ============================================================================
 
 export const DataTable = ({
@@ -407,12 +594,6 @@ export const DataTable = ({
   onRowClick = null, onMenuClick = null, emptyState = null,
   stickyHeader = true, size = 'medium'
 }) => {
-  const handleSort = (columnId) => {
-    if (onSort && columns.find(col => col.id === columnId)?.sortable) {
-      onSort(columnId);
-    }
-  };
-
   if (loading && data.length === 0) {
     return <TableSkeleton rows={pagination?.rowsPerPage || 5} columns={columns.length} />;
   }
@@ -426,7 +607,6 @@ export const DataTable = ({
               <TableCell
                 key={column.id} align={column.align || 'left'}
                 style={{ minWidth: column.minWidth }}
-                sortDirection={sortBy === column.id ? sortOrder : false}
               >
                 <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
                   {column.label}
@@ -503,7 +683,7 @@ export const DataTable = ({
 };
 
 // ============================================================================
-// GENERIC DATA VIEW (PÁGINA COMPLETA)
+// GENERIC DATA VIEW CONSOLIDADA
 // ============================================================================
 
 export const GenericDataView = ({
@@ -515,8 +695,6 @@ export const GenericDataView = ({
   actions = [], showCreateFab = true, showStats = false, stats = {},
   onRefresh
 }) => {
-  const navigate = useNavigate();
-
   const handleSearchChange = (event) => {
     if (onSearchChange) onSearchChange(event.target.value);
   };
@@ -633,13 +811,125 @@ export const GenericDataView = ({
 };
 
 // ============================================================================
-// PAGE FACTORY (CREATEPAGE EXPANDIDA)
+// NOTIFICATION BELL CONSOLIDADO
+// ============================================================================
+
+export const NotificationBell = () => {
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const open = Boolean(anchorEl);
+
+  const handleClick = (event) => setAnchorEl(event.currentTarget);
+  const handleClose = () => setAnchorEl(null);
+
+  const getBellIcon = () => {
+    const hasUrgent = notifications.some(n => n.priority === 'URGENT' && !n.read);
+    return hasUrgent ? <NotificationsActive color="error" /> : <Notifications />;
+  };
+
+  const getBadgeColor = () => {
+    const hasUrgent = notifications.some(n => n.priority === 'URGENT' && !n.read);
+    if (hasUrgent) return 'error';
+    if (unreadCount > 0) return 'primary';
+    return 'default';
+  };
+
+  return (
+    <>
+      <Tooltip title={`${unreadCount} notificações não lidas`}>
+        <IconButton color="inherit" onClick={handleClick}>
+          <Badge badgeContent={unreadCount} color={getBadgeColor()} max={99}>
+            {getBellIcon()}
+          </Badge>
+        </IconButton>
+      </Tooltip>
+
+      <Popover
+        open={open} anchorEl={anchorEl} onClose={handleClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        PaperProps={{ sx: { width: 400, maxHeight: 600, mt: 1 } }}
+      >
+        <Paper elevation={0}>
+          <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6">Notificações</Typography>
+              <Tooltip title="Configurações">
+                <IconButton size="small" onClick={() => navigate('/settings/notifications')}>
+                  <SettingsIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+
+          <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+            {loading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                <CircularProgress size={24} />
+              </Box>
+            ) : notifications.length === 0 ? (
+              <Box sx={{ p: 3, textAlign: 'center' }}>
+                <Notifications sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+                <Typography variant="body2" color="text.secondary">
+                  Nenhuma notificação
+                </Typography>
+              </Box>
+            ) : (
+              <List sx={{ p: 0 }}>
+                {notifications.slice(0, 10).map((notification, index) => (
+                  <React.Fragment key={notification.id}>
+                    <ListItem button>
+                      <ListItemAvatar>
+                        <Avatar sx={{ backgroundColor: getPriorityColor(notification.priority) }}>
+                          {getNotificationIcon(notification.type)}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={<Typography variant="subtitle2">{notification.title}</Typography>}
+                        secondary={
+                          <Box>
+                            <Typography variant="body2" color="text.secondary">
+                              {notification.message}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {formatTimeAgo(notification.createdAt)}
+                            </Typography>
+                          </Box>
+                        }
+                      />
+                    </ListItem>
+                    {index < notifications.length - 1 && <Divider />}
+                  </React.Fragment>
+                ))}
+              </List>
+            )}
+          </Box>
+
+          {notifications.length > 0 && (
+            <Box sx={{ p: 1, borderTop: '1px solid #e0e0e0', textAlign: 'center' }}>
+              <Button fullWidth size="small" onClick={() => { navigate('/notifications'); handleClose(); }}>
+                Ver todas as notificações
+              </Button>
+            </Box>
+          )}
+        </Paper>
+      </Popover>
+    </>
+  );
+};
+
+// ============================================================================
+// PAGE FACTORY (CREATEPAGE)
 // ============================================================================
 
 export const createPage = ({ 
   title, service, fetchFunctionName, createPath, viewPath, 
   canDelete = (status) => status === 'DRAFT', 
-  columnsConfig 
+  columnsConfig,
+  tableType = 'studentDocuments'
 }) => {
   return function Page() {
     const navigate = useNavigate();
@@ -647,49 +937,7 @@ export const createPage = ({
     const { data, loading, page, size, total, search, filter, setPage, setSize, setSearch, setFilter, reload } = useData(fetchFn);
     const [menu, setMenu] = useState({ anchor: null, item: null });
 
-    // Colunas padrão se não especificadas
-    const defaultColumns = [
-      {
-        id: 'main',
-        label: 'Principal',
-        render: (item) => (
-          <Box>
-            <Typography variant="subtitle2" color="primary">
-              {item.title || item.user?.name || 'Sem título'}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {item.description || item.user?.email || ''}
-            </Typography>
-          </Box>
-        )
-      },
-      {
-        id: 'status',
-        label: 'Status',
-        render: (item) => <StatusChip status={item.status || item.user?.roles?.[0]?.name} />
-      },
-      {
-        id: 'details',
-        label: 'Detalhes',
-        render: (item) => (
-          <Typography variant="body2">
-            {item.advisorName || item.studentName || item.institution || '-'}
-          </Typography>
-        )
-      },
-      {
-        id: 'date',
-        label: 'Data',
-        render: (item) => (
-          <Typography variant="body2">
-            {item.updatedAt || item.createdAt ? 
-              format(new Date(item.updatedAt || item.createdAt), 'dd/MM/yy') : '-'}
-          </Typography>
-        )
-      }
-    ];
-
-    const columns = columnsConfig || defaultColumns;
+    const columns = columnsConfig || getTableColumns(tableType);
 
     const handleAction = async (action, item) => {
       try {
@@ -751,225 +999,26 @@ export const createPage = ({
 };
 
 // ============================================================================
-// NOTIFICATION COMPONENTS
+// EXPORTS
 // ============================================================================
 
-export const NotificationBell = () => {
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [connected, setConnected] = useState(false);
-  const navigate = useNavigate();
-  const open = Boolean(anchorEl);
-
-  const handleClick = (event) => setAnchorEl(event.currentTarget);
-  const handleClose = () => setAnchorEl(null);
-
-  const getBellIcon = () => {
-    const hasUrgent = notifications.some(n => n.priority === 'URGENT' && !n.read);
-    return hasUrgent ? <NotificationsActive color="error" /> : <Notifications />;
-  };
-
-  const getBadgeColor = () => {
-    const hasUrgent = notifications.some(n => n.priority === 'URGENT' && !n.read);
-    if (hasUrgent) return 'error';
-    if (unreadCount > 0) return 'primary';
-    return 'default';
-  };
-
-  return (
-    <>
-      <Tooltip title={`${unreadCount} notificações não lidas`}>
-        <IconButton color="inherit" onClick={handleClick}>
-          <Badge badgeContent={unreadCount} color={getBadgeColor()} max={99}>
-            {getBellIcon()}
-          </Badge>
-        </IconButton>
-      </Tooltip>
-
-      <Popover
-        open={open} anchorEl={anchorEl} onClose={handleClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        PaperProps={{ sx: { width: 400, maxHeight: 600, mt: 1 } }}
-      >
-        <Paper elevation={0}>
-          <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-              <Typography variant="h6">Notificações</Typography>
-              <Tooltip title="Configurações">
-                <IconButton size="small" onClick={() => navigate('/settings/notifications')}>
-                  <SettingsIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          </Box>
-
-          <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
-            {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-                <CircularProgress size={24} />
-              </Box>
-            ) : notifications.length === 0 ? (
-              <Box sx={{ p: 3, textAlign: 'center' }}>
-                <Notifications sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
-                <Typography variant="body2" color="text.secondary">
-                  Nenhuma notificação
-                </Typography>
-              </Box>
-            ) : (
-              <List sx={{ p: 0 }}>
-                {notifications.slice(0, 10).map((notification, index) => (
-                  <React.Fragment key={notification.id}>
-                    <ListItem
-                      button
-                      sx={{
-                        backgroundColor: notification.read ? 'inherit' : 'rgba(25, 118, 210, 0.08)',
-                        borderLeft: notification.read ? 'none' : `4px solid ${getPriorityColor(notification.priority)}`,
-                        '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.04)' }
-                      }}
-                    >
-                      <ListItemAvatar>
-                        <Avatar sx={{ 
-                          backgroundColor: getPriorityColor(notification.priority),
-                          fontSize: '1.2rem'
-                        }}>
-                          {getNotificationIcon(notification.type)}
-                        </Avatar>
-                      </ListItemAvatar>
-                      
-                      <ListItemText
-                        primary={
-                          <Typography variant="subtitle2" sx={{ 
-                            fontWeight: notification.read ? 'normal' : 'bold'
-                          }}>
-                            {notification.title}
-                          </Typography>
-                        }
-                        secondary={
-                          <Box>
-                            <Typography variant="body2" color="text.secondary" sx={{ 
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden'
-                            }}>
-                              {notification.message}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {formatTimeAgo(notification.createdAt)}
-                            </Typography>
-                          </Box>
-                        }
-                      />
-                    </ListItem>
-                    {index < notifications.length - 1 && <Divider />}
-                  </React.Fragment>
-                ))}
-              </List>
-            )}
-          </Box>
-
-          {notifications.length > 0 && (
-            <Box sx={{ p: 1, borderTop: '1px solid #e0e0e0', textAlign: 'center' }}>
-              <Button fullWidth size="small" onClick={() => { navigate('/notifications'); handleClose(); }}>
-                Ver todas as notificações
-              </Button>
-            </Box>
-          )}
-        </Paper>
-      </Popover>
-    </>
-  );
-};
-
-export const NotificationSettingsCard = ({ 
-  title, subtitle, icon, enabled, onEnabledChange, 
-  children, disabled = false, info 
-}) => (
-  <Card>
-    <CardHeader
-      title={
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {icon}
-          {title}
-        </Box>
-      }
-      subheader={subtitle}
-      action={
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {info && (
-            <Tooltip title={info}>
-              <IconButton size="small"><Info /></IconButton>
-            </Tooltip>
-          )}
-          <Chip 
-            label={enabled && !disabled ? 'Ativo' : 'Inativo'} 
-            color={enabled && !disabled ? 'success' : 'default'}
-            size="small"
-          />
-        </Box>
-      }
-    />
-    <CardContent>
-      <FormGroup>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={enabled}
-              onChange={onEnabledChange}
-              disabled={disabled}
-            />
-          }
-          label={`Habilitar ${title.toLowerCase()}`}
-        />
-        {enabled && !disabled && (
-          <Box sx={{ ml: 4, mt: 2 }}>
-            {children}
-          </Box>
-        )}
-      </FormGroup>
-    </CardContent>
-  </Card>
-);
-
-// ============================================================================
-// EXPORTS NOMEADOS E DEFAULT
-// ============================================================================
-
-// Exports nomeados individuais para facilitar imports
-export { 
-  // Hooks
-  useData, usePaginatedData,
-  
-  // Components básicos
-  StatusChip, LoadingButton, ConfirmDialog, PageHeader,
-  TableSkeleton, PageSkeleton, EmptyState, DataTable,
-  GenericDataView, NotificationBell, NotificationSettingsCard,
-  
-  // Factory
-  createPage,
-  
-  // Utils e constantes
-  formatTimeAgo, getNotificationIcon, getPriorityColor,
-  STATUS_CONFIG, NOTIFICATION_TYPES
-};
-
-// Default export com tudo organizado
+// Default export com tudo consolidado
 export default {
-  // Hooks
-  useData, usePaginatedData,
-  
-  // Components
-  StatusChip, LoadingButton, ConfirmDialog, PageHeader,
-  TableSkeleton, PageSkeleton, EmptyState, DataTable,
-  GenericDataView, NotificationBell, NotificationSettingsCard,
-  
-  // Factory
-  createPage,
+  // Configurações
+  STATUS_CONFIG, NOTIFICATION_TYPES, APP_CONFIG,
   
   // Utils
-  formatTimeAgo, getNotificationIcon, getPriorityColor,
-  STATUS_CONFIG, NOTIFICATION_TYPES
+  formatTimeAgo, getNotificationIcon, getPriorityColor, getStatusConfig, 
+  renderMarkdownContent, getTableColumns,
+  
+  // Hooks
+  useData, usePaginatedData,
+  
+  // Componentes
+  StatusChip, LoadingButton, ConfirmDialog, PageHeader,
+  TableSkeleton, PageSkeleton, EmptyState, DataTable,
+  GenericDataView, NotificationBell,
+  
+  // Factory
+  createPage
 };

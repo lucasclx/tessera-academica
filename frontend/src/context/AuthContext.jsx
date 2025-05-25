@@ -1,7 +1,6 @@
 import React, { createContext, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
-import authService from '../services/authService';
+import { authService } from '../services';
 
 export const AuthContext = createContext();
 
@@ -16,7 +15,6 @@ export const AuthProvider = ({ children }) => {
       const token = localStorage.getItem('token');
       if (token) {
         try {
-          // Verifica se o token ainda é válido
           const decodedToken = jwtDecode(token);
           const currentTime = Date.now() / 1000;
           
@@ -27,15 +25,13 @@ export const AuthProvider = ({ children }) => {
               email: decodedToken.sub,
               roles: decodedToken.roles.split(',')
             };
-            
             setCurrentUser(user);
             setIsAuthenticated(true);
           } else {
-            // Token expirado, realiza logout
             logout();
           }
         } catch (error) {
-          console.error('Erro ao decodificar token:', error);
+          console.error('Token inválido:', error);
           logout();
         }
       }
@@ -52,11 +48,9 @@ export const AuthProvider = ({ children }) => {
       const { token, id, name, roles } = response;
       
       localStorage.setItem('token', token);
-      
       const user = { id, name, email, roles };
       setCurrentUser(user);
       setIsAuthenticated(true);
-      
       return user;
     } catch (error) {
       setError(error.response?.data?.message || 'Erro ao realizar login');
@@ -67,8 +61,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     setError(null);
     try {
-      const response = await authService.register(userData);
-      return response;
+      return await authService.register(userData);
     } catch (error) {
       setError(error.response?.data?.message || 'Erro ao realizar cadastro');
       throw error;
@@ -82,22 +75,13 @@ export const AuthProvider = ({ children }) => {
   };
   
   const hasRole = (role) => {
-    if (!currentUser || !currentUser.roles) {
-      return false;
-    }
-    return currentUser.roles.includes(`ROLE_${role}`);
+    return currentUser?.roles?.includes(`ROLE_${role}`) || false;
   };
   
   return (
     <AuthContext.Provider value={{
-      currentUser,
-      isAuthenticated,
-      isLoading,
-      error,
-      login,
-      register,
-      logout,
-      hasRole
+      currentUser, isAuthenticated, isLoading, error,
+      login, register, logout, hasRole
     }}>
       {children}
     </AuthContext.Provider>

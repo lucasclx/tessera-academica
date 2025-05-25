@@ -11,8 +11,7 @@ import {
   ArrowBack, SwapHoriz, Refresh, ExpandMore,
   CompareArrows, Schedule, Person, Info, History
 } from '@mui/icons-material';
-import versionService from '../../services/versionService';
-import documentService from '../../services/documentService';
+import { versionService, documentService } from "../../services";
 
 const DocumentCompare = () => {
   const { id, v1, v2 } = useParams();

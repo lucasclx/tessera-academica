@@ -10,7 +10,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { NotificationBell } from '../../utils/minimal'; // Import do minimal!
+import { NotificationBell } from '../../utils';
 
 const drawerWidth = 240;
 
@@ -23,6 +23,15 @@ const MainLayout = () => {
   const handleNavigation = (path) => { navigate(path); setMobileOpen(false); };
   const handleLogout = () => { logout(); navigate('/login'); };
 
+  const menuItems = [
+    { label: 'Dashboard', icon: Dashboard, path: '/dashboard', roles: ['STUDENT', 'ADVISOR', 'ADMIN'] },
+    { label: 'Notificações', icon: Notifications, path: '/notifications', roles: ['STUDENT', 'ADVISOR', 'ADMIN'] },
+    { label: 'Solicitações', icon: SupervisorAccount, path: '/admin/registrations', roles: ['ADMIN'] },
+    { label: 'Monografias', icon: Description, path: '/student/documents', roles: ['STUDENT'] },
+    { label: 'Orientações', icon: Assignment, path: '/advisor/documents', roles: ['ADVISOR'] },
+    { label: 'Orientandos', icon: Person, path: '/advisor/students', roles: ['ADVISOR'] }
+  ];
+
   const drawer = (
     <div>
       <Toolbar>
@@ -30,42 +39,12 @@ const MainLayout = () => {
       </Toolbar>
       <Divider />
       <List>
-        <ListItem button onClick={() => handleNavigation('/dashboard')}>
-          <ListItemIcon><Dashboard /></ListItemIcon>
-          <ListItemText primary="Dashboard" />
-        </ListItem>
-
-        <ListItem button onClick={() => handleNavigation('/notifications')}>
-          <ListItemIcon><Notifications /></ListItemIcon>
-          <ListItemText primary="Notificações" />
-        </ListItem>
-        
-        {hasRole('ADMIN') && (
-          <ListItem button onClick={() => handleNavigation('/admin/registrations')}>
-            <ListItemIcon><SupervisorAccount /></ListItemIcon>
-            <ListItemText primary="Solicitações" />
+        {menuItems.filter(item => item.roles.some(role => hasRole(role))).map((item) => (
+          <ListItem button key={item.label} onClick={() => handleNavigation(item.path)}>
+            <ListItemIcon><item.icon /></ListItemIcon>
+            <ListItemText primary={item.label} />
           </ListItem>
-        )}
-
-        {hasRole('STUDENT') && (
-          <ListItem button onClick={() => handleNavigation('/student/documents')}>
-            <ListItemIcon><Description /></ListItemIcon>
-            <ListItemText primary="Monografias" />
-          </ListItem>
-        )}
-
-        {hasRole('ADVISOR') && (
-          <>
-            <ListItem button onClick={() => handleNavigation('/advisor/documents')}>
-              <ListItemIcon><Assignment /></ListItemIcon>
-              <ListItemText primary="Orientações" />
-            </ListItem>
-            <ListItem button onClick={() => handleNavigation('/advisor/students')}>
-              <ListItemIcon><Person /></ListItemIcon>
-              <ListItemText primary="Orientandos" />
-            </ListItem>
-          </>
-        )}
+        ))}
       </List>
       <Divider />
       <List>

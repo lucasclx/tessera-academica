@@ -1,12 +1,11 @@
-import { createPage } from '../../utils/minimal';
-import documentService from '../../services/documentService';
+import { createPage } from '../../utils';
+import { documentService } from "../../services";
 
-const AdvisingDocumentsPage = createPage({
+export default createPage({
   title: "Documentos para Orientação",
   service: documentService,
   fetchFunctionName: 'getMyAdvisingDocumentsPaged',
   viewPath: "/advisor/documents/:id/review",
-  canDelete: () => false // Orientador não deleta documentos
+  canDelete: () => false,
+  tableType: 'advisorDocuments'
 });
-
-export default AdvisingDocumentsPage;

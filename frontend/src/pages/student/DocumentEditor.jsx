@@ -21,10 +21,7 @@ import {
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { AuthContext } from '../../context/AuthContext';
-import documentService from '../../services/documentService';
-import versionService from '../../services/versionService';
-import commentService from '../../services/commentService';
-import userService from '../../services/userService'; 
+import { documentService, versionService, commentService, userService } from "../../services";
 
 const DocumentEditor = () => {
   const { id: documentIdFromParams } = useParams();

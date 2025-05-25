@@ -13,7 +13,7 @@ import {
   Check, Close, ArrowForward
 } from '@mui/icons-material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import adminService from '../../services/adminService';
+import { adminService } from "../../services";
 
 const AdminDashboard = () => {
   const [pendingRegistrations, setPendingRegistrations] = useState([]);

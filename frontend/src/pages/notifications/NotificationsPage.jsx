@@ -8,18 +8,14 @@ import {
   DataTable, PageHeader, EmptyState, 
   formatTimeAgo, getNotificationIcon, getPriorityColor,
   StatusChip
-} from '../../utils/minimal';
+} from '../../utils';
 import { useNotifications } from '../../context/NotificationContext';
 
 const NotificationsPage = () => {
   const navigate = useNavigate();
   const { 
-    notifications, 
-    summary, 
-    loading, 
-    markAsRead, 
-    markAllAsRead,
-    loadAllHistoricalNotifications 
+    notifications, summary, loading, 
+    markAsRead, markAllAsRead, loadAllHistoricalNotifications 
   } = useNotifications();
   
   const [selectedTab, setSelectedTab] = useState(0);
@@ -46,15 +42,7 @@ const NotificationsPage = () => {
           <Box sx={{ fontSize: '1.2rem' }}>
             {getNotificationIcon(row.type)}
           </Box>
-          <StatusChip 
-            status={row.priority} 
-            customConfig={{
-              LOW: { label: 'Baixa', color: 'default' },
-              NORMAL: { label: 'Normal', color: 'primary' },
-              HIGH: { label: 'Alta', color: 'warning' },
-              URGENT: { label: 'Urgente', color: 'error' }
-            }}
-          />
+          <StatusChip status={row.priority} />
         </Box>
       )
     },

@@ -47,9 +47,7 @@ import {
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
 import { AuthContext } from '../../context/AuthContext';
-import documentService from '../../services/documentService';
-import versionService from '../../services/versionService';
-import commentService from '../../services/commentService';
+import { documentService, versionService, commentService } from "../../services";
 
 // Função para renderizar conteúdo Markdown
 const renderFormattedContentPreview = (text) => {
