@@ -1,24 +1,42 @@
-import React, { useState } from 'react';
-import { Container, Grid, Card, CardContent, Typography, Tabs, Tab, Box } from '@mui/material';
-import { Notifications, Today, CheckCircle } from '@mui/icons-material';
+import React, { useState, useEffect } from 'react';
+import { 
+  Container, Grid, Card, CardContent, Typography, 
+  Tabs, Tab, Box, Button 
+} from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import { 
+  DataTable, PageHeader, EmptyState, 
+  formatTimeAgo, getNotificationIcon, getPriorityColor,
+  StatusChip
+} from '../../utils/minimal';
+import { useNotifications } from '../../context/NotificationContext';
 
-import DataTable from '../../components/ui/DataTable';
-import StatusChip from '../../components/ui/StatusChip';
-import PageHeader from '../../components/ui/PageHeader';
-import { EmptyNotifications } from '../../components/ui/EmptyState';
-
-const NotificationsPageOptimized = () => {
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(false);
+const NotificationsPage = () => {
+  const navigate = useNavigate();
+  const { 
+    notifications, 
+    summary, 
+    loading, 
+    markAsRead, 
+    markAllAsRead,
+    loadAllHistoricalNotifications 
+  } = useNotifications();
+  
   const [selectedTab, setSelectedTab] = useState(0);
-  const [summary, setSummary] = useState({
-    unreadCount: 0,
-    documentsCount: 0,
-    commentsCount: 0,
-    approvalsCount: 0
-  });
+  const [allNotifications, setAllNotifications] = useState([]);
 
-  // COLUNAS SIMPLIFICADAS PARA NOTIFICAÇÕES
+  useEffect(() => {
+    const loadHistorical = async () => {
+      try {
+        const data = await loadAllHistoricalNotifications(0, 50);
+        setAllNotifications(data.content || []);
+      } catch (error) {
+        console.error('Erro ao carregar histórico:', error);
+      }
+    };
+    loadHistorical();
+  }, []);
+
   const columns = [
     {
       id: 'type',
@@ -30,7 +48,6 @@ const NotificationsPageOptimized = () => {
           </Box>
           <StatusChip 
             status={row.priority} 
-            size="small"
             customConfig={{
               LOW: { label: 'Baixa', color: 'default' },
               NORMAL: { label: 'Normal', color: 'primary' },
@@ -46,15 +63,14 @@ const NotificationsPageOptimized = () => {
       label: 'Notificação',
       render: (row) => (
         <Box>
-          <Box sx={{ 
-            fontWeight: row.read ? 'normal' : 'bold',
-            color: row.read ? 'text.secondary' : 'text.primary'
+          <Typography variant="subtitle2" sx={{ 
+            fontWeight: row.read ? 'normal' : 'bold'
           }}>
             {row.title}
-          </Box>
-          <Box sx={{ fontSize: '0.875rem', color: 'text.secondary', mt: 0.5 }}>
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
             {row.message}
-          </Box>
+          </Typography>
         </Box>
       )
     },
@@ -62,34 +78,18 @@ const NotificationsPageOptimized = () => {
       id: 'createdAt',
       label: 'Data',
       render: (row) => (
-        <Box>
-          <Box>{new Date(row.createdAt).toLocaleDateString('pt-BR')}</Box>
-          <Box sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
-            {new Date(row.createdAt).toLocaleTimeString('pt-BR', { 
-              hour: '2-digit', 
-              minute: '2-digit' 
-            })}
-          </Box>
-        </Box>
+        <Typography variant="body2">
+          {formatTimeAgo(row.createdAt)}
+        </Typography>
       )
     }
   ];
 
-  const getNotificationIcon = (type) => {
-    const icons = {
-      'DOCUMENT_CREATED': '📄',
-      'DOCUMENT_SUBMITTED': '📤', 
-      'COMMENT_ADDED': '💬',
-      'DOCUMENT_APPROVED': '✅'
-    };
-    return icons[type] || '📢';
-  };
-
-  const filteredNotifications = notifications.filter(notification => {
+  const filteredNotifications = allNotifications.filter(notification => {
     switch (selectedTab) {
-      case 1: return !notification.read; // Não lidas
-      case 2: return notification.read;  // Lidas
-      default: return true; // Todas
+      case 1: return !notification.read;
+      case 2: return notification.read;
+      default: return true;
     }
   });
 
@@ -102,7 +102,7 @@ const NotificationsPageOptimized = () => {
           {
             label: 'Marcar todas como lidas',
             variant: 'outlined',
-            onClick: () => {/* marcar todas como lidas */}
+            onClick: markAllAsRead
           },
           {
             label: 'Configurações',
@@ -112,66 +112,54 @@ const NotificationsPageOptimized = () => {
         ]}
       />
 
-      {/* RESUMO EM CARDS */}
+      {/* Cards de Resumo */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={6} sm={3}>
-          <Card>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="primary">{summary.unreadCount}</Typography>
-              <Typography variant="body2">Não lidas</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <Card>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="info.main">{summary.documentsCount}</Typography>
-              <Typography variant="body2">Documentos</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <Card>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="success.main">{summary.commentsCount}</Typography>
-              <Typography variant="body2">Comentários</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <Card>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="warning.main">{summary.approvalsCount}</Typography>
-              <Typography variant="body2">Aprovações</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+        {[
+          { key: 'unreadCount', label: 'Não lidas', color: 'primary' },
+          { key: 'documentsCount', label: 'Documentos', color: 'info' },
+          { key: 'commentsCount', label: 'Comentários', color: 'success' },
+          { key: 'approvalsCount', label: 'Aprovações', color: 'warning' }
+        ].map(({ key, label, color }) => (
+          <Grid item xs={6} sm={3} key={key}>
+            <Card>
+              <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                <Typography variant="h4" color={`${color}.main`}>
+                  {summary[key] || 0}
+                </Typography>
+                <Typography variant="body2">{label}</Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
       </Grid>
 
-      {/* TABS PARA FILTRAR */}
+      {/* Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
         <Tabs value={selectedTab} onChange={(e, newValue) => setSelectedTab(newValue)}>
-          <Tab label={`Todas (${notifications.length})`} />
+          <Tab label={`Todas (${allNotifications.length})`} />
           <Tab label={`Não lidas (${summary.unreadCount})`} />
           <Tab label="Lidas" />
         </Tabs>
       </Box>
 
-      {/* TABELA DE NOTIFICAÇÕES */}
+      {/* Tabela */}
       <DataTable
         data={filteredNotifications}
         columns={columns}
         loading={loading}
-        emptyState={<EmptyNotifications />}
+        emptyState={
+          <EmptyState
+            title="Nenhuma notificação"
+            description="Você está em dia! Não há notificações."
+          />
+        }
         onRowClick={(notification) => {
-          // Marcar como lida e navegar se tiver actionUrl
-          if (notification.actionUrl) {
-            navigate(notification.actionUrl);
-          }
+          if (!notification.read) markAsRead(notification.id);
+          if (notification.actionUrl) navigate(notification.actionUrl);
         }}
       />
     </Container>
   );
 };
 
-export default NotificationsPageOptimized;
+export default NotificationsPage;

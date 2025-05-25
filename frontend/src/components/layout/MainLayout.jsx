@@ -1,16 +1,16 @@
 import React, { useContext } from 'react';
 import { Outlet } from 'react-router-dom';
 import { 
-  Box, CssBaseline, Toolbar, Typography, AppBar, Drawer, List, Divider, 
-  IconButton, ListItem, ListItemIcon, ListItemText 
+  Box, CssBaseline, Toolbar, Typography, AppBar, Drawer, 
+  List, Divider, IconButton, ListItem, ListItemIcon, ListItemText 
 } from '@mui/material';
 import { 
   Dashboard, SupervisorAccount, School, ExitToApp, Menu as MenuIcon, 
-  Description, Person, Assignment, Notifications // NOVO
+  Description, Person, Assignment, Notifications
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import NotificationBell from '../notifications/NotificationBell'; // NOVO
+import { NotificationBell } from '../../utils/minimal'; // Import do minimal!
 
 const drawerWidth = 240;
 
@@ -19,75 +19,50 @@ const MainLayout = () => {
   const { currentUser, logout, hasRole } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
-
-  const handleNavigation = (path) => {
-    navigate(path);
-    setMobileOpen(false);
-  };
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+  const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
+  const handleNavigation = (path) => { navigate(path); setMobileOpen(false); };
+  const handleLogout = () => { logout(); navigate('/login'); };
 
   const drawer = (
     <div>
       <Toolbar>
-        <Typography variant="h6" noWrap component="div">
-          Tessera Acadêmica
-        </Typography>
+        <Typography variant="h6" noWrap>Tessera Acadêmica</Typography>
       </Toolbar>
       <Divider />
       <List>
         <ListItem button onClick={() => handleNavigation('/dashboard')}>
-          <ListItemIcon>
-            <Dashboard />
-          </ListItemIcon>
+          <ListItemIcon><Dashboard /></ListItemIcon>
           <ListItemText primary="Dashboard" />
         </ListItem>
 
-        {/* NOVO - Item de menu para notificações */}
         <ListItem button onClick={() => handleNavigation('/notifications')}>
-          <ListItemIcon>
-            <Notifications />
-          </ListItemIcon>
+          <ListItemIcon><Notifications /></ListItemIcon>
           <ListItemText primary="Notificações" />
         </ListItem>
         
         {hasRole('ADMIN') && (
           <ListItem button onClick={() => handleNavigation('/admin/registrations')}>
-            <ListItemIcon>
-              <SupervisorAccount />
-            </ListItemIcon>
-            <ListItemText primary="Solicitações de Cadastro" />
+            <ListItemIcon><SupervisorAccount /></ListItemIcon>
+            <ListItemText primary="Solicitações" />
           </ListItem>
         )}
 
         {hasRole('STUDENT') && (
           <ListItem button onClick={() => handleNavigation('/student/documents')}>
-            <ListItemIcon>
-              <Description />
-            </ListItemIcon>
-            <ListItemText primary="Minhas Monografias" />
+            <ListItemIcon><Description /></ListItemIcon>
+            <ListItemText primary="Monografias" />
           </ListItem>
         )}
 
         {hasRole('ADVISOR') && (
           <>
             <ListItem button onClick={() => handleNavigation('/advisor/documents')}>
-              <ListItemIcon>
-                <Assignment />
-              </ListItemIcon>
+              <ListItemIcon><Assignment /></ListItemIcon>
               <ListItemText primary="Orientações" />
             </ListItem>
             <ListItem button onClick={() => handleNavigation('/advisor/students')}>
-              <ListItemIcon>
-                <Person />
-              </ListItemIcon>
-              <ListItemText primary="Meus Orientandos" />
+              <ListItemIcon><Person /></ListItemIcon>
+              <ListItemText primary="Orientandos" />
             </ListItem>
           </>
         )}
@@ -95,9 +70,7 @@ const MainLayout = () => {
       <Divider />
       <List>
         <ListItem button onClick={handleLogout}>
-          <ListItemIcon>
-            <ExitToApp />
-          </ListItemIcon>
+          <ListItemIcon><ExitToApp /></ListItemIcon>
           <ListItemText primary="Sair" />
         </ListItem>
       </List>
@@ -107,64 +80,36 @@ const MainLayout = () => {
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
-      <AppBar
-        position="fixed"
-        sx={{
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` },
-        }}
-      >
+      <AppBar position="fixed" sx={{ width: { sm: `calc(100% - ${drawerWidth}px)` }, ml: { sm: `${drawerWidth}px` } }}>
         <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
-          >
+          <IconButton color="inherit" edge="start" onClick={handleDrawerToggle} sx={{ mr: 2, display: { sm: 'none' } }}>
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+          <Typography variant="h6" noWrap sx={{ flexGrow: 1 }}>
             {currentUser?.name}
           </Typography>
-          {/* NOVO - Adicionar NotificationBell */}
           <NotificationBell />
         </Toolbar>
       </AppBar>
-      <Box
-        component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-        aria-label="mailbox folders"
-      >
+      
+      <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>
         <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true,
-          }}
-          sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-          }}
+          variant="temporary" open={mobileOpen} onClose={handleDrawerToggle}
+          ModalProps={{ keepMounted: true }}
+          sx={{ display: { xs: 'block', sm: 'none' }, '& .MuiDrawer-paper': { width: drawerWidth } }}
         >
           {drawer}
         </Drawer>
         <Drawer
           variant="permanent"
-          sx={{
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-          }}
+          sx={{ display: { xs: 'none', sm: 'block' }, '& .MuiDrawer-paper': { width: drawerWidth } }}
           open
         >
           {drawer}
         </Drawer>
       </Box>
-      <Box
-        component="main"
-        sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}
-      >
+      
+      <Box component="main" sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}>
         <Toolbar />
         <Outlet />
       </Box>
