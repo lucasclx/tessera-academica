@@ -1,0 +1,82 @@
+.register-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  width: 100%;
+  padding: 20px;
+  /* background-color agora é controlado pelo :root ou body global,
+     mas se for específico para esta página, pode ser #f0f2f5 ou similar */
+  box-sizing: border-box;
+}
+
+/* Se a página de registro precisar de um fundo branco específico,
+   e não herdar do global, pode-se manter este, mas sem !important
+   se possível. */
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  /* background-color: #fff;  Removido !important, idealmente o body global cuida disso */
+}
+
+/* Assegura que o container principal da aplicação não interfira com fundos
+   específicos de páginas como Login/Register, se elas tiverem seus próprios.
+   Pode ser desnecessário se o estilo global estiver bem configurado. */
+/* #root > div {
+  background-color: transparent; /* Permite que o fundo do .register-container seja visível */
+/* } */
+
+/* Estilo específico para o body quando a página de registro está ativa,
+   se você quiser um fundo diferente apenas para ela. Isso requer JS para adicionar/remover uma classe no body.
+   Alternativamente, se .register-container é o elemento mais externo visível,
+   seu background-color será suficiente. */
+
+/* Se o .register-container é o wrapper principal da página de registro,
+   seu background já está definido em .register-container acima.
+   Se você precisa que o body da página de registro seja branco e o global não é,
+   considere adicionar uma classe ao body via JS ou estilizar #root diretamente
+   para esta rota específica (mais complexo com CSS puro).
+*/
+
+/* O mais simples é deixar :root (index.css) definir o fundo padrão
+   e se .register-container precisar de um fundo específico, ele define.
+   Se o problema for um rodapé preto persistente, investigue qual elemento
+   está causando isso (pode ser um elemento inesperado no #root ou um estilo global mal aplicado).
+*/
+
+/* Se a intenção é ter um fundo branco APENAS na página de registro,
+   e o fundo global (de :root em index.css) é escuro, então: */
+body.register-page-active { /* Classe a ser adicionada ao body via JS */
+    background-color: #fff;
+}
+.register-container {
+    background-color: #fff; /* Ou a cor que o Paper do MUI terá */
+}
+
+/* Se o fundo global já é branco ou claro, então o Register.css não precisa
+   forçar `background-color: #fff !important;` em html, body, #root.
+   O `background-color: #fff;` no .register-container já seria suficiente
+   para o conteúdo da página de registro.
+*/
+
+/* Focando em remover !important do original e assumindo que o fundo global é gerenciado em index.css */
+/* .register-container já tem padding: 20px; e é flex container. */
+
+/* Se o rodapé preto é um problema, geralmente é um elemento que não ocupa 100% da altura
+   e o body/html por baixo tem uma cor escura.
+   Certifique-se que #root e .register-container preencham a altura necessária. */
+html, body {
+  height: 100%; /* Já está no original */
+}
+#root {
+  min-height: 100%; /* Garante que o root preencha a tela */
+  display: flex; /* Se #root for flex, seu filho direto precisa ser gerenciado */
+  flex-direction: column; /* Exemplo */
+}
+
+.register-container {
+  /* ... outros estilos ... */
+  /* Se .register-container for um filho direto do #root que é display:flex e flex-direction:column,
+     pode precisar de flex-grow: 1; para ocupar o espaço restante. */
+}
