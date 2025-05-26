@@ -1,11 +1,10 @@
+// Arquivo: scrs/src/main/java/com/tessera/backend/controller/MetricsController.java
 package com.tessera.backend.controller;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-// ADICIONADO: Import necessário para ResponseEntity
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.ResponseEntity; // <-- IMPORTAÇÃO ADICIONADA
 
 import java.util.HashMap;
 import java.util.Map;
@@ -38,7 +37,8 @@ public class MetricsController {
         ));
         
         metrics.put("processors", runtime.availableProcessors());
-        metrics.put("uptime", System.currentTimeMillis());
+        metrics.put("uptime", System.currentTimeMillis()); // Isso é o timestamp atual, não o uptime real da JVM/App
+        // Para uptime real, seria necessário usar ManagementFactory.getRuntimeMXBean().getUptime();
         
         return ResponseEntity.ok(metrics);
     }
