@@ -11,7 +11,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,33 +35,41 @@ public class DocumentCollaboratorService {
     @Autowired
     private AuthorizationService authorizationService;
     
+    /**
+     * Lista todos os colaboradores de um documento
+     */
     public List<DocumentCollaboratorDTO> getDocumentCollaborators(Long documentId) {
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento não encontrado"));
         
         List<DocumentCollaborator> collaborators = collaboratorRepository.findByDocumentAndActiveTrue(document);
-        return collaborators.stream().map(this::mapToDTO).collect(Collectors.toList());
+        return collaborators.stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
     }
     
+    /**
+     * Adiciona um novo colaborador ao documento
+     */
     public DocumentCollaboratorDTO addCollaborator(Long documentId, AddCollaboratorRequestDTO request, User currentUser) {
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento não encontrado"));
         
         // Verificar permissões
-        if (!authorizationService.canManageCollaborators(currentUser, document)) {
-            throw new RuntimeException("Você não tem permissão para gerenciar colaboradores");
+        if (!document.canUserManageCollaborators(currentUser)) {
+            throw new RuntimeException("Você não tem permissão para gerenciar colaboradores deste documento");
         }
         
         User newCollaborator = userRepository.findByEmail(request.getUserEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado com email: " + request.getUserEmail()));
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado: " + request.getUserEmail()));
         
         // Verificar se já é colaborador
-        if (collaboratorRepository.existsByDocumentAndUserAndActiveTrue(document, newCollaborator)) {
-            throw new RuntimeException("Usuário já é colaborador deste documento");
+        if (document.hasCollaborator(newCollaborator)) {
+            throw new RuntimeException("Este usuário já é colaborador do documento");
         }
         
         // Validar regras de negócio
-        validateCollaboratorRules(document, request.getRole(), newCollaborator);
+        validateCollaboratorAddition(document, request.getRole(), newCollaborator);
         
         DocumentCollaborator collaborator = new DocumentCollaborator();
         collaborator.setDocument(document);
@@ -67,6 +77,7 @@ public class DocumentCollaboratorService {
         collaborator.setRole(request.getRole());
         collaborator.setPermission(request.getPermission());
         collaborator.setAddedBy(currentUser);
+        collaborator.setInvitationMessage(request.getMessage());
         
         collaborator = collaboratorRepository.save(collaborator);
         
@@ -76,6 +87,9 @@ public class DocumentCollaboratorService {
         return mapToDTO(collaborator);
     }
     
+    /**
+     * Remove um colaborador do documento
+     */
     public void removeCollaborator(Long documentId, Long collaboratorId, User currentUser) {
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Documento não encontrado"));
@@ -84,37 +98,46 @@ public class DocumentCollaboratorService {
                 .orElseThrow(() -> new ResourceNotFoundException("Colaborador não encontrado"));
         
         // Verificar permissões
-        if (!authorizationService.canManageCollaborators(currentUser, document)) {
+        if (!document.canUserManageCollaborators(currentUser)) {
             throw new RuntimeException("Você não tem permissão para gerenciar colaboradores");
         }
         
-        // Não permitir remover estudante ou orientador principal
+        // Não permitir remover colaborador principal se é o único
         if (collaborator.getRole().isPrimary()) {
-            throw new RuntimeException("Não é possível remover o " + collaborator.getRole().getDisplayName());
+            if (collaborator.getRole() == CollaboratorRole.PRIMARY_STUDENT && document.getActiveStudentCount() == 1) {
+                throw new RuntimeException("Não é possível remover o único estudante principal");
+            }
+            if (collaborator.getRole() == CollaboratorRole.PRIMARY_ADVISOR && document.getActiveAdvisorCount() == 1) {
+                throw new RuntimeException("Não é possível remover o único orientador principal");
+            }
         }
         
         collaborator.setActive(false);
+        collaborator.setRemovalReason("Removido por " + currentUser.getName());
         collaboratorRepository.save(collaborator);
         
         // Notificar sobre remoção
         notificationEventService.onCollaboratorRemoved(document, collaborator.getUser(), currentUser);
     }
     
-    public DocumentCollaboratorDTO updateCollaboratorPermissions(Long collaboratorId, CollaboratorPermission newPermission, User currentUser) {
+    /**
+     * Atualiza as permissões de um colaborador
+     */
+    public DocumentCollaboratorDTO updateCollaboratorPermissions(Long collaboratorId, 
+                                                               CollaboratorPermission newPermission, 
+                                                               User currentUser) {
         DocumentCollaborator collaborator = collaboratorRepository.findById(collaboratorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Colaborador não encontrado"));
         
         Document document = collaborator.getDocument();
         
         // Verificar permissões
-        if (!authorizationService.canManageCollaborators(currentUser, document)) {
+        if (!document.canUserManageCollaborators(currentUser)) {
             throw new RuntimeException("Você não tem permissão para gerenciar colaboradores");
         }
         
-        // Não permitir alterar permissões de usuários primários
-        if (collaborator.getRole().isPrimary()) {
-            throw new RuntimeException("Não é possível alterar permissões do " + collaborator.getRole().getDisplayName());
-        }
+        // Validar a mudança de permissão
+        validatePermissionChange(collaborator, newPermission);
         
         collaborator.setPermission(newPermission);
         collaborator = collaboratorRepository.save(collaborator);
@@ -122,13 +145,78 @@ public class DocumentCollaboratorService {
         return mapToDTO(collaborator);
     }
     
+    /**
+     * Atualiza o papel de um colaborador
+     */
+    public DocumentCollaboratorDTO updateCollaboratorRole(Long collaboratorId, 
+                                                         CollaboratorRole newRole, 
+                                                         User currentUser) {
+        DocumentCollaborator collaborator = collaboratorRepository.findById(collaboratorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Colaborador não encontrado"));
+        
+        Document document = collaborator.getDocument();
+        
+        // Verificar permissões
+        if (!document.canUserManageCollaborators(currentUser)) {
+            throw new RuntimeException("Você não tem permissão para gerenciar colaboradores");
+        }
+        
+        // Validar a mudança de papel
+        validateRoleChange(document, collaborator, newRole);
+        
+        collaborator.setRole(newRole);
+        collaborator = collaboratorRepository.save(collaborator);
+        
+        return mapToDTO(collaborator);
+    }
+    
+    /**
+     * Promove um colaborador a papel principal
+     */
+    public DocumentCollaboratorDTO promoteToPrimary(Long collaboratorId, User currentUser) {
+        DocumentCollaborator collaborator = collaboratorRepository.findById(collaboratorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Colaborador não encontrado"));
+        
+        Document document = collaborator.getDocument();
+        
+        // Verificar permissões
+        if (!document.canUserManageCollaborators(currentUser)) {
+            throw new RuntimeException("Você não tem permissão para gerenciar colaboradores");
+        }
+        
+        // Determinar novo papel principal
+        CollaboratorRole newRole;
+        if (collaborator.getRole().isStudent()) {
+            newRole = CollaboratorRole.PRIMARY_STUDENT;
+            // Rebaixar atual principal para colaborador
+            demoteCurrentPrimary(document, CollaboratorRole.PRIMARY_STUDENT, CollaboratorRole.SECONDARY_STUDENT);
+        } else if (collaborator.getRole().isAdvisor()) {
+            newRole = CollaboratorRole.PRIMARY_ADVISOR;
+            // Rebaixar atual principal para colaborador
+            demoteCurrentPrimary(document, CollaboratorRole.PRIMARY_ADVISOR, CollaboratorRole.SECONDARY_ADVISOR);
+        } else {
+            throw new RuntimeException("Este tipo de colaborador não pode ser promovido a principal");
+        }
+        
+        collaborator.setRole(newRole);
+        collaborator.setPermission(CollaboratorPermission.FULL_ACCESS);
+        collaborator = collaboratorRepository.save(collaborator);
+        
+        return mapToDTO(collaborator);
+    }
+    
+    /**
+     * Migra documentos existentes para o sistema de colaboradores
+     */
     public void migrateExistingDocuments() {
-        // Método para migrar documentos existentes para o novo sistema de colaboradores
         List<Document> documents = documentRepository.findAll();
+        int migrated = 0;
         
         for (Document document : documents) {
-            // Adicionar estudante principal se existir e não tiver colaboradores
-            if (document.getStudent() != null && document.getCollaborators().isEmpty()) {
+            boolean needsMigration = false;
+            
+            // Adicionar estudante principal se não existir como colaborador
+            if (document.getStudent() != null && !document.hasPrimaryStudent()) {
                 DocumentCollaborator studentCollaborator = new DocumentCollaborator();
                 studentCollaborator.setDocument(document);
                 studentCollaborator.setUser(document.getStudent());
@@ -136,11 +224,11 @@ public class DocumentCollaboratorService {
                 studentCollaborator.setPermission(CollaboratorPermission.FULL_ACCESS);
                 studentCollaborator.setAddedBy(document.getStudent());
                 collaboratorRepository.save(studentCollaborator);
+                needsMigration = true;
             }
             
-            // Adicionar orientador principal se existir
-            if (document.getAdvisor() != null && 
-                !collaboratorRepository.existsByDocumentAndUserAndActiveTrue(document, document.getAdvisor())) {
+            // Adicionar orientador principal se não existir como colaborador
+            if (document.getAdvisor() != null && !document.hasPrimaryAdvisor()) {
                 DocumentCollaborator advisorCollaborator = new DocumentCollaborator();
                 advisorCollaborator.setDocument(document);
                 advisorCollaborator.setUser(document.getAdvisor());
@@ -148,30 +236,102 @@ public class DocumentCollaboratorService {
                 advisorCollaborator.setPermission(CollaboratorPermission.FULL_ACCESS);
                 advisorCollaborator.setAddedBy(document.getStudent());
                 collaboratorRepository.save(advisorCollaborator);
+                needsMigration = true;
             }
+            
+            if (needsMigration) {
+                migrated++;
+            }
+        }
+        
+        System.out.println("Migração concluída: " + migrated + " documentos migrados");
+    }
+    
+    // =============================================================================
+    // MÉTODOS AUXILIARES PRIVADOS
+    // =============================================================================
+    
+    private void validateCollaboratorAddition(Document document, CollaboratorRole role, User user) {
+        // Verificar se o usuário tem o papel apropriado no sistema
+        if (role.isStudent() && !hasUserRole(user, "STUDENT")) {
+            throw new RuntimeException("O usuário deve ter papel de STUDENT para ser colaborador estudante");
+        }
+        
+        if (role.isAdvisor() && !hasUserRole(user, "ADVISOR")) {
+            throw new RuntimeException("O usuário deve ter papel de ADVISOR para ser colaborador orientador");
+        }
+        
+        // Verificar limites
+        if (role.isStudent() && !document.canAddMoreStudents()) {
+            throw new RuntimeException("Limite máximo de estudantes atingido (" + document.getMaxStudents() + ")");
+        }
+        
+        if (role.isAdvisor() && !document.canAddMoreAdvisors()) {
+            throw new RuntimeException("Limite máximo de orientadores atingido (" + document.getMaxAdvisors() + ")");
+        }
+        
+        // Verificar se já existe um principal do mesmo tipo
+        if (role == CollaboratorRole.PRIMARY_STUDENT && document.hasPrimaryStudent()) {
+            throw new RuntimeException("Já existe um estudante principal. Promova-o ou use outro papel.");
+        }
+        
+        if (role == CollaboratorRole.PRIMARY_ADVISOR && document.hasPrimaryAdvisor()) {
+            throw new RuntimeException("Já existe um orientador principal. Promova-o ou use outro papel.");
         }
     }
     
-    private void validateCollaboratorRules(Document document, CollaboratorRole role, User user) {
-        // Verificar se o usuário tem o papel apropriado
-        if (role.isStudent() && !user.getRoles().stream().anyMatch(r -> r.getName().equals("STUDENT"))) {
-            throw new RuntimeException("Usuário não é um estudante");
+    private void validatePermissionChange(DocumentCollaborator collaborator, CollaboratorPermission newPermission) {
+        // Principais sempre devem ter acesso completo
+        if (collaborator.getRole().isPrimary() && newPermission != CollaboratorPermission.FULL_ACCESS) {
+            throw new RuntimeException("Colaboradores principais devem manter acesso completo");
         }
         
-        if (role.isAdvisor() && !user.getRoles().stream().anyMatch(r -> r.getName().equals("ADVISOR"))) {
-            throw new RuntimeException("Usuário não é um orientador");
+        // Observer sempre deve ter apenas leitura
+        if (collaborator.getRole() == CollaboratorRole.OBSERVER && newPermission != CollaboratorPermission.READ_ONLY) {
+            throw new RuntimeException("Observadores só podem ter permissão de leitura");
+        }
+    }
+    
+    private void validateRoleChange(Document document, DocumentCollaborator collaborator, CollaboratorRole newRole) {
+        // Não permitir mudança de tipo (estudante para orientador ou vice-versa)
+        if (collaborator.getRole().isStudent() && !newRole.isStudent()) {
+            throw new RuntimeException("Não é possível mudar um estudante para papel de orientador");
         }
         
-        // Verificar limites (opcional)
-        long studentCount = collaboratorRepository.countByDocumentAndRoleAndActiveTrue(document, CollaboratorRole.SECONDARY_STUDENT);
-        if (role == CollaboratorRole.SECONDARY_STUDENT && studentCount >= 3) {
-            throw new RuntimeException("Limite máximo de estudantes colaboradores atingido (3)");
+        if (collaborator.getRole().isAdvisor() && !newRole.isAdvisor()) {
+            throw new RuntimeException("Não é possível mudar um orientador para papel de estudante");
         }
         
-        long advisorCount = collaboratorRepository.countByDocumentAndRoleAndActiveTrue(document, CollaboratorRole.SECONDARY_ADVISOR);
-        if (role == CollaboratorRole.SECONDARY_ADVISOR && advisorCount >= 2) {
-            throw new RuntimeException("Limite máximo de orientadores colaboradores atingido (2)");
+        // Verificar se já existe principal do novo tipo
+        if (newRole == CollaboratorRole.PRIMARY_STUDENT && 
+            document.hasPrimaryStudent() && 
+            collaborator.getRole() != CollaboratorRole.PRIMARY_STUDENT) {
+            throw new RuntimeException("Já existe um estudante principal");
         }
+        
+        if (newRole == CollaboratorRole.PRIMARY_ADVISOR && 
+            document.hasPrimaryAdvisor() && 
+            collaborator.getRole() != CollaboratorRole.PRIMARY_ADVISOR) {
+            throw new RuntimeException("Já existe um orientador principal");
+        }
+    }
+    
+    private void demoteCurrentPrimary(Document document, CollaboratorRole currentPrimaryRole, CollaboratorRole newRole) {
+        Optional<DocumentCollaborator> currentPrimary = document.getCollaborators().stream()
+                .filter(c -> c.isActive() && c.getRole() == currentPrimaryRole)
+                .findFirst();
+        
+        if (currentPrimary.isPresent()) {
+            DocumentCollaborator primary = currentPrimary.get();
+            primary.setRole(newRole);
+            primary.setPermission(CollaboratorPermission.READ_WRITE);
+            collaboratorRepository.save(primary);
+        }
+    }
+    
+    private boolean hasUserRole(User user, String roleName) {
+        return user.getRoles().stream()
+                .anyMatch(role -> role.getName().equals(roleName));
     }
     
     private DocumentCollaboratorDTO mapToDTO(DocumentCollaborator collaborator) {

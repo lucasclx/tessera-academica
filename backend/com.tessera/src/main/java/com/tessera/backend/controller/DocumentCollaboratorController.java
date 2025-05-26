@@ -1,9 +1,9 @@
-// CONTROLLER: DocumentCollaboratorController.java
 package com.tessera.backend.controller;
 
 import com.tessera.backend.dto.DocumentCollaboratorDTO;
 import com.tessera.backend.dto.AddCollaboratorRequestDTO;
 import com.tessera.backend.entity.CollaboratorPermission;
+import com.tessera.backend.entity.CollaboratorRole;
 import com.tessera.backend.entity.User;
 import com.tessera.backend.repository.UserRepository;
 import com.tessera.backend.service.DocumentCollaboratorService;
@@ -33,61 +33,7 @@ public class DocumentCollaboratorController {
     private UserRepository userRepository;
 
     private User getCurrentUser(Authentication authentication) {
-        return false;
-    }
-    
-    /**
-     * Verifica se o usuário pode acessar um documento (atualizado para colaboradores)
-     */
-    public boolean canAccessDocument(User user, Document document) {
-        if (user == null || document == null) {
-            return false;
-        }
-        
-        // Admin pode acessar qualquer documento
-        if (hasRole(user, "ADMIN")) {
-            return true;
-        }
-        
-        // Verificar se é colaborador ativo
-        if (document.hasCollaborator(user)) {
-            return true;
-        }
-        
-        // Fallback para sistema antigo
-        if ((document.getStudent() != null && document.getStudent().getId().equals(user.getId())) ||
-            (document.getAdvisor() != null && document.getAdvisor().getId().equals(user.getId()))) {
-            return true;
-        }
-        
-        return false;
-    }
-    
-    /**
-     * Verifica se o usuário pode editar um documento (atualizado para colaboradores)
-     */
-    public boolean canEditDocument(User user, Document document) {
-        if (user == null || document == null) {
-            return false;
-        }
-        
-        // Admin pode editar qualquer documento
-        if (hasRole(user, "ADMIN")) {
-            return true;
-        }
-        
-        // Verificar permissões de colaborador
-        if (document.canUserEdit(user)) {
-            // Verificar status do documento - só pode editar em DRAFT ou REVISION
-            DocumentStatus status = document.getStatus();
-            return (status == DocumentStatus.DRAFT || status == DocumentStatus.REVISION);
-        }
-        
-        return false;
-    }
-    
-    // ... resto dos métodos existentes ...
-} userRepository.findByEmail(authentication.getName())
+        return userRepository.findByEmail(authentication.getName())
                 .orElseThrow(() -> new RuntimeException("Usuário não autenticado"));
     }
     
@@ -165,6 +111,48 @@ public class DocumentCollaboratorController {
         return ResponseEntity.ok(updatedCollaborator);
     }
     
+    @PutMapping("/{collaboratorId}/role")
+    @Operation(summary = "Atualizar papel", description = "Atualiza o papel de um colaborador")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Papel atualizado com sucesso"),
+        @ApiResponse(responseCode = "404", description = "Colaborador não encontrado"),
+        @ApiResponse(responseCode = "403", description = "Sem permissão para gerenciar colaboradores"),
+        @ApiResponse(responseCode = "400", description = "Não é possível alterar o papel deste colaborador")
+    })
+    public ResponseEntity<DocumentCollaboratorDTO> updateRole(
+            @Parameter(description = "ID do documento") 
+            @PathVariable Long documentId,
+            @Parameter(description = "ID do colaborador") 
+            @PathVariable Long collaboratorId,
+            @Parameter(description = "Novo papel") 
+            @RequestBody CollaboratorRole newRole,
+            Authentication authentication) {
+        User currentUser = getCurrentUser(authentication);
+        DocumentCollaboratorDTO updatedCollaborator = collaboratorService.updateCollaboratorRole(
+                collaboratorId, newRole, currentUser);
+        return ResponseEntity.ok(updatedCollaborator);
+    }
+    
+    @PutMapping("/{collaboratorId}/promote")
+    @Operation(summary = "Promover a principal", description = "Promove um colaborador a papel principal")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Colaborador promovido com sucesso"),
+        @ApiResponse(responseCode = "404", description = "Colaborador não encontrado"),
+        @ApiResponse(responseCode = "403", description = "Sem permissão para gerenciar colaboradores"),
+        @ApiResponse(responseCode = "400", description = "Não é possível promover este colaborador")
+    })
+    public ResponseEntity<DocumentCollaboratorDTO> promoteToPrimary(
+            @Parameter(description = "ID do documento") 
+            @PathVariable Long documentId,
+            @Parameter(description = "ID do colaborador") 
+            @PathVariable Long collaboratorId,
+            Authentication authentication) {
+        User currentUser = getCurrentUser(authentication);
+        DocumentCollaboratorDTO promotedCollaborator = collaboratorService.promoteToPrimary(
+                collaboratorId, currentUser);
+        return ResponseEntity.ok(promotedCollaborator);
+    }
+    
     @PostMapping("/migrate")
     @Operation(summary = "Migrar documentos existentes", 
                description = "Migra documentos existentes para o novo sistema de colaboradores (apenas admin)")
@@ -185,41 +173,3 @@ public class DocumentCollaboratorController {
         return ResponseEntity.ok("Migração executada com sucesso");
     }
 }
-
-// ATUALIZAÇÃO: AuthorizationService.java (adicionar métodos para colaboradores)
-package com.tessera.backend.service;
-
-import com.tessera.backend.entity.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-@Service
-public class AuthorizationService {
-    
-    // ... métodos existentes ...
-    
-    /**
-     * Verifica se o usuário pode gerenciar colaboradores do documento
-     */
-    public boolean canManageCollaborators(User user, Document document) {
-        if (user == null || document == null) {
-            return false;
-        }
-        
-        // Admin pode gerenciar qualquer documento
-        if (hasRole(user, "ADMIN")) {
-            return true;
-        }
-        
-        // Verificar se é colaborador com permissão de gerenciamento
-        DocumentCollaborator collaborator = document.getCollaborator(user);
-        if (collaborator != null && collaborator.getPermission().canManageCollaborators()) {
-            return true;
-        }
-        
-        // Fallback para sistema antigo - proprietário original
-        if (document.getStudent() != null && document.getStudent().getId().equals(user.getId())) {
-            return true;
-        }
-        
-        return
