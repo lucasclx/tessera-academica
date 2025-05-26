@@ -1,31 +1,31 @@
-// Arquivo: scrs/src (cópia)/pages/student/DocumentEditorWithCollaborators.jsx
-// frontend/src/pages/student/DocumentEditorWithCollaborators.jsx
+// Arquivo: scrs/src/pages/student/DocumentEditorWithCollaborators.jsx
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import {
   Container, Typography, Button, Box, Paper, Grid, Tabs, Tab,
   Card, CardContent, Accordion, AccordionSummary, AccordionDetails,
-  Chip, IconButton, Tooltip, Alert, CircularProgress
+  Chip, IconButton, Tooltip, Alert, CircularProgress, TextField,
+  ListItem, ListItemText, ListItemAvatar, Avatar, List // Adicionado List, ListItem, etc. para renderCollaboratorSummary
 } from '@mui/material';
 import {
-  Save, History, Comment, Visibility, ArrowBack, Edit,
+  Save, History, Comment as CommentIconMUI, Visibility, ArrowBack, Edit, // Renomeado Comment para CommentIconMUI para evitar conflito
   Send, ExpandMore, Add, Group, Person, SupervisorAccount,
   CheckCircle, Warning, Error as ErrorIcon, Info,
-  CloudUpload, CompareArrows, People
+  CloudUpload, CompareArrows, People,
+  School // Ícone School adicionado
 } from '@mui/icons-material';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { AuthContext } from '../../context/AuthContext';
-import { documentService, versionService, commentService } from "../../services";
-import { collaboratorService } from '../../services/collaboratorService';
-import CollaboratorManagement from '../../components/collaborators/CollaboratorManagement';
+import { documentService, versionService, commentService } from "../../services"; //
+import { collaboratorService } from '../../services/collaboratorService'; //
+import CollaboratorManagement from '../../components/collaborators/CollaboratorManagement'; //
 
 const DocumentEditorWithCollaborators = () => {
   const { id: documentIdFromParams } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentUser } = useContext(AuthContext);
+  const { currentUser } = useContext(AuthContext); //
 
-  // Estados do documento
   const [document, setDocument] = useState(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -38,76 +38,40 @@ const DocumentEditorWithCollaborators = () => {
   const [pageError, setPageError] = useState(null);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
 
-  // Estados dos colaboradores
   const [userPermissions, setUserPermissions] = useState({
     canRead: false,
     canWrite: false,
     canManage: false
   });
   const [collaborators, setCollaborators] = useState([]);
-
-  // Estado da aba selecionada
   const [selectedTab, setSelectedTab] = useState(0);
-
-  // Versões e comentários
   const [versions, setVersions] = useState([]);
   const [currentVersion, setCurrentVersion] = useState(null);
-  const [comments, setComments] = useState([]);
-
-  useEffect(() => {
-    if (documentIdFromParams === undefined) {
-      setIsNewDocument(true);
-      setIsEditing(true);
-      setTitle('Nova Monografia Colaborativa');
-      setContent('# Título da Monografia\n\n## Seção 1\n\nComece a escrever aqui...\n\n## Colaboração\n\nEste documento permite múltiplos colaboradores!');
-      setDescription('');
-      setStatus('DRAFT');
-      setDocument(null);
-      setCurrentVersion(null);
-      setVersions([]);
-      setComments([]);
-      setLoading(false);
-      setUnsavedChanges(false);
-      setPageError(null);
-      setUserPermissions({ canRead: true, canWrite: true, canManage: true }); // Criador tem todas as permissões
-    } else {
-      setIsNewDocument(false);
-      loadDocumentAndPermissions(documentIdFromParams);
-      const queryParams = new URLSearchParams(location.search);
-      if (queryParams.get('edit') === 'true') {
-        setIsEditing(true);
-      }
-    }
-  }, [documentIdFromParams, location.search]);
+  const [currentComments, setCurrentComments] = useState([]); // Estado para comentários da versão atual
 
   const loadDocumentAndPermissions = useCallback(async (id) => {
     setLoading(true);
     setPageError(null);
     try {
-      // Carregar dados do documento
-      const docData = await documentService.getDocument(id);
+      const docData = await documentService.getDocument(id); //
       setDocument(docData);
       setTitle(docData.title);
       setDescription(docData.description || '');
       setStatus(docData.status);
 
-      // Carregar permissões do usuário atual
-      const permissions = await collaboratorService.getCurrentUserPermissions(id);
+      const permissions = await collaboratorService.getCurrentUserPermissions(id); //
       setUserPermissions(permissions);
 
-      // Verificar se o usuário tem permissão para visualizar o documento
       if (!permissions.canRead) {
         setPageError('Você não tem permissão para acessar este documento.');
         setLoading(false);
         return;
       }
 
-      // Carregar colaboradores
-      const collaboratorsData = await collaboratorService.getDocumentCollaborators(id);
-      setCollaborators(collaboratorsData);
+      const collaboratorsData = await collaboratorService.getDocumentCollaborators(id); //
+      setCollaborators(collaboratorsData || []);
 
-      // Carregar versões
-      const versionsData = await versionService.getVersionsByDocument(id);
+      const versionsData = await versionService.getVersionsByDocument(id); //
       setVersions(versionsData || []);
 
       if (versionsData && versionsData.length > 0) {
@@ -115,16 +79,16 @@ const DocumentEditorWithCollaborators = () => {
         setCurrentVersion(latestVersion);
         setContent(latestVersion.content || '');
         try {
-          const commentsData = await commentService.getCommentsByVersion(latestVersion.id);
-          setComments(commentsData || []);
+          const commentsData = await commentService.getCommentsByVersion(latestVersion.id); //
+          setCurrentComments(commentsData || []);
         } catch (commentError) {
           console.warn('Não foi possível carregar comentários:', commentError);
-          setComments([]);
+          setCurrentComments([]);
         }
       } else {
-        setContent(docData.description || '# Comece a editar seu documento aqui.'); // Conteúdo inicial se não houver versões
+        setContent(docData.description || '# Comece a editar seu documento aqui.');
         setCurrentVersion(null);
-        setComments([]);
+        setCurrentComments([]);
       }
       setUnsavedChanges(false);
     } catch (error) {
@@ -135,6 +99,53 @@ const DocumentEditorWithCollaborators = () => {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const tabQueryParam = queryParams.get('tab');
+    if (tabQueryParam === 'collaborators') {
+      setSelectedTab(1);
+    }
+
+    if (documentIdFromParams === undefined) {
+      setIsNewDocument(true);
+      setIsEditing(true);
+      setTitle('Nova Monografia Colaborativa');
+      setContent('# Título da Monografia\n\n## Seção 1\n\nComece a escrever aqui...\n\n## Colaboração\n\nEste documento permite múltiplos colaboradores!');
+      setDescription('');
+      setStatus('DRAFT');
+      setDocument(null);
+      setCurrentVersion(null);
+      setVersions([]);
+      setCurrentComments([]);
+      setCollaborators([]);
+      setLoading(false);
+      setUnsavedChanges(false);
+      setPageError(null);
+      setUserPermissions({ canRead: true, canWrite: true, canManage: true });
+    } else {
+      setIsNewDocument(false);
+      loadDocumentAndPermissions(documentIdFromParams);
+      if (queryParams.get('edit') === 'true') {
+         // A permissão de escrita será verificada antes de realmente permitir a edição
+        setIsEditing(true);
+      }
+    }
+  }, [documentIdFromParams, location.search, loadDocumentAndPermissions]);
+
+
+  useEffect(() => {
+    const handleBeforeUnload = (event) => {
+      if (unsavedChanges) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [unsavedChanges]);
 
   const handleFieldChange = (setter) => (event) => {
     setter(event.target.value);
@@ -147,70 +158,50 @@ const DocumentEditorWithCollaborators = () => {
   };
 
   const handleSave = async () => {
-    if (!userPermissions.canWrite) {
+    if (!userPermissions.canWrite && !isNewDocument) {
       toast.error('Você não tem permissão para editar este documento.');
       return;
     }
-
     if (!title.trim()) {
       toast.error('O título da monografia é obrigatório.');
       return;
     }
-
     setSaving(true);
-
     try {
       if (isNewDocument) {
-        // Criar novo documento
         const newDocData = {
           title: title.trim(),
           description: description.trim(),
-          studentId: currentUser.id, // Para compatibilidade e definição do criador inicial
-          advisorId: null, // Será definido/confirmado ao adicionar colaboradores
+          studentId: currentUser.id,
+          advisorId: null, 
         };
-        
-        const createdDoc = await documentService.createDocument(newDocData);
-
-        // Criar primeira versão
+        const createdDoc = await documentService.createDocument(newDocData); //
         const versionData = {
           documentId: createdDoc.id,
           content: content,
           commitMessage: 'Versão inicial do documento colaborativo'
         };
-        await versionService.createVersion(versionData);
-
+        await versionService.createVersion(versionData); //
         toast.success('Monografia colaborativa criada com sucesso!');
         setUnsavedChanges(false);
-        navigate(`/student/documents/${createdDoc.id}`, { replace: true });
+        navigate(`/student/documents/${createdDoc.id}?tab=collaborators`, { replace: true });
       } else {
-        // Atualizar documento existente
         if (document && document.id) {
           let documentMetaChanged = false;
           const updatedMetaData = {};
-          
-          if (title.trim() !== document.title) {
-            updatedMetaData.title = title.trim();
-            documentMetaChanged = true;
-          }
-          if (description.trim() !== document.description) {
-            updatedMetaData.description = description.trim();
-            documentMetaChanged = true;
-          }
-          
+          if (title.trim() !== document.title) { updatedMetaData.title = title.trim(); documentMetaChanged = true; }
+          if (description.trim() !== document.description) { updatedMetaData.description = description.trim(); documentMetaChanged = true; }
           if (documentMetaChanged) {
-            await documentService.updateDocument(document.id, updatedMetaData);
+            await documentService.updateDocument(document.id, updatedMetaData); //
           }
-
-          // Criar nova versão
           const versionData = {
             documentId: document.id,
             content: content,
             commitMessage: `Atualização colaborativa - ${new Date().toLocaleString('pt-BR')}`
           };
-          await versionService.createVersion(versionData);
-          
+          await versionService.createVersion(versionData); //
           toast.success('Nova versão salva com sucesso!');
-          await loadDocumentAndPermissions(document.id); // Recarrega para pegar nova versão e metadados
+          await loadDocumentAndPermissions(document.id);
         }
       }
       setUnsavedChanges(false);
@@ -224,19 +215,21 @@ const DocumentEditorWithCollaborators = () => {
   };
 
   const handleToggleEditMode = () => {
-    if (!userPermissions.canWrite && !isNewDocument) { // Permite edição para novo documento
+    if (!userPermissions.canWrite && !isNewDocument) {
       toast.error('Você não tem permissão para editar este documento.');
       return;
     }
-
     if (isEditing && unsavedChanges) {
       if (window.confirm('Você tem alterações não salvas. Deseja descartá-las e sair do modo de edição?')) {
         setIsEditing(false);
         if (!isNewDocument && document && document.id) {
-          loadDocumentAndPermissions(document.id); // Recarrega o conteúdo original
+          loadDocumentAndPermissions(document.id);
         }
       }
     } else {
+      if (!isEditing && !userPermissions.canWrite && !isNewDocument) {
+         toast.warn('Você tem permissão apenas para visualizar este documento.');
+      }
       setIsEditing(!isEditing);
     }
   };
@@ -256,7 +249,6 @@ const DocumentEditorWithCollaborators = () => {
     if (text === null || text === undefined || text.trim() === '') {
       return <Typography color="textSecondary" sx={{p: 2, fontStyle: 'italic'}}>Conteúdo não disponível ou vazio.</Typography>;
     }
-    
     let html = text
       .replace(/^# (.*$)/gm, '<h1 style="font-size: 1.8em; margin-top: 1em; margin-bottom: 0.5em;">$1</h1>')
       .replace(/^## (.*$)/gm, '<h2 style="font-size: 1.5em; margin-top: 0.8em; margin-bottom: 0.4em;">$1</h2>')
@@ -268,86 +260,64 @@ const DocumentEditorWithCollaborators = () => {
       .replace(/^\d+\. (.*$)/gm, '<ol style="margin-left: 20px; padding-left: 0;"><li>$1</li></ol>')
       .replace(/\n\n/g, '</p><p style="margin-bottom: 1em;">')
       .replace(/\n/g, '<br>');
-    
     if (!html.match(/^<(h[1-3]|ul|ol)/)) html = `<p style="margin-bottom: 1em;">${html}`;
     if (html.endsWith('<br>') || !html.endsWith('</p>')) html += '</p>';
     html = html.replace(/<\/ul>\s*<ul.*?>/g, '');
     html = html.replace(/<\/ol>\s*<ol.*?>/g, '');
-
     return <div dangerouslySetInnerHTML={{ __html: html }} />;
   };
 
   const renderCollaboratorSummary = () => {
-    const students = collaborators.filter(c => c.role.includes('STUDENT'));
-    const advisors = collaborators.filter(c => c.role.includes('ADVISOR'));
+    const students = collaborators.filter(c => c.role?.toUpperCase().includes('STUDENT'));
+    const advisors = collaborators.filter(c => c.role?.toUpperCase().includes('ADVISOR'));
 
     return (
       <Card sx={{ mb: 2 }} variant="outlined">
         <CardContent>
           <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <People color="primary" />
-            Equipe Colaborativa ({collaborators.length})
+            Equipe ({collaborators.length})
           </Typography>
-          
-          <Grid container spacing={2}>
+          <Grid container spacing={1}>
             {students.length > 0 && (
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12}>
                 <Box>
-                  <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Person fontSize="small" />
-                    Estudantes ({students.length})
+                  <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt:1 }}>
+                    <School fontSize="small" /> Estudantes ({students.length})
                   </Typography>
+                  <List dense disablePadding>
                   {students.slice(0, 3).map(student => (
-                    <Box key={student.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                      <Chip 
-                        label={student.userName} 
-                        size="small" 
-                        color={student.role === 'PRIMARY_STUDENT' ? 'primary' : 'default'}
-                        variant={student.role === 'PRIMARY_STUDENT' ? 'filled' : 'outlined'}
-                      />
-                    </Box>
+                    <ListItem key={student.id} disableGutters sx={{pb:0}}>
+                       <Chip label={student.userName} size="small" variant={student.role === 'PRIMARY_STUDENT' ? 'filled' : 'outlined'} color={student.role === 'PRIMARY_STUDENT' ? 'primary' : 'default'}/>
+                    </ListItem>
                   ))}
-                  {students.length > 3 && (
-                    <Typography variant="caption" color="text.secondary">
-                      +{students.length - 3} mais
-                    </Typography>
-                  )}
+                  </List>
+                  {students.length > 3 && <Typography variant="caption" color="text.secondary"> +{students.length - 3} mais </Typography>}
                 </Box>
               </Grid>
             )}
-            
             {advisors.length > 0 && (
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12}>
                 <Box>
-                  <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <SupervisorAccount fontSize="small" />
-                    Orientadores ({advisors.length})
+                  <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt:1 }}>
+                    <SupervisorAccount fontSize="small" /> Orientadores ({advisors.length})
                   </Typography>
+                   <List dense disablePadding>
                   {advisors.slice(0, 3).map(advisor => (
-                    <Box key={advisor.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                      <Chip 
-                        label={advisor.userName} 
-                        size="small" 
-                        color={advisor.role === 'PRIMARY_ADVISOR' ? 'secondary' : 'default'}
-                        variant={advisor.role === 'PRIMARY_ADVISOR' ? 'filled' : 'outlined'}
-                      />
-                    </Box>
+                     <ListItem key={advisor.id} disableGutters sx={{pb:0}}>
+                        <Chip label={advisor.userName} size="small" variant={advisor.role === 'PRIMARY_ADVISOR' ? 'filled' : 'outlined'} color={advisor.role === 'PRIMARY_ADVISOR' ? 'secondary' : 'default'}/>
+                     </ListItem>
                   ))}
-                  {advisors.length > 3 && (
-                    <Typography variant="caption" color="text.secondary">
-                      +{advisors.length - 3} mais
-                    </Typography>
-                  )}
+                  </List>
+                  {advisors.length > 3 && <Typography variant="caption" color="text.secondary"> +{advisors.length - 3} mais </Typography>}
                 </Box>
               </Grid>
             )}
           </Grid>
-
           {collaborators.length === 0 && (
             <Box sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="body2" color="text.secondary">
-                Nenhum colaborador adicionado ainda.
-                {userPermissions.canManage && " Use a aba 'Colaboradores' para adicionar pessoas à equipe."}
+                Nenhum colaborador. {userPermissions.canManage && "Use a aba 'Colaboradores'."}
               </Typography>
             </Box>
           )}
@@ -356,16 +326,9 @@ const DocumentEditorWithCollaborators = () => {
     );
   };
 
-  if (loading && !isNewDocument) { // Mostrar loading apenas se não for novo documento
+  if (loading && !isNewDocument) {
     return (
-      <Container maxWidth="lg">
-        <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <CircularProgress />
-          <Typography sx={{ mt: 2 }}>
-            Carregando documento...
-          </Typography>
-        </Box>
-      </Container>
+      <Container maxWidth="lg"><Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box></Container>
     );
   }
 
@@ -374,88 +337,51 @@ const DocumentEditorWithCollaborators = () => {
       <Container maxWidth="lg">
         <Paper sx={{ p: 3, mt: 4, textAlign: 'center' }}>
           <ErrorIcon color="error" sx={{ fontSize: 48, mb: 2 }} />
-          <Typography variant="h5" gutterBottom>Erro ao Carregar</Typography>
+          <Typography variant="h5" gutterBottom>Erro</Typography>
           <Typography>{pageError}</Typography>
-          <Button 
-            variant="contained" 
-            startIcon={<ArrowBack />} 
-            onClick={() => navigate('/student/documents')} 
-            sx={{ mt: 3 }}
-          >
-            Voltar para Minhas Monografias
+          <Button variant="contained" startIcon={<ArrowBack />} onClick={() => navigate('/student/documents')} sx={{ mt: 3 }}>
+            Voltar
           </Button>
         </Paper>
       </Container>
     );
   }
-
+  
   const currentDisplayStatus = getStatusInfo(isNewDocument ? 'DRAFT' : (status || 'DRAFT'));
 
   return (
     <Container maxWidth="xl">
-      {/* Header */}
-      <Box sx={{ 
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        mb: 3, flexWrap: 'wrap', gap: 2
-      }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexGrow: 1 }}>
-          <IconButton onClick={() => navigate('/student/documents')} sx={{ mr: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1 }}>
+          <IconButton onClick={() => navigate(isNewDocument && !document?.id ? '/student/documents' : `/student/documents/${document?.id}`)} sx={{ mr: 1 }}>
             <ArrowBack />
           </IconButton>
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h4" component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {title || "Monografia Colaborativa"}
-              <People color="primary" fontSize="large" />
-            </Typography>
-          </Box>
+          <Typography variant="h4" component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {title || "Monografia Colaborativa"}
+            <Tooltip title="Documento Colaborativo"><People color="primary" /></Tooltip>
+          </Typography>
         </Box>
-        
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Chip
-            icon={currentDisplayStatus.icon}
-            label={currentDisplayStatus.label}
-            color={currentDisplayStatus.color}
-            size="small"
-          />
-          {unsavedChanges && isEditing && (
-            <Chip label="Não Salvo" color="warning" size="small" icon={<Warning />} />
-          )}
-          {!isNewDocument && document && document.id && (
-            <Button
-              variant="outlined"
-              startIcon={<CompareArrows />}
-              onClick={() => navigate(`/student/documents/${document.id}/compare`)}
-              size="small"
-            >
+          <Chip icon={currentDisplayStatus.icon} label={currentDisplayStatus.label} color={currentDisplayStatus.color} size="small" />
+          {unsavedChanges && isEditing && (<Chip label="Não Salvo" color="warning" size="small" icon={<Warning />} />)}
+          {!isNewDocument && document?.id && (
+            <Button variant="outlined" startIcon={<CompareArrows />} onClick={() => navigate(`/student/documents/${document.id}/compare`)} size="small">
               Comparar
             </Button>
           )}
-          {(userPermissions.canWrite || isNewDocument) && ( // Permite edição para novo documento
-            <Button
-              variant="outlined"
-              startIcon={isEditing ? <Visibility /> : <Edit />}
-              onClick={handleToggleEditMode}
-              size="small"
-              disabled={saving}
-            >
+          {(userPermissions.canWrite || isNewDocument) && (
+            <Button variant="outlined" startIcon={isEditing ? <Visibility /> : <Edit />} onClick={handleToggleEditMode} size="small" disabled={saving}>
               {isEditing ? 'Visualizar' : 'Editar'}
             </Button>
           )}
           {isEditing && (userPermissions.canWrite || isNewDocument) && (
-            <Button
-              variant="contained"
-              startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
-              onClick={handleSave}
-              disabled={saving || !unsavedChanges}
-              size="small"
-            >
+            <Button variant="contained" startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />} onClick={handleSave} disabled={saving || !unsavedChanges} size="small">
               {saving ? 'Salvando...' : (isNewDocument ? 'Criar Monografia' : 'Salvar Versão')}
             </Button>
           )}
         </Box>
       </Box>
 
-      {/* Informações sobre permissões */}
       {!isNewDocument && (
         <Alert 
           severity={userPermissions.canWrite ? "success" : (userPermissions.canRead ? "info" : "warning")} 
@@ -466,202 +392,71 @@ const DocumentEditorWithCollaborators = () => {
             {userPermissions.canManage && "Você pode gerenciar colaboradores, editar e visualizar este documento."}
             {userPermissions.canWrite && !userPermissions.canManage && "Você pode editar e visualizar este documento."}
             {!userPermissions.canWrite && userPermissions.canRead && "Você tem permissão apenas para visualizar este documento."}
-            {!userPermissions.canRead && "Você não tem permissão para ler este documento."}
+            {!userPermissions.canRead && "Acesso negado a este documento."}
           </Typography>
         </Alert>
       )}
 
-      {/* Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={selectedTab} onChange={(e, newValue) => setSelectedTab(newValue)}>
+        <Tabs value={selectedTab} onChange={(e, newValue) => setSelectedTab(newValue)} indicatorColor="primary" textColor="primary">
           <Tab label="Documento" icon={<Edit />} iconPosition="start" />
-          <Tab 
-            label={`Colaboradores (${collaborators.length})`} 
-            icon={<Group />} 
-            iconPosition="start"
-            disabled={isNewDocument} // Desabilita aba de colaboradores para novo documento até ser salvo
-          />
-          {!isNewDocument && <Tab label="Versões" icon={<History />} iconPosition="start" />}
-          {!isNewDocument && <Tab label="Comentários" icon={<Comment />} iconPosition="start" />}
+          <Tab label={`Colaboradores (${collaborators.length})`} icon={<Group />} iconPosition="start" disabled={isNewDocument && !document?.id} />
+          {!isNewDocument && document?.id && <Tab label={`Versões (${versions.length})`} icon={<History />} iconPosition="start" />}
+          {!isNewDocument && document?.id && currentVersion && <Tab label={`Comentários (${currentComments.length})`} icon={<CommentIconMUI />} iconPosition="start" />}
         </Tabs>
       </Box>
 
-      {/* Conteúdo das Tabs */}
       {selectedTab === 0 && (
         <Grid container spacing={3}>
-          <Grid item xs={12} md={isEditing ? 8 : 12}>
+          <Grid item xs={12} md={isEditing && !isNewDocument ? 8 : 12}> {/* Ajuste para quando não for novo */}
             <Paper sx={{ p: 3, minHeight: '70vh' }}>
               {isEditing ? (
                 <Box>
-                  <TextField
-                    fullWidth
-                    label="Título da Monografia"
-                    value={title}
-                    onChange={handleFieldChange(setTitle)}
-                    margin="normal"
-                    disabled={saving || (!userPermissions.canWrite && !isNewDocument)}
-                    sx={{ mb: 2 }}
-                  />
-                  
-                  <TextField
-                    fullWidth
-                    label="Descrição"
-                    value={description}
-                    onChange={handleFieldChange(setDescription)}
-                    multiline
-                    rows={2}
-                    margin="normal"
-                    disabled={saving || (!userPermissions.canWrite && !isNewDocument)}
-                    sx={{ mb: 2 }}
-                  />
-                  
-                  <TextField
-                    fullWidth
-                    multiline
-                    minRows={20}
-                    label="Conteúdo da Monografia (Markdown)"
-                    value={content}
-                    onChange={handleContentChange}
-                    disabled={saving || (!userPermissions.canWrite && !isNewDocument)}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        fontFamily: '"Roboto Mono", "Courier New", monospace',
-                        fontSize: '0.95rem',
-                        lineHeight: 1.7,
-                      },
-                      bgcolor: '#f9f9f9'
-                    }}
-                  />
+                  <TextField fullWidth label="Título da Monografia" value={title} onChange={handleFieldChange(setTitle)} margin="normal" disabled={saving || (!userPermissions.canWrite && !isNewDocument)} sx={{ mb: 2 }} variant="outlined" />
+                  <TextField fullWidth label="Descrição" value={description} onChange={handleFieldChange(setDescription)} multiline rows={2} margin="normal" disabled={saving || (!userPermissions.canWrite && !isNewDocument)} sx={{ mb: 2 }} variant="outlined" />
+                  <TextField fullWidth multiline minRows={20} label="Conteúdo da Monografia (Markdown)" value={content} onChange={handleContentChange} disabled={saving || (!userPermissions.canWrite && !isNewDocument)} variant="outlined" sx={{ '& .MuiOutlinedInput-root': { fontFamily: '"Roboto Mono", monospace', fontSize: '0.95rem', lineHeight: 1.7 }, bgcolor: 'grey.50' }} />
                 </Box>
               ) : (
                 <Box>
-                  {description && (
-                    <Box sx={{ 
-                      mb: 3, p: 2, bgcolor: 'grey.100', borderRadius: 1,
-                      borderLeft: `4px solid ${currentDisplayStatus.color === 'default' ? 'grey.500' : currentDisplayStatus.color + '.main'}`
-                    }}>
-                      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
-                        Descrição
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontStyle: 'italic' }}>
-                        {description}
-                      </Typography>
-                    </Box>
-                  )}
-                  
-                  <Box sx={{ fontFamily: 'Georgia, serif', fontSize: '1rem', lineHeight: 1.8, color: '#333' }}>
-                    {renderFormattedContentPreview(content)}
-                  </Box>
-                  
-                  {(!content && !description) && (
-                    <Typography variant="body1" color="textSecondary" sx={{ textAlign: 'center', mt: 5 }}>
-                      Este documento ainda não possui conteúdo. 
-                      {(userPermissions.canWrite || isNewDocument) && " Clique em 'Editar' para começar."}
-                    </Typography>
-                  )}
+                  {description && ( <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.100', borderRadius: 1, borderLeft: `4px solid ${currentDisplayStatus.color === 'default' ? 'grey.500' : currentDisplayStatus.color + '.main'}` }}> <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}> Descrição </Typography> <Typography variant="body1" sx={{ fontStyle: 'italic' }}> {description} </Typography> </Box> )}
+                  <Box sx={{ fontFamily: 'Georgia, serif', fontSize: '1rem', lineHeight: 1.8, color: '#333' }}> {renderFormattedContentPreview(content)} </Box>
+                  {(!content && !description) && ( <Typography variant="body1" color="textSecondary" sx={{ textAlign: 'center', mt: 5 }}> Este documento ainda não possui conteúdo. {(userPermissions.canWrite || isNewDocument) && " Clique em 'Editar' para começar."} </Typography> )}
                 </Box>
               )}
             </Paper>
           </Grid>
-          
-          {isEditing && (
+          {isEditing && !isNewDocument && ( // Mostrar apenas se editando e não for novo
             <Grid item xs={12} md={4}>
               {renderCollaboratorSummary()}
-              
-              {!isNewDocument && document && (
-                <Card variant="outlined">
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      Informações do Documento
-                    </Typography>
-                    <Typography variant="body2" gutterBottom>
-                      <strong>Criado em:</strong> {document.createdAt ? 
-                        new Date(document.createdAt).toLocaleDateString('pt-BR') : 'N/A'}
-                    </Typography>
-                    <Typography variant="body2">
-                      <strong>Última Atualização:</strong> {document.updatedAt ? 
-                        new Date(document.updatedAt).toLocaleDateString('pt-BR') : 'N/A'}
-                    </Typography>
-                    <Typography variant="body2">
-                      <strong>ID do Documento:</strong> {document.id}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              )}
             </Grid>
           )}
         </Grid>
       )}
 
-      {selectedTab === 1 && !isNewDocument && (
+      {selectedTab === 1 && !isNewDocument && document?.id && (
         <CollaboratorManagement
-          documentId={document?.id}
-          currentUser={currentUser}
+          documentId={document.id}
           canManage={userPermissions.canManage}
+          onCollaboratorsChange={setCollaborators}
         />
       )}
 
-      {selectedTab === 2 && !isNewDocument && (
-        <Card>
-          <CardHeader title="Histórico de Versões" />
-          <CardContent>
-            {versions.length > 0 ? (
-              <List>
-                {versions.map((version, index) => (
-                  <ListItem key={version.id} divider={index < versions.length - 1}>
-                    <ListItemText
-                      primary={`v${version.versionNumber} - ${version.commitMessage || "Sem mensagem de commit"}`}
-                      secondary={`Por ${version.createdByName || "Desconhecido"} em ${new Date(version.createdAt).toLocaleString('pt-BR')}`}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                Nenhuma versão disponível
-              </Typography>
-            )}
-          </CardContent>
-        </Card>
+      {selectedTab === 2 && !isNewDocument && document?.id && (
+         <Card><CardContent>
+          <Typography variant="h6" gutterBottom>Histórico de Versões</Typography>
+          {versions.length > 0 ? (<List>{versions.map((v, i)=><ListItem key={v.id} divider={i < versions.length -1}><ListItemText primaryTypographyProps={{fontWeight: currentVersion?.id === v.id ? 'bold' : 'normal'}} primary={`v${v.versionNumber} - ${v.commitMessage || "N/A"}`} secondary={`Por ${v.createdByName} em ${new Date(v.createdAt).toLocaleString()}`}/></ListItem>)}</List>) 
+          : <Typography sx={{textAlign: 'center', p:2}}>Nenhuma versão encontrada.</Typography>}
+         </CardContent></Card>
       )}
 
-      {selectedTab === 3 && !isNewDocument && (
-        <Card>
-          <CardHeader title="Comentários" />
-          <CardContent>
-            {comments.length > 0 ? (
-              <List>
-                {comments.map((comment) => (
-                  <ListItem key={comment.id} alignItems="flex-start">
-                    <ListItemAvatar>
-                      <Avatar>
-                        {comment.userName ? comment.userName.charAt(0).toUpperCase() : 'U'}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={comment.userName}
-                      secondary={
-                        <Box>
-                          <Typography variant="body2" color="text.primary">
-                            {comment.content}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {new Date(comment.createdAt).toLocaleString('pt-BR')}
-                          </Typography>
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                Nenhum comentário disponível
-              </Typography>
-            )}
-          </CardContent>
-        </Card>
+      {selectedTab === 3 && !isNewDocument && document?.id && currentVersion && (
+         <Card><CardContent>
+          <Typography variant="h6" gutterBottom>Comentários da Versão (v{currentVersion.versionNumber})</Typography>
+          {currentComments.length > 0 ? (<List>{currentComments.map((c, i)=><ListItem key={c.id} divider={i < currentComments.length -1}><ListItemAvatar><Avatar>{c.userName?.charAt(0)}</Avatar></ListItemAvatar><ListItemText primary={c.userName} secondary={<><Typography variant="body2">{c.content}</Typography><Typography variant="caption">{new Date(c.createdAt).toLocaleString()}</Typography></>}/></ListItem>)}</List>) 
+          : <Typography sx={{textAlign: 'center', p:2}}>Nenhum comentário nesta versão.</Typography>}
+         </CardContent></Card>
       )}
+
     </Container>
   );
 };

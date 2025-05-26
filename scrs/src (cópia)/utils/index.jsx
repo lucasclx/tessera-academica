@@ -1,4 +1,4 @@
-// Arquivo: scrs/src (cópia)/utils/index.jsx
+// Arquivo: scrs/src/utils/index.jsx
 // src/utils/index.js - ARQUIVO CONSOLIDADO DE TODOS OS UTILITÁRIOS
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
@@ -10,7 +10,7 @@ import {
   CircularProgress, Alert, Dialog, DialogTitle, DialogContent, DialogActions,
   Card, CardContent, CardHeader, Divider, List, ListItem,
   ListItemAvatar, Avatar, Skeleton, Breadcrumbs, Link, Badge,
-  Popover, Tooltip, Switch, FormControlLabel, FormGroup
+  Popover, Tooltip, Switch, FormControlLabel, FormGroup, FormHelperText // Added FormHelperText
 } from '@mui/material';
 import { 
   Add, Search, Edit, Visibility, Delete, MoreVert, ArrowBack, Save,
@@ -18,10 +18,10 @@ import {
   Assignment, Schedule, Notifications, NotificationsActive, Computer,
   Email, VolumeUp, Settings as SettingsIcon, MarkEmailRead, Launch,
   NavigateNext, RestoreOutlined, NotificationsActiveOutlined,
-  Business, FormatBold, FormatItalic, FormatListBulleted, FormatListNumbered, // Adicionado FormatListNumbered
+  Business, FormatBold, FormatItalic, FormatListBulleted, FormatListNumbered,
   DeleteOutline as DeleteIcon,
-  Edit as EditIcon, // Já existia implicitamente via Edit de @mui/icons-material
-  Visibility as VisibilityIcon, // Já existia implicitamente
+  // Edit as EditIcon, // Already exist implicitly via Edit de @mui/icons-material
+  // Visibility as VisibilityIcon, // Already exist implicitly
   People, 
   CloudUpload, 
   CompareArrows, 
@@ -29,7 +29,7 @@ import {
   RateReviewOutlined, 
   CheckCircleOutline, 
   Subject,
-  Title as TitleIcon, // Adicionado explicitamente
+  Title as TitleIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
@@ -51,6 +51,7 @@ export const STATUS_CONFIG = {
   STUDENT: { label: 'Estudante', color: 'primary', icon: School },
   ADVISOR: { label: 'Orientador', color: 'secondary', icon: SupervisorAccount },
   ADMIN: { label: 'Administrador', color: 'error', icon: Person },
+  INACTIVE: { label: 'Inativo', color: 'default', icon: Person }, // Added for user status
   
   // Notification Priorities
   LOW: { label: 'Baixa', color: 'default', icon: null },
@@ -130,13 +131,28 @@ export const getNotificationIcon = (type) => {
 };
 
 export const getPriorityColor = (priority) => {
+  // Ensure STATUS_CONFIG is used if priority matches one of its keys
+  if (STATUS_CONFIG[priority] && STATUS_CONFIG[priority].color) {
+      return STATUS_CONFIG[priority].color;
+  }
+  // Fallback for general priority strings or if not in STATUS_CONFIG
   const colors = { LOW: 'success.light', NORMAL: 'info.main', HIGH: 'warning.main', URGENT: 'error.main' };
   return colors[priority] || colors.NORMAL;
 };
 
-export const getStatusConfig = (statusKey, type = 'document') => {
+
+export const getStatusConfig = (statusKey, type = 'document') => { // type can be 'document' or 'user' or 'role' etc.
+  if (type === 'user' && statusKey === 'INACTIVE') { // Specific handling for user inactive status
+    return STATUS_CONFIG.INACTIVE;
+  }
+  if (type === 'role' || type === 'user') { // For general user roles or user status not 'INACTIVE'
+     const roleConfig = STATUS_CONFIG[statusKey];
+     if (roleConfig) return roleConfig;
+  }
+  // Default to document status or a generic fallback
   return STATUS_CONFIG[statusKey] || { label: statusKey || 'Desconhecido', color: 'default', icon: <Info /> };
 };
+
 
 export const renderMarkdownContent = (text) => {
   if (text === null || text === undefined || text.trim() === '') { return <Typography color="textSecondary" sx={{p: 2, fontStyle: 'italic'}}>Conteúdo não disponível ou vazio.</Typography>; }
@@ -179,7 +195,6 @@ export const useData = (fetchFn, initialFilterValue = 'ALL', initialDeps = []) =
   const [sortBy, setSortBy] = useState('updatedAt');
   const [sortOrder, setSortOrder] = useState('desc');
   
-  // Guardar a referência original de fetchFn para comparação
   const originalFetchFnRef = React.useRef(fetchFn);
   useEffect(() => {
     originalFetchFnRef.current = fetchFn;
@@ -192,15 +207,10 @@ export const useData = (fetchFn, initialFilterValue = 'ALL', initialDeps = []) =
       setError(null);
       
       const currentFetchFn = originalFetchFnRef.current;
-
-      console.log(`[useData] Tentando chamar fetchFn. Nome da função (se disponível): ${currentFetchFn?.name || 'Não disponível ou anônima'}`);
-      console.log('[useData] Objeto fetchFn em si:', currentFetchFn);
-      console.log('[useData] Argumentos para fetchFn:', { page, size, search, filter, sortBy, sortOrder });
       
       if (typeof currentFetchFn !== 'function') {
-        const errorMsg = `[useData] Erro crítico: fetchFn não é uma função. Tipo recebido: ${typeof currentFetchFn}. Valor: ${String(currentFetchFn)}`;
+        const errorMsg = `[useData] Erro crítico: fetchFn não é uma função. Tipo recebido: ${typeof currentFetchFn}.`;
         console.error(errorMsg);
-        // toast.error("Erro interno: A função para buscar dados é inválida."); // Pode ser muito agressivo para o usuário
         setError(errorMsg);
         setData([]);
         setTotal(0);
@@ -223,17 +233,11 @@ export const useData = (fetchFn, initialFilterValue = 'ALL', initialDeps = []) =
     } finally {
       setLoading(false);
     }
-  // Removido 'functionName' das dependências, pois era derivado de fetchFn.
-  // Adicionado originalFetchFnRef.current para estabilizar a dependência de 'load',
-  // mas 'fetchFn' ainda é a dependência principal para o useCallback.
-  // O array de dependências do useCallback deve ser o mais estável possível.
-  // Se `WorkspaceFn` muda desnecessariamente, isso causará o loop.
-  }, [page, size, search, filter, sortBy, sortOrder, ...initialDeps, fetchFn]); // Mantendo fetchFn como dependência direta
+  }, [page, size, search, filter, sortBy, sortOrder, ...initialDeps, fetchFn]); 
 
   useEffect(() => { 
-    console.log('[useData] useEffect disparado para chamar load(). Dependências de load mudaram ou montagem inicial.');
     load(); 
-  }, [load]); // A dependência aqui é 'load', que por sua vez depende de 'fetchFn' e outras.
+  }, [load]); 
 
   return {
     data, loading, page, size, total, search, filter, error, sortBy, sortOrder,
@@ -254,8 +258,6 @@ export const ConfirmDialog = ({ open = false, onClose = () => {}, onConfirm = ()
 
 export const PageHeader = ({ title, subtitle, breadcrumbs = [], actions = [], backButton = false, status = null, statusType = 'document', variant = 'default', onBackClick }) => {
   const navigate = useNavigate();
-  // CONSOLE.LOG ADICIONADO PARA DEPURAÇÃO DO ERRO 2
-  console.log('[PageHeader] Hook useNavigate() invocado. Valor de navigate:', navigate);
   const handleBack = onBackClick || (() => navigate(-1));
   return ( <Box sx={{ mb: variant === 'compact' ? 2 : 3 }}> {breadcrumbs.length > 0 && ( <Breadcrumbs separator={<NavigateNext fontSize="small" />} sx={{ mb: 1 }}> {breadcrumbs.map((crumb, index) => ( crumb.href ? ( <Link key={index} color="inherit" component={RouterLink} to={crumb.href} sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}> {crumb.icon && <crumb.icon sx={{ mr: 0.5, fontSize: 'inherit', verticalAlign: 'bottom' }} />} {crumb.label} </Link> ) : ( <Typography key={index} color="text.primary" sx={{ display: 'flex', alignItems: 'center' }}> {crumb.icon && <crumb.icon sx={{ mr: 0.5, fontSize: 'inherit', verticalAlign: 'bottom' }} />} {crumb.label} </Typography> ) ))} </Breadcrumbs> )} <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: variant === 'compact' ? 'center' : 'flex-start', flexWrap: 'wrap', gap: 2, }}> <Box sx={{ display: 'flex', alignItems: 'center', gap: backButton ? 1 : 2, flexGrow: 1 }}> {backButton && ( <Tooltip title="Voltar"> <IconButton onClick={handleBack} sx={{ mr: variant === 'compact' ? 0.5 : 1 }}> <ArrowBack /> </IconButton> </Tooltip> )} <Box sx={{ flexGrow: 1 }}> <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}> <Typography variant={variant === 'compact' ? 'h5' : 'h4'} component="h1" sx={{ fontWeight: 600 }}> {title} </Typography> {status && <StatusChip status={status} type={statusType} showIcon={true} />} </Box> {subtitle && ( <Typography variant="subtitle1" color="text.secondary" sx={{ mt: 0.5 }}> {subtitle} </Typography> )} </Box> </Box> {actions.length > 0 && ( <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}> {actions.map((action, index) => ( <Button key={index} variant={action.variant || 'contained'} color={action.color || 'primary'} startIcon={action.icon} onClick={action.onClick} disabled={action.disabled} size={variant === 'compact' ? 'small' : 'medium'} sx={action.sx} > {action.label} </Button> ))} </Box> )} </Box> <Divider sx={{ mt: variant === 'compact' ? 1.5 : 2.5, mb: variant === 'compact' ? 1.5 : 2.5 }} /> </Box> );
 };
@@ -265,7 +267,8 @@ export const PageSkeleton = ({ showStats = true, tableRows = 6 }) => ( <Box sx={
 export const EmptyState = ({ icon: IconComponent = Assignment, title = "Nenhum item encontrado", description, actionLabel, onAction, variant = 'default', size = 'medium' }) => { const iconSizes = { small: 40, medium: 56, large: 72 }; const paddingY = { small: 2, medium: 4, large: 6 }; return ( <Box sx={{ textAlign: 'center', py: paddingY[size], px: 2, borderRadius: 1, bgcolor: 'grey.50', border: '1px dashed', borderColor: 'grey.300' }}> <IconComponent sx={{ fontSize: iconSizes[size], color: 'text.disabled', mb: 1.5 }} /> <Typography variant={size === 'large' ? 'h5' : 'h6'} gutterBottom color="text.secondary" sx={{ fontWeight: 500 }} > {title} </Typography> {description && ( <Typography variant="body2" color="text.secondary" sx={{ mb: actionLabel && onAction ? 2.5 : 0, maxWidth: 380, mx: 'auto' }} > {description} </Typography> )} {actionLabel && onAction && ( <Button variant="contained" onClick={onAction} startIcon={<Add />} size={size === 'small' ? 'small' : 'medium'} > {actionLabel} </Button> )} </Box> ); };
 export const DataTable = ({ data = [], columns = [], loading = false, pagination = null, onPageChange = () => {}, onRowsPerPageChange = () => {}, onSort = null, sortBy = null, sortOrder = 'asc', onRowClick = null, onActionMenuClick = null, emptyState = null, stickyHeader = true, size = 'medium' }) => { if (loading && data.length === 0) { return <TableSkeleton rows={pagination?.rowsPerPage || 5} columns={columns.length} />; } return ( <TableContainer component={Paper} elevation={2}> <Table stickyHeader={stickyHeader} size={size}> <TableHead> <TableRow sx={{ '& th': { bgcolor: 'grey.100' }}}> {columns.map((column) => ( <TableCell key={column.id} align={column.align || 'left'} style={{ minWidth: column.minWidth }} sortDirection={sortBy === column.id ? sortOrder : false} > <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}> {column.label} </Typography> </TableCell> ))} {onActionMenuClick && <TableCell align="right" sx={{ width: 50, pr:1 }}>Ações</TableCell>} </TableRow> </TableHead> <TableBody> {data.length === 0 ? ( <TableRow> <TableCell colSpan={columns.length + (onActionMenuClick ? 1 : 0)} sx={{ textAlign: 'center', py: 6 }}> {emptyState || ( <EmptyState title="Nenhum dado encontrado" description="Não há itens para exibir no momento." size="small" /> )} </TableCell> </TableRow> ) : ( data.map((row, index) => ( <TableRow hover key={row.id || `row-${index}`} onClick={onRowClick ? () => onRowClick(row) : undefined} sx={{ cursor: onRowClick ? 'pointer' : 'default', '&:last-child td, &:last-child th': { border: 0 } }} > {columns.map((column) => ( <TableCell key={column.id} align={column.align || 'left'}> {column.render ? column.render(row) : (row[column.id] === undefined || row[column.id] === null ? '-' : row[column.id])} </TableCell> ))} {onActionMenuClick && ( <TableCell align="right" sx={{pr:1}}> <IconButton size="small" onClick={(e) => { e.stopPropagation(); onActionMenuClick(e, row); }} > <MoreVert /> </IconButton> </TableCell> )} </TableRow> )) )} </TableBody> </Table> {pagination && pagination.total > 0 && ( <TablePagination rowsPerPageOptions={pagination.rowsPerPageOptions || [5, 10, 25, 50]} component="div" count={pagination.total || 0} rowsPerPage={pagination.rowsPerPage || 10} page={pagination.page || 0} onPageChange={(event, newPage) => onPageChange(newPage)} onRowsPerPageChange={(event) => onRowsPerPageChange(parseInt(event.target.value, 10))} labelRowsPerPage="Itens por pág:" labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count !== -1 ? count : `mais de ${to}`}` } showFirstButton showLastButton /> )} </TableContainer> ); };
 export const GenericDataView = ({ title, subtitle, createButtonLabel, onCreateNew, data = [], loading = false, error = null, totalElements = 0, page = 0, rowsPerPage = 10, onPageChange, onRowsPerPageChange, searchTerm = '', onSearchChange, searchPlaceholder = "Buscar...", filters = [], columns = [], onRowClick, onActionMenuClick, emptyState, actions = [], showCreateFab = true, showStats = false, stats = {}, onRefresh }) => { const handleSearchChange = (event) => { if (onSearchChange) onSearchChange(event.target.value); }; const renderStats = () => { if (!showStats || !stats || Object.keys(stats).length === 0) return null; return ( <Grid container spacing={2} sx={{ mb: 3 }}> {Object.entries(stats).map(([key, { value, label, color = 'primary', icon: StatIcon }]) => ( <Grid item xs={12} sm={6} md={3} key={key}> <Card elevation={1} sx={{ textAlign: 'center', bgcolor: `${color}.50` }}> <CardContent sx={{ py: 2 }}> {StatIcon && <StatIcon sx={{ fontSize: 32, color: `${color}.main`, mb: 0.5 }} />} <Typography variant="h4" color={`${color}.main`} sx={{ fontWeight: 700 }}> {value} </Typography> <Typography variant="body2" color="text.secondary"> {label} </Typography> </CardContent> </Card> </Grid> ))} </Grid> ); }; if (error && !loading) { return ( <Container> <PageHeader title={title} subtitle={subtitle} backButton={true} /> <Alert severity="error" sx={{ mt: 2 }} action={ onRefresh && <Button color="inherit" size="small" onClick={onRefresh}>TENTAR NOVAMENTE</Button> }> {error} </Alert> </Container> ); } return ( <Container maxWidth="lg"> <PageHeader title={title} subtitle={subtitle} backButton={true} actions={[ ...(actions || []), ...(onCreateNew && !showCreateFab ? [{ label: createButtonLabel || 'Criar Novo', variant: 'contained', icon: <Add />, onClick: onCreateNew }] : []) ]} /> {renderStats()} <Card elevation={1} sx={{ p: 2, mb: 3 }}> <Grid container spacing={2} alignItems="center"> <Grid item xs={12} md={filters.length > 0 ? 6 : 12}> <TextField fullWidth variant="outlined" placeholder={searchPlaceholder} value={searchTerm} onChange={handleSearchChange} InputProps={{ startAdornment: ( <InputAdornment position="start"> <Search /> </InputAdornment> ), }} /> </Grid> {filters.map((filter, index) => ( <Grid item xs={12} sm={6} md={filters.length > 1 ? 3 : 6} key={filter.id || index}> <TextField select={filter.type === 'select'} fullWidth variant="outlined" label={filter.label} value={filter.value} onChange={filter.onChange} > {filter.type === 'select' && filter.options?.map(option => ( <MenuItem key={option.value} value={option.value}> {option.label} </MenuItem> ))} </TextField> </Grid> ))} </Grid> </Card> {loading && data.length === 0 ? ( <TableSkeleton rows={rowsPerPage} columns={columns.length}/> ) : ( <DataTable data={data} columns={columns} loading={loading} pagination={{ total: totalElements, page, rowsPerPage, rowsPerPageOptions: [5, 10, 25, 50] }} onPageChange={onPageChange} onRowsPerPageChange={onRowsPerPageChange} onRowClick={onRowClick} onActionMenuClick={onActionMenuClick} emptyState={emptyState} /> )} {showCreateFab && onCreateNew && ( <Tooltip title={createButtonLabel || 'Criar Novo'}> <Fab color="primary" aria-label="add" sx={{ position: 'fixed', bottom: {xs: 72, sm: 24}, right: 24 }} onClick={onCreateNew} > <Add /> </Fab> </Tooltip> )} </Container> ); };
-export const NotificationBell = () => { const navigate = useNavigate(); const { notifications = [], summary = { unreadCount: 0, hasUrgent: false }, markAsRead, } = useContext(global.NotificationContext || React.createContext({ notifications: [], summary: { unreadCount: 0, hasUrgent: false }, markAsRead: () => {} })); const [anchorEl, setAnchorEl] = useState(null); const open = Boolean(anchorEl); const handleClick = (event) => setAnchorEl(event.currentTarget); const handleClose = () => setAnchorEl(null); const handleNotificationClick = (notification) => { if (!notification.read) { markAsRead(notification.id); } if (notification.actionUrl) { navigate(notification.actionUrl); } handleClose(); }; const getBellIcon = () => { const hasUrgent = summary.hasUrgent; return hasUrgent ? <NotificationsActive color="error" /> : <Notifications />; }; const getBadgeColor = () => { if (summary.hasUrgent) return 'error'; if (summary.unreadCount > 0) return 'primary'; return 'default'; }; return ( <> <Tooltip title={`${summary.unreadCount || 0} notificações não lidas`}> <IconButton color="inherit" onClick={handleClick}> <Badge badgeContent={summary.unreadCount || 0} color={getBadgeColor()} max={99}> {getBellIcon()} </Badge> </IconButton> </Tooltip> <Popover open={open} anchorEl={anchorEl} onClose={handleClose} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }} PaperProps={{ sx: { width: {xs: '90%', sm: 380}, maxHeight: 500, mt: 1.5, borderRadius: '8px', boxShadow: 3 } }} > <Paper elevation={0}> <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}> <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}> <Typography variant="h6">Notificações</Typography> <Tooltip title="Configurações de Notificação"> <IconButton size="small" onClick={() => { navigate('/settings/notifications'); handleClose(); }}> <SettingsIcon fontSize="small" /> </IconButton> </Tooltip> </Box> </Box> <Box sx={{ maxHeight: 320, overflow: 'auto' }}> {notifications.length === 0 ? ( <Box sx={{ p: 3, textAlign: 'center' }}> <Notifications sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} /> <Typography variant="body2" color="text.secondary"> Nenhuma notificação por aqui. </Typography> </Box> ) : ( <List sx={{ p: 0 }}> {notifications.slice(0, 10).map((notification) => ( <React.Fragment key={notification.id}> <ListItem button onClick={() => handleNotificationClick(notification)} sx={{ bgcolor: notification.read ? 'transparent' : 'action.hover', borderLeft: `4px solid ${getPriorityColor(notification.priority)}`, my: 0.5, mx:1, width: 'calc(100% - 16px)', borderRadius: '4px' }} > <ListItemAvatar sx={{minWidth: 40}}> <Avatar sx={{ bgcolor: getPriorityColor(notification.priority), width: 32, height: 32, fontSize: '1rem' }}> {getNotificationIcon(notification.type)} </Avatar> </ListItemAvatar> <ListItemText primary={ <Typography variant="subtitle2" sx={{fontWeight: notification.read ? 400: 600}} noWrap> {notification.title} </Typography> } secondary={ <Box> <Typography variant="body2" color="text.secondary" noWrap> {notification.message} </Typography> <Typography variant="caption" color="text.secondary"> {formatTimeAgo(notification.createdAt)} </Typography> </Box> } /> {notification.actionUrl && ( <Tooltip title="Abrir"> <IconButton size="small" edge="end" sx={{ml:1}} onClick={(e) => {e.stopPropagation(); handleNotificationClick(notification);}}> <Launch fontSize="small"/> </IconButton> </Tooltip> )} </ListItem> </React.Fragment> ))} </List> )} </Box> {notifications.length > 0 && ( <Box sx={{ p: 1, borderTop: '1px solid', borderColor: 'divider', textAlign: 'center' }}> <Button fullWidth size="small" onClick={() => { navigate('/notifications'); handleClose(); }}> Ver todas as notificações </Button> </Box> )} </Paper> </Popover> </> ); };
+
+// NotificationBell component is MOVED to components/common/NotificationBell.jsx
 
 export const createPage = ({ 
   title, 
@@ -282,7 +285,6 @@ export const createPage = ({
     const { currentUser } = useContext(AuthContext);
     
     const actualNavigate = useNavigate(); 
-    console.log(`[PageInstance for ${title}] Hook useNavigate() invocado. Valor de actualNavigate:`, actualNavigate);
 
     const memoizedFetchFn = useCallback((...args) => {
       if (service && fetchFunctionName && typeof service[fetchFunctionName] === 'function') {
@@ -290,7 +292,7 @@ export const createPage = ({
       }
       console.error(`[PageInstance for ${title}] fetchFunctionName '${fetchFunctionName}' não encontrado ou não é uma função no service:`, service);
       return Promise.resolve({ content: [], totalElements: 0, totalPages: 0 });
-    }, [service, fetchFunctionName]);
+    }, [service, fetchFunctionName, title]); // Added title to dep array for better error messages
     
     const initialMainFilterValue = defaultFilters.find(f => f.isMainFilter)?.defaultValue || 
                                  (defaultFilters.find(f => f.type === 'select')?.defaultValue || 'ALL');
@@ -298,7 +300,7 @@ export const createPage = ({
     const { 
       data, loading, page, size, total, search, filter, error, sortBy, sortOrder,
       setPage, setSize, setSearch, setFilter, reload, setSortBy, setSortOrder 
-    } = useData(memoizedFetchFn, initialMainFilterValue, []); // Removido [service, fetchFunctionName] de initialDeps pois já são deps de memoizedFetchFn
+    } = useData(memoizedFetchFn, initialMainFilterValue, []);
     
     const [actionMenuAnchorEl, setActionMenuAnchorEl] = useState(null);
     const [selectedItemForAction, setSelectedItemForAction] = useState(null);
@@ -321,14 +323,12 @@ export const createPage = ({
     };
     
     const openConfirmation = (item, actionFn, dialogOptions) => {
-        // setSelectedItemForAction(item); // selectedItemForAction já é definido por onActionMenuClick
         setConfirmDialogProps({
             title: dialogOptions.title || `Confirmar Ação`,
             message: dialogOptions.message || `Você tem certeza que deseja executar esta ação em "${item?.title || item?.name || item?.id}"?`,
             onConfirm: async () => {
                 setConfirmDialogOpen(false);
                 await actionFn(item); 
-                // reload(); // Ação específica deve chamar reload se necessário
             },
             variant: dialogOptions.variant || 'danger',
             confirmText: dialogOptions.confirmText || 'Confirmar'
@@ -342,7 +342,13 @@ export const createPage = ({
             item,
             async (itemToDelete) => {
                 try {
-                    await (service.deleteDocument?.(itemToDelete.id) || service.delete?.(itemToDelete.id));
+                    // Check if specific delete function (like deleteDocument) exists, otherwise use generic delete
+                    const deleteFn = service.deleteDocument || service.delete;
+                    if (typeof deleteFn !== 'function') {
+                        toast.error('Função de exclusão não implementada no serviço.');
+                        return;
+                    }
+                    await deleteFn(itemToDelete.id);
                     toast.success(`"${itemToDelete.title || itemToDelete.name || itemToDelete.id}" excluído com sucesso.`);
                     reload(); 
                 } catch (deleteError) {
@@ -360,11 +366,13 @@ export const createPage = ({
     };
     
     const availableRowActions = selectedItemForAction 
-      ? rowActions(selectedItemForAction, { navigate: actualNavigate, handleDelete: handleDeleteAction, currentUser, openConfirmation }) 
+      ? rowActions(selectedItemForAction, { navigate: actualNavigate, handleDelete: handleDeleteAction, currentUser, openConfirmation, reload }) // Added reload to utils
       : [];
 
-    const mainFilter = defaultFilters.find(f => f.isMainFilter) || defaultFilters.find(f => f.type === 'select');
+    const mainFilterConfig = defaultFilters.find(f => f.isMainFilter) || defaultFilters.find(f => f.type === 'select');
     const searchFilterConfig = defaultFilters.find(f => f.type === 'search');
+    const otherFilters = defaultFilters.filter(f => f !== mainFilterConfig && f !== searchFilterConfig);
+
 
     return (
       <Container maxWidth="lg" sx={{pb:4}}>
@@ -372,20 +380,20 @@ export const createPage = ({
           title={title}
           subtitle={pageSubtitle}
           actions={createPath ? [{
-              label: createPath.label || "Novo",
+              label: typeof createPath === 'string' ? "Novo" : (createPath.label || "Novo"),
               variant: 'contained', icon: <Add />,
-              onClick: () => actualNavigate(createPath.path || createPath)
+              onClick: () => actualNavigate(typeof createPath === 'string' ? createPath : (createPath.path || '/'))
             }] : []
           }
-          onBackClick={() => actualNavigate(-1)}
-          backButton={true}
+          onBackClick={pageSubtitle ? () => actualNavigate(-1) : undefined } // Back button only if subtitle (meaning it's not a top-level page)
+          backButton={!!pageSubtitle} // Show back button if there is a subtitle
         />
 
-        {(searchFilterConfig || mainFilter) && (
+        {(searchFilterConfig || mainFilterConfig || otherFilters.length > 0) && (
           <Card elevation={1} sx={{ p: 2, mb: 3 }}>
             <Grid container spacing={2} alignItems="center">
               {searchFilterConfig && (
-                <Grid item xs={12} md={mainFilter ? 7 : 12}>
+                <Grid item xs={12} md={mainFilterConfig || otherFilters.length > 0 ? 6 : 12}>
                   <TextField
                     fullWidth variant="outlined" 
                     placeholder={searchFilterConfig.placeholder || "Buscar..."}
@@ -395,24 +403,42 @@ export const createPage = ({
                   />
                 </Grid>
               )}
-              {mainFilter && (
-                <Grid item xs={12} md={searchFilterConfig ? 5 : 12}>
+              {mainFilterConfig && (
+                <Grid item xs={12} md={searchFilterConfig || otherFilters.length > 0 ? (otherFilters.length > 0 ? 3 : 6) : 12}>
                   <TextField
                     select fullWidth variant="outlined"
-                    label={mainFilter.label} value={filter}
+                    label={mainFilterConfig.label} value={filter}
                     onChange={(e) => setFilter(e.target.value)}
                   >
-                    {mainFilter.options?.map(option => (
+                    {mainFilterConfig.options?.map(option => (
                       <MenuItem key={option.value} value={option.value}> {option.label} </MenuItem>
                     ))}
                   </TextField>
                 </Grid>
               )}
+              {otherFilters.map((f, index) => (
+                 <Grid item xs={12} sm={6} md={3} key={f.id || `other-filter-${index}`}>
+                     <TextField
+                        select={f.type === 'select'}
+                        fullWidth
+                        variant="outlined"
+                        label={f.label}
+                        value={f.value || ''} // Ensure value is controlled
+                        onChange={f.onChange}
+                        InputLabelProps={f.type === 'date' ? { shrink: true } : {}}
+                        type={f.type === 'date' ? 'date' : undefined}
+                     >
+                        {f.type === 'select' && f.options?.map(option => (
+                            <MenuItem key={option.value} value={option.value}> {option.label} </MenuItem>
+                        ))}
+                     </TextField>
+                 </Grid>
+              ))}
             </Grid>
           </Card>
         )}
         
-        {error && !loading && <Alert severity="error" sx={{mb:2}}>{error}</Alert>}
+        {error && !loading && <Alert severity="error" sx={{mb:2}} action={ <Button color="inherit" size="small" onClick={reload}>TENTAR NOVAMENTE</Button> }>{error}</Alert>}
 
         <DataTable
           data={data} columns={columns} loading={loading}
@@ -420,11 +446,14 @@ export const createPage = ({
           onPageChange={setPage}
           onRowsPerPageChange={(newPageSize) => { setSize(newPageSize); setPage(0); }}
           onRowClick={(item) => {
-             const actionsForItem = rowActions(item, { navigate: actualNavigate, handleDelete: handleDeleteAction, currentUser, openConfirmation });
+             const actionsForItem = rowActions(item, { navigate: actualNavigate, handleDelete: handleDeleteAction, currentUser, openConfirmation, reload });
              const viewAction = actionsForItem.find(act => act.isDefaultView === true || (typeof act.isDefaultView === 'function' && act.isDefaultView(item)));
+             
              if (viewAction && typeof viewAction.onClick === 'function') {
                 viewAction.onClick(item);
-             } else if(createPath && typeof createPath !== 'string' && createPath.viewPath) { // Fallback para viewPath se não houver ação de visualização no menu
+             } else if(createPath && typeof createPath !== 'string' && createPath.viewPath && item.id) { 
+                actualNavigate(createPath.viewPath.replace(':id', item.id));
+             } else if (typeof createPath === 'object' && createPath.viewPath && item.id) { // Check explicit viewPath
                 actualNavigate(createPath.viewPath.replace(':id', item.id));
              }
           }}
@@ -433,8 +462,8 @@ export const createPage = ({
             <EmptyState
               title={`Nenhum ${title.toLowerCase()} encontrado`}
               description="Tente ajustar os filtros ou crie um novo item."
-              actionLabel={createPath ? (createPath.label || "Criar Novo") : null}
-              onAction={createPath ? () => actualNavigate(createPath.path || createPath) : null}
+              actionLabel={createPath ? (typeof createPath === 'string' ? "Criar Novo" : (createPath.label || "Criar Novo")) : null}
+              onAction={createPath ? () => actualNavigate(typeof createPath === 'string' ? createPath : (createPath.path || '/')) : null}
             />
           }
         />
@@ -474,7 +503,7 @@ export const createPage = ({
             message={confirmDialogProps.message}
             confirmText={confirmDialogProps.confirmText || "Confirmar"}
             variant={confirmDialogProps.variant || 'danger'}
-            loading={loading}
+            loading={loading} // Pass a relevant loading state, e.g. a specific one for the dialog action
         />
       </Container>
     );
@@ -492,6 +521,7 @@ export default {
   useData, usePaginatedData,
   StatusChip, LoadingButton, ConfirmDialog, PageHeader,
   TableSkeleton, PageSkeleton, EmptyState, DataTable,
-  GenericDataView, NotificationBell,
+  GenericDataView,
+  // NotificationBell, // MOVED
   createPage
 };

@@ -21,8 +21,10 @@ import RegistrationDetails from './pages/admin/RegistrationDetails';
 
 // Student Pages
 import MyDocuments from './pages/student/MyDocuments';
-import DocumentEditor from './pages/student/DocumentEditor';
+// import DocumentEditor from './pages/student/DocumentEditor'; // Comentado ou removido
+import DocumentEditorWithCollaborators from './pages/student/DocumentEditorWithCollaborators'; // Importado
 import DocumentCompare from './pages/student/DocumentCompare';
+import DocumentView from './pages/student/DocumentView'; // Adicionado para visualização, se necessário
 
 // Advisor Pages
 import MyStudents from './pages/advisor/MyStudents';
@@ -70,8 +72,10 @@ function App() {
               <Route path="student" element={<StudentRoute />}>
                 <Route index element={<Navigate to="documents" replace />} />
                 <Route path="documents" element={<MyDocuments />} />
-                <Route path="documents/new" element={<DocumentEditor />} />
-                <Route path="documents/:id" element={<DocumentEditor />} />
+                {/* Rotas de edição e visualização de documentos de estudante atualizadas */}
+                <Route path="documents/new" element={<DocumentEditorWithCollaborators />} />
+                <Route path="documents/:id" element={<DocumentEditorWithCollaborators />} />
+                <Route path="documents/:id/view" element={<DocumentView />} /> {/* Rota para visualização dedicada, se necessário */}
                 <Route path="documents/:id/compare" element={<DocumentCompare />} />
                 <Route path="documents/:id/compare/:v1/:v2" element={<DocumentCompare />} />
               </Route>
@@ -81,7 +85,7 @@ function App() {
                 <Route index element={<Navigate to="documents" replace />} />
                 <Route path="students" element={<MyStudents />} />
                 <Route path="documents" element={<AdvisingDocuments />} />
-                <Route path="documents/:id" element={<DocumentReview />} />
+                <Route path="documents/:id" element={<DocumentReview />} /> 
                 <Route path="documents/:id/review" element={<DocumentReview />} />
               </Route>
             </Route>

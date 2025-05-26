@@ -1,4 +1,3 @@
-// Arquivo: scrs/src/components/common/NotificationBell.jsx
 import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -8,18 +7,16 @@ import {
 import {
   Settings as SettingsIcon, Launch, Notifications, NotificationsActive
 } from '@mui/icons-material';
-import { NotificationContext } from '../../context/NotificationContext'; // Ensure this path is correct
-import { getNotificationIcon, getPriorityColor, formatTimeAgo } from '../../utils'; // Ensure this path is correct
+import { NotificationContext } from '../../context/NotificationContext';
+import { getNotificationIcon, getPriorityColor, formatTimeAgo } from '../../utils';
 
 export const NotificationBell = () => {
   const navigate = useNavigate();
-  
-  // CORRECTED LINE: Directly use the imported NotificationContext
   const {
     notifications = [],
     summary = { unreadCount: 0, hasUrgent: false },
     markAsRead,
-  } = useContext(NotificationContext); // This is likely around line 22 referenced in the error
+  } = useContext(NotificationContext);
 
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
@@ -69,7 +66,7 @@ export const NotificationBell = () => {
             mt: 1.5,
             borderRadius: '8px',
             boxShadow: 3,
-            overflow: 'hidden' 
+            overflow: 'hidden' // Prevent content from overflowing Paper
           }
         }}
       >
@@ -85,7 +82,7 @@ export const NotificationBell = () => {
             </Box>
           </Box>
 
-          <Box sx={{ flexGrow: 1, overflowY: 'auto', maxHeight: 320 }}>
+          <Box sx={{ flexGrow: 1, overflowY: 'auto', maxHeight: 320 }}> {/* Scrollable area */}
             {notifications.length === 0 ? (
               <Box sx={{ p: 3, textAlign: 'center' }}>
                 <Notifications sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} />
@@ -105,7 +102,7 @@ export const NotificationBell = () => {
                         borderLeft: `4px solid ${getPriorityColor(notification.priority) || 'transparent'}`,
                         my: 0.5,
                         mx: 1,
-                        width: 'calc(100% - 16px)', 
+                        width: 'calc(100% - 16px)', // Adjust width for padding
                         borderRadius: '4px',
                         '&:hover': {
                             bgcolor: notification.read ? 'action.selected' : 'action.focus'
@@ -157,7 +154,7 @@ export const NotificationBell = () => {
           </Box>
           
           {notifications.length > 0 && (
-            <Box sx={{ p: 1, borderTop: '1px solid', borderColor: 'divider', textAlign: 'center', mt: 'auto' }}>
+            <Box sx={{ p: 1, borderTop: '1px solid', borderColor: 'divider', textAlign: 'center', mt: 'auto' }}> {/* Push to bottom */}
               <Button fullWidth size="small" onClick={() => { navigate('/notifications'); handleClose(); }}>
                 Ver todas as notificações
               </Button>
@@ -169,4 +166,4 @@ export const NotificationBell = () => {
   );
 };
 
-export default NotificationBell;
+export default NotificationBell; // Default export
