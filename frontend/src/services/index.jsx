@@ -1,25 +1,22 @@
-// src/services/index.js - SERVICES CONSOLIDADOS
+// services/index.js - SERVICES CONSOLIDADOS E OTIMIZADOS
 import axios from 'axios';
 
-// API CONFIGURAÇÃO CONSOLIDADA
+// API CONFIGURAÇÃO
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
-  timeout: parseInt(import.meta.env.VITE_API_TIMEOUT) || 30000,
+  timeout: 30000,
   headers: { 'Content-Type': 'application/json' }
 });
 
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) config.headers.Authorization = `Bearer ${token}`;
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+api.interceptors.request.use(config => {
+  const token = localStorage.getItem('token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
+  response => response,
+  error => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       window.location.href = '/login';
@@ -28,238 +25,127 @@ api.interceptors.response.use(
   }
 );
 
-// FACTORY PARA CRIAR SERVICES PADRONIZADOS
-const createService = (baseEndpoint) => ({
-  create: async (data) => {
-    const response = await api.post(baseEndpoint, data);
-    return response.data;
-  },
-  
-  get: async (id) => {
-    const response = await api.get(`${baseEndpoint}/${id}`);
-    return response.data;
-  },
-  
-  update: async (id, data) => {
-    const response = await api.put(`${baseEndpoint}/${id}`, data);
-    return response.data;
-  },
-  
-  delete: async (id) => {
-    await api.delete(`${baseEndpoint}/${id}`);
-    return { success: true };
-  },
-  
-  list: async (params = {}) => {
-    const response = await api.get(baseEndpoint, { params });
-    return response.data;
-  }
+// FACTORY PARA SERVICES PADRONIZADOS
+const createService = (endpoint) => ({
+  create: async (data) => (await api.post(endpoint, data)).data,
+  get: async (id) => (await api.get(`${endpoint}/${id}`)).data,
+  update: async (id, data) => (await api.put(`${endpoint}/${id}`, data)).data,
+  delete: async (id) => { await api.delete(`${endpoint}/${id}`); return { success: true }; },
+  list: async (params = {}) => (await api.get(endpoint, { params })).data
 });
 
-// AUTH SERVICE CONSOLIDADO
+// SERVICES ESPECÍFICOS
 export const authService = {
-  login: async (email, password) => {
-    const response = await api.post('/auth/login', { email, password });
-    return response.data;
-  },
-
-  register: async (userData) => {
-    const response = await api.post('/auth/register', userData);
-    return response.data;
-  },
-
+  login: async (email, password) => (await api.post('/auth/login', { email, password })).data,
+  register: async (userData) => (await api.post('/auth/register', userData)).data,
   logout: () => localStorage.removeItem('token'),
-  isAuthenticated: () => !!localStorage.getItem('token'),
-  getToken: () => localStorage.getItem('token')
+  isAuthenticated: () => !!localStorage.getItem('token')
 };
 
-// DOCUMENT SERVICE CONSOLIDADO
 export const documentService = {
   ...createService('/documents'),
   
-  createDocument: async (documentData) => {
-    if (!documentData.title?.trim()) throw new Error('Título é obrigatório');
-    if (!documentData.studentId) throw new Error('ID do estudante é obrigatório');
-    if (!documentData.advisorId) throw new Error('Orientador é obrigatório');
-    
-    const response = await api.post('/documents', documentData);
-    return response.data;
+  createDocument: async (data) => {
+    if (!data.title?.trim() || !data.studentId || !data.advisorId) 
+      throw new Error('Campos obrigatórios: título, estudante e orientador');
+    return (await api.post('/documents', data)).data;
   },
   
-  getDocument: async (id) => {
-    if (!id) throw new Error('ID inválido');
-    const response = await api.get(`/documents/${id}`);
-    return response.data;
+  getMyDocumentsPaged: async (page = 0, size = 10, search = '', status = 'ALL', sort = 'updatedAt', order = 'desc') => {
+    const params = new URLSearchParams({ page, size, sort: `${sort},${order}` });
+    if (search) params.append('searchTerm', search);
+    if (status !== 'ALL') params.append('status', status);
+    return (await api.get(`/documents/student?${params}`)).data;
   },
   
-  getMyDocumentsPaged: async (page = 0, size = 10, searchTerm = '', statusFilter = 'ALL', sortBy = 'updatedAt', sortOrder = 'desc') => {
-    const params = new URLSearchParams({
-      page, size, sort: `${sortBy},${sortOrder}`
-    });
-    if (searchTerm) params.append('searchTerm', searchTerm);
-    if (statusFilter && statusFilter !== 'ALL') params.append('status', statusFilter);
-    
-    const response = await api.get(`/documents/student?${params.toString()}`);
-    return response.data;
-  },
-  
-  getMyAdvisingDocumentsPaged: async (page = 0, size = 10, searchTerm = '', statusFilter = 'ALL', sortBy = 'updatedAt', sortOrder = 'desc') => {
-    const params = new URLSearchParams({
-      page, size, sort: `${sortBy},${sortOrder}`
-    });
-    if (searchTerm) params.append('searchTerm', searchTerm);
-    if (statusFilter && statusFilter !== 'ALL') params.append('status', statusFilter);
-
-    const response = await api.get(`/documents/advisor?${params.toString()}`);
-    return response.data;
-  },
-  
-  updateDocument: async (id, documentData) => {
-    if (!id) throw new Error('ID inválido');
-    const response = await api.put(`/documents/${id}`, documentData);
-    return response.data;
+  getMyAdvisingDocumentsPaged: async (page = 0, size = 10, search = '', status = 'ALL', sort = 'updatedAt', order = 'desc') => {
+    const params = new URLSearchParams({ page, size, sort: `${sort},${order}` });
+    if (search) params.append('searchTerm', search);
+    if (status !== 'ALL') params.append('status', status);
+    return (await api.get(`/documents/advisor?${params}`)).data;
   },
   
   changeStatus: async (id, status, reason = null) => {
-    if (!id || !status?.trim()) throw new Error('ID e status são obrigatórios');
     const payload = reason ? { reason } : {};
-    const response = await api.put(`/documents/${id}/status/${status}`, payload);
-    return response.data;
-  },
-  
-  deleteDocument: async (id) => {
-    if (!id) throw new Error('ID inválido');
-    await api.delete(`/documents/${id}`);
-    return { success: true };
+    return (await api.put(`/documents/${id}/status/${status}`, payload)).data;
   }
 };
 
-// VERSION SERVICE CONSOLIDADO
 export const versionService = {
   ...createService('/versions'),
-  
-  createVersion: async (versionData) => {
-    const response = await api.post('/versions', versionData);
-    return response.data;
-  },
-  
-  getVersion: async (id) => {
-    const response = await api.get(`/versions/${id}`);
-    return response.data;
-  },
-  
-  getVersionsByDocument: async (documentId) => {
-    const response = await api.get(`/versions/document/${documentId}`);
-    return response.data;
-  },
-  
-  getDiffBetweenVersions: async (v1Id, v2Id) => {
-    const response = await api.get(`/versions/diff/${v1Id}/${v2Id}`);
-    return response.data;
-  }
+  getVersionsByDocument: async (docId) => (await api.get(`/versions/document/${docId}`)).data,
+  getDiffBetweenVersions: async (v1, v2) => (await api.get(`/versions/diff/${v1}/${v2}`)).data
 };
 
-// COMMENT SERVICE CONSOLIDADO
 export const commentService = {
   ...createService('/comments'),
-  
-  createComment: async (commentData) => {
-    const response = await api.post('/comments', commentData);
-    return response.data;
-  },
-  
-  getCommentsByVersion: async (versionId) => {
-    const response = await api.get(`/comments/version/${versionId}`);
-    return response.data;
-  },
-  
-  resolveComment: async (id) => {
-    const response = await api.put(`/comments/${id}/resolve`);
-    return response.data;
-  }
+  getCommentsByVersion: async (versionId) => (await api.get(`/comments/version/${versionId}`)).data,
+  resolveComment: async (id) => (await api.put(`/comments/${id}/resolve`)).data
 };
 
-// USER SERVICE CONSOLIDADO
 export const userService = {
   ...createService('/users'),
-  
-  getApprovedAdvisors: async () => {
-    const response = await api.get('/users/advisors');
-    return response.data;
+  getApprovedAdvisors: async () => (await api.get('/users/advisors')).data,
+  getStudentsForCurrentAdvisorPaged: async (page = 0, size = 10, search = '') => {
+    const params = new URLSearchParams({ page, size });
+    if (search) params.append('search', search);
+    return (await api.get(`/users/my-students?${params}`)).data;
   }
 };
 
-// ADMIN SERVICE CONSOLIDADO
+export const collaboratorService = {
+  getDocumentCollaborators: async (docId) => (await api.get(`/documents/${docId}/collaborators`)).data,
+  addCollaborator: async (docId, data) => (await api.post(`/documents/${docId}/collaborators`, data)).data,
+  removeCollaborator: async (docId, collabId) => { await api.delete(`/documents/${docId}/collaborators/${collabId}`); return { success: true }; },
+  updatePermissions: async (docId, collabId, permission) => (await api.put(`/documents/${docId}/collaborators/${collabId}/permissions`, permission)).data,
+  updateRole: async (docId, collabId, role) => (await api.put(`/documents/${docId}/collaborators/${collabId}/role`, role)).data,
+  searchUsers: async (query, role = null, excludeDocId = null) => {
+    const params = new URLSearchParams();
+    if (query) params.append('search', query);
+    if (role) params.append('role', role);
+    if (excludeDocId) params.append('excludeDocument', excludeDocId);
+    return (await api.get(`/users/search/collaborators?${params}`)).data;
+  },
+  getCurrentUserPermissions: async (docId) => {
+    try {
+      return (await api.get(`/documents/${docId}/my-permissions`)).data;
+    } catch {
+      const docData = await api.get(`/documents/${docId}`);
+      return {
+        canRead: true,
+        canWrite: docData?.data?.canEdit || false,
+        canManage: docData?.data?.canManageCollaborators || false
+      };
+    }
+  }
+};
+
 export const adminService = {
   ...createService('/admin'),
-  
-  getPendingRegistrations: async (page = 0, size = 10) => {
-    const response = await api.get(`/admin/registrations?page=${page}&size=${size}`);
-    return response.data;
-  },
-  
-  getRegistrationDetails: async (id) => {
-    const response = await api.get(`/admin/registrations/${id}`);
-    return response.data;
-  },
-  
-  approveRegistration: async (id, adminNotes = '') => {
-    const response = await api.put(`/admin/registrations/${id}/approve`, { adminNotes });
-    return response.data;
-  },
-  
-  rejectRegistration: async (id, rejectionReason) => {
-    if (!rejectionReason) throw new Error('Motivo da rejeição é obrigatório');
-    const response = await api.put(`/admin/registrations/${id}/reject`, { rejectionReason });
-    return response.data;
-  },
-  
+  getPendingRegistrations: async (page = 0, size = 10) => (await api.get(`/admin/registrations?page=${page}&size=${size}`)).data,
+  approveRegistration: async (id, notes = '') => (await api.put(`/admin/registrations/${id}/approve`, { adminNotes: notes })).data,
+  rejectRegistration: async (id, reason) => (await api.put(`/admin/registrations/${id}/reject`, { rejectionReason: reason })).data,
   getDashboardStats: async () => {
     try {
-      const response = await api.get('/admin/stats');
-      return response.data;
-    } catch (error) {
+      return (await api.get('/admin/stats')).data;
+    } catch {
       return { totalUsers: 0, totalStudents: 0, totalAdvisors: 0, pendingRegistrations: 0 };
     }
   }
 };
 
-// NOTIFICATION SERVICE CONSOLIDADO
 export const notificationService = {
   ...createService('/notifications'),
-  
-  getNotificationSummary: async () => {
-    const response = await api.get('/notifications/summary');
-    return response.data;
-  },
-
-  getUnreadNotifications: async () => {
-    const response = await api.get('/notifications/unread');
-    return response.data;
-  },
-
-  getAllNotifications: async (page = 0, size = 20) => {
-    const response = await api.get(`/notifications?page=${page}&size=${size}`);
-    return response.data;
-  },
-
-  markAsRead: async (notificationId) => {
-    await api.put(`/notifications/${notificationId}/read`);
-  },
-
-  markAllAsRead: async () => {
-    await api.put('/notifications/read-all');
-  },
-
-  deleteNotification: async (notificationId) => {
-    await api.delete(`/notifications/${notificationId}`);
-  },
-
+  getNotificationSummary: async () => (await api.get('/notifications/summary')).data,
+  getUnreadNotifications: async () => (await api.get('/notifications/unread')).data,
+  getAllNotifications: async (page = 0, size = 20) => (await api.get(`/notifications?page=${page}&size=${size}`)).data,
+  markAsRead: async (id) => await api.put(`/notifications/${id}/read`),
+  markAllAsRead: async () => await api.put('/notifications/read-all'),
+  deleteNotification: async (id) => await api.delete(`/notifications/${id}`),
   getNotificationSettings: async () => {
     try {
-      const response = await api.get('/notifications/settings');
-      return response.data;
-    } catch (error) {
+      return (await api.get('/notifications/settings')).data;
+    } catch {
       return {
         emailEnabled: true, emailDocumentUpdates: true, emailComments: true, emailApprovals: true,
         browserEnabled: true, browserDocumentUpdates: true, browserComments: true, browserApprovals: true,
@@ -267,16 +153,11 @@ export const notificationService = {
       };
     }
   },
-
-  updateNotificationSettings: async (settings) => {
-    const response = await api.put('/notifications/settings', settings);
-    return response.data;
-  }
+  updateNotificationSettings: async (settings) => (await api.put('/notifications/settings', settings)).data
 };
 
-// EXPORTS
 export { api };
 export default {
   api, authService, documentService, versionService, 
-  commentService, userService, adminService, notificationService
+  commentService, userService, collaboratorService, adminService, notificationService
 };
