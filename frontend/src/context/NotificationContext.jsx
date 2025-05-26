@@ -1,5 +1,5 @@
 // Arquivo: scrs/src/context/NotificationContext.jsx
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 // import { Client } from '@stomp/stompjs'; // Previous import
 import * as StompJs from '@stomp/stompjs'; // Changed import
 import SockJS from 'sockjs-client';
@@ -229,7 +229,7 @@ export const NotificationProvider = ({ children }) => {
     }
   }, []); 
 
-  const deleteNotification = async (notificationId) => {
+  const deleteNotification = useCallback(async (notificationId) => {
     try {
       await notificationService.deleteNotification(notificationId); //
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
@@ -240,9 +240,9 @@ export const NotificationProvider = ({ children }) => {
       console.error('Erro deletar notificação:', error);
       toast.error("Falha ao deletar.");
     }
-  };
+  }, []);
 
-  const updateSettings = async (newSettings) => {
+  const updateSettings = useCallback(async (newSettings) => {
     try {
       const updatedSettings = await notificationService.updateNotificationSettings(newSettings); //
       setSettings(updatedSettings);
@@ -253,9 +253,9 @@ export const NotificationProvider = ({ children }) => {
       toast.error("Falha ao salvar configurações.");
       throw error;
     }
-  };
+  }, []);
 
-  const requestNotificationPermission = async () => {
+  const requestNotificationPermission = useCallback(async () => {
     if (!('Notification' in window)) {
       toast.warn("Seu navegador não suporta notificações desktop.");
       return false;
@@ -273,7 +273,7 @@ export const NotificationProvider = ({ children }) => {
       toast.error("Erro ao solicitar permissão.");
       return false;
     }
-  };
+  }, []);
 
   const loadAllHistoricalNotifications = useCallback(async (page = 0, size = 20) => {
     try {
@@ -289,15 +289,38 @@ export const NotificationProvider = ({ children }) => {
     }
   }, []);
 
+  const contextValue = useMemo(() => ({
+    notifications, 
+    unreadCount, 
+    summary, 
+    settings, 
+    loading, 
+    connected,
+    markAsRead, 
+    markAllAsRead, 
+    deleteNotification, 
+    updateSettings, 
+    loadInitialData, 
+    loadAllHistoricalNotifications, 
+    requestNotificationPermission
+  }), [
+    notifications, 
+    unreadCount, 
+    summary, 
+    settings, 
+    loading, 
+    connected,
+    markAsRead, 
+    markAllAsRead, 
+    deleteNotification, 
+    updateSettings, 
+    loadInitialData, 
+    loadAllHistoricalNotifications, 
+    requestNotificationPermission
+  ]);
 
   return (
-    <NotificationContext.Provider value={{
-      notifications, unreadCount, summary, settings, loading, connected,
-      markAsRead, markAllAsRead, deleteNotification, updateSettings, 
-      loadInitialData, 
-      loadAllHistoricalNotifications, 
-      requestNotificationPermission
-    }}>
+    <NotificationContext.Provider value={contextValue}>
       {children}
     </NotificationContext.Provider>
   );
