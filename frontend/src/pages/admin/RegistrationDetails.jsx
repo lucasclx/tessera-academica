@@ -8,7 +8,7 @@ import {
 } from '@mui/material';
 import { CheckCircle, Cancel } from '@mui/icons-material';
 import { toast } from 'react-toastify';
-import moment from 'moment';
+import { format } from 'date-fns';
 import { adminService } from "../../services";
 
 const RegistrationDetails = () => {
@@ -137,7 +137,7 @@ const RegistrationDetails = () => {
                 <Grid item xs={12}>
                   <Typography variant="subtitle1">Data de Cadastro:</Typography>
                   <Typography variant="body1">
-                    {moment(registration.user.registrationDate).format('DD/MM/YYYY HH:mm')}
+                    {format(new Date(registration.user.registrationDate), 'dd/MM/yyyy HH:mm')}
                   </Typography>
                 </Grid>
               </Grid>
