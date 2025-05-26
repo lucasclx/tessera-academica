@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -8,32 +8,32 @@ import MainLayout from './components/layout/MainLayout';
 import { PrivateRoute, AdminRoute, AdvisorRoute, StudentRoute } from './components/common';
 
 // Auth Pages
-import Login from './pages/auth/Login';
-import Register from './pages/auth/Register';
+const Login = lazy(() => import('./pages/auth/Login'));
+const Register = lazy(() => import('./pages/auth/Register'));
 
 // Dashboard
-import Dashboard from './pages/dashboard/Dashboard';
+const Dashboard = lazy(() => import('./pages/dashboard/Dashboard'));
 
 // Admin Pages
-import AdminDashboard from './pages/admin/AdminDashboard';
-import PendingRegistrations from './pages/admin/PendingRegistrations';
-import RegistrationDetails from './pages/admin/RegistrationDetails';
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const PendingRegistrations = lazy(() => import('./pages/admin/PendingRegistrations'));
+const RegistrationDetails = lazy(() => import('./pages/admin/RegistrationDetails'));
 
 // Student Pages
-import MyDocuments from './pages/student/MyDocuments';
-// import DocumentEditor from './pages/student/DocumentEditor'; // Comentado ou removido
-import DocumentEditorWithCollaborators from './pages/student/DocumentEditorWithCollaborators'; // Importado
-import DocumentCompare from './pages/student/DocumentCompare';
-import DocumentView from './pages/student/DocumentView'; // Adicionado para visualização, se necessário
+const MyDocuments = lazy(() => import('./pages/student/MyDocuments'));
+// const DocumentEditor = lazy(() => import('./pages/student/DocumentEditor')); // Comentado ou removido
+const DocumentEditorWithCollaborators = lazy(() => import('./pages/student/DocumentEditorWithCollaborators')); // Importado
+const DocumentCompare = lazy(() => import('./pages/student/DocumentCompare'));
+const DocumentView = lazy(() => import('./pages/student/DocumentView')); // Adicionado para visualização, se necessário
 
 // Advisor Pages
-import MyStudents from './pages/advisor/MyStudents';
-import AdvisingDocuments from './pages/advisor/AdvisingDocuments';
-import DocumentReview from './pages/advisor/DocumentReview';
+const MyStudents = lazy(() => import('./pages/advisor/MyStudents'));
+const AdvisingDocuments = lazy(() => import('./pages/advisor/AdvisingDocuments'));
+const DocumentReview = lazy(() => import('./pages/advisor/DocumentReview'));
 
 // Notification Pages
-import NotificationsPage from './pages/notifications/NotificationsPage';
-import NotificationSettings from './pages/settings/NotificationSettings';
+const NotificationsPage = lazy(() => import('./pages/notifications/NotificationsPage'));
+const NotificationSettings = lazy(() => import('./pages/settings/NotificationSettings'));
 
 function App() {
   return (
@@ -49,9 +49,10 @@ function App() {
             theme="light"
           />
           
-          <Routes>
-            {/* Rotas Públicas */}
-            <Route path="/login" element={<Login />} />
+          <Suspense fallback={<div>Loading...</div>}>
+            <Routes>
+              {/* Rotas Públicas */}
+              <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
 
             {/* Rotas Privadas */}
@@ -90,8 +91,9 @@ function App() {
               </Route>
             </Route>
 
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </Suspense>
         </Router>
       </NotificationProvider>
     </AuthProvider>
