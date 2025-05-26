@@ -1,12 +1,14 @@
+// Arquivo: scrs/src/context/NotificationContext.jsx
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { Client } from '@stomp/stompjs';
+// import { Client } from '@stomp/stompjs'; // Previous import
+import * as StompJs from '@stomp/stompjs'; // Changed import
 import SockJS from 'sockjs-client';
 import { toast } from 'react-toastify';
-import { notificationService } from '../services';
-import { AuthContext } from './AuthContext';
-import { APP_CONFIG, getNotificationIcon, getPriorityColor } from '../utils';
+import { notificationService } from '../services'; //
+import { AuthContext } from './AuthContext'; //
+import { APP_CONFIG, getNotificationIcon, getPriorityColor } from '../utils'; //
 
-export const NotificationContext = createContext(); // MODIFIED: Added export
+export const NotificationContext = createContext(null); // MODIFIED: Added explicit null
 
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
@@ -20,7 +22,7 @@ export const NotificationProvider = ({ children }) => {
   const { currentUser, isAuthenticated } = useContext(AuthContext);
   
   const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0); // Kept for direct use if needed
+  const [unreadCount, setUnreadCount] = useState(0); 
   const [summary, setSummary] = useState({
     unreadCount: 0, totalCount: 0, hasUrgent: false,
     documentsCount: 0, commentsCount: 0, approvalsCount: 0
@@ -36,12 +38,12 @@ export const NotificationProvider = ({ children }) => {
     try {
       setLoading(true);
       const [unreadData, summaryData, settingsData] = await Promise.all([
-        notificationService.getUnreadNotifications(),
-        notificationService.getNotificationSummary(),
-        notificationService.getNotificationSettings()
+        notificationService.getUnreadNotifications(), //
+        notificationService.getNotificationSummary(), //
+        notificationService.getNotificationSettings() //
       ]);
       
-      setNotifications(unreadData || []); // Ensure it's an array
+      setNotifications(unreadData || []); 
       setSummary(summaryData || { unreadCount: 0, totalCount: 0, hasUrgent: false, documentsCount: 0, commentsCount: 0, approvalsCount: 0 });
       setUnreadCount(summaryData?.unreadCount || 0);
       setSettings(settingsData);
@@ -56,17 +58,18 @@ export const NotificationProvider = ({ children }) => {
   }, [isAuthenticated, currentUser]);
 
   const setupWebSocket = useCallback(() => {
-    if (!isAuthenticated || !currentUser || stompClient?.active || !APP_CONFIG.features.enableWebSocket) return;
+    if (!isAuthenticated || !currentUser || stompClient?.active || !APP_CONFIG.features.enableWebSocket) return; //
 
     const token = localStorage.getItem('token');
     if (!token) return;
 
     try {
-      const client = new Client({
-        webSocketFactory: () => new SockJS(APP_CONFIG.api.websocketUrl),
+      // Use StompJs.Client here
+      const client = new StompJs.Client({ // MODIFIED LINE
+        webSocketFactory: () => new SockJS(APP_CONFIG.api.websocketUrl), //
         connectHeaders: {
           Authorization: `Bearer ${token}`,
-          Login: currentUser.email // Ensure 'Login' header matches backend expectation if any
+          Login: currentUser.email 
         },
         reconnectDelay: 10000,
         heartbeatIncoming: 4000,
@@ -85,10 +88,9 @@ export const NotificationProvider = ({ children }) => {
             const newSummary = JSON.parse(message.body);
             console.log('[WebSocket] Resumo recebido:', newSummary);
             setSummary(newSummary);
-            setUnreadCount(newSummary.unreadCount); // Update unreadCount from summary
+            setUnreadCount(newSummary.unreadCount); 
           });
 
-          // Optionally reload initial data if it wasn't loaded or if notifications list is empty
           if (notifications.length === 0 && summary.totalCount === 0) {
             loadInitialData();
           }
@@ -110,15 +112,15 @@ export const NotificationProvider = ({ children }) => {
       client.activate();
       setStompClient(client);
     } catch (error) {
-      console.error('Erro ao configurar WebSocket:', error);
+      console.error('Erro ao configurar WebSocket:', error); 
       setConnected(false);
     }
-  }, [isAuthenticated, currentUser, stompClient, APP_CONFIG.features.enableWebSocket, APP_CONFIG.api.websocketUrl, loadInitialData, notifications.length, summary.totalCount]); // Added stompClient and APP_CONFIG parts to dependencies
+  }, [isAuthenticated, currentUser, stompClient, APP_CONFIG.features.enableWebSocket, APP_CONFIG.api.websocketUrl, loadInitialData, notifications.length, summary.totalCount]); //
 
   useEffect(() => {
     if (isAuthenticated && currentUser) {
       loadInitialData();
-      setupWebSocket();
+      setupWebSocket(); 
     } else {
       if (stompClient?.active) {
         stompClient.deactivate();
@@ -130,7 +132,6 @@ export const NotificationProvider = ({ children }) => {
       setSettings(null);
       setConnected(false);
     }
-    // Cleanup function for when the component unmounts or dependencies change
     return () => {
       if (stompClient?.active) {
         stompClient.deactivate();
@@ -143,11 +144,8 @@ export const NotificationProvider = ({ children }) => {
   const handleNewNotification = (notification) => {
     const processedNotification = { ...notification, isNew: true, createdAt: notification.createdAt || new Date().toISOString() };
     
-    setNotifications(prev => [processedNotification, ...prev.slice(0, 49)]); // Keep max 50 notifications
+    setNotifications(prev => [processedNotification, ...prev.slice(0, 49)]); 
     
-    // It's better to rely on the summary from the backend if available,
-    // but if not, update optimistically or fetch new summary.
-    // For now, we'll update based on the new notification and expect summary to come via WebSocket.
     setUnreadCount(prev => prev + 1);
     if (notification.priority === 'URGENT') {
       setSummary(prev => ({ ...prev, hasUrgent: true, unreadCount: prev.unreadCount +1, totalCount: prev.totalCount + 1}));
@@ -157,7 +155,7 @@ export const NotificationProvider = ({ children }) => {
 
 
     if (settings?.browserEnabled && shouldShowNotification(notification)) {
-      const icon = getNotificationIcon(notification.type);
+      const icon = getNotificationIcon(notification.type); //
       const displayTitle = `${icon} ${notification.title}`;
 
       const toastMap = {
@@ -179,7 +177,7 @@ export const NotificationProvider = ({ children }) => {
         try {
           new Notification(notification.title, {
             body: notification.message,
-            icon: '/logo192.png', // Ensure this icon exists in your public folder
+            icon: '/logo192.png', 
             tag: notification.id?.toString()
           });
         } catch (error) {
@@ -191,11 +189,11 @@ export const NotificationProvider = ({ children }) => {
 
   const shouldShowNotification = (notification) => {
     if (!settings?.browserEnabled) return false;
-    const type = notification.type?.toString() || ""; // Ensure type is a string
+    const type = notification.type?.toString() || ""; 
     if (type.includes('DOCUMENT') || type.includes('VERSION')) return settings.browserDocumentUpdates !== false;
     if (type.includes('COMMENT')) return settings.browserComments !== false;
     if (type.includes('APPROVED') || type.includes('REJECTED')) return settings.browserApprovals !== false;
-    return true; // Default to show if no specific category matches or if setting is undefined (true by default)
+    return true; 
   };
 
   const getAutoCloseTime = (priority) => {
@@ -205,40 +203,37 @@ export const NotificationProvider = ({ children }) => {
 
   const markAsRead = useCallback(async (notificationId) => {
     try {
-      await notificationService.markAsRead(notificationId);
+      await notificationService.markAsRead(notificationId); //
       setNotifications(prev => 
         prev.map(n => n.id === notificationId ? { ...n, read: true, isNew: false } : n)
       );
-      // Fetch new summary after marking as read
-      const newSummary = await notificationService.getNotificationSummary();
+      const newSummary = await notificationService.getNotificationSummary(); //
       setSummary(newSummary);
       setUnreadCount(newSummary.unreadCount);
     } catch (error) {
       console.error('Erro marcar como lida:', error);
       toast.error("Falha ao marcar como lida.");
     }
-  }, []); // Removed summary from deps to avoid loop, summary is updated via API call
+  }, []); 
 
   const markAllAsRead = useCallback(async () => {
     try {
-      await notificationService.markAllAsRead();
+      await notificationService.markAllAsRead(); //
       setNotifications(prev => prev.map(n => ({ ...n, read: true, isNew: false })));
-      // Fetch new summary after marking all as read
-      const newSummary = await notificationService.getNotificationSummary();
+      const newSummary = await notificationService.getNotificationSummary(); //
       setSummary(newSummary);
       setUnreadCount(newSummary.unreadCount);
     } catch (error) {
       console.error('Erro marcar todas como lidas:', error);
       toast.error("Falha ao marcar todas como lidas.");
     }
-  }, []); // Removed summary from deps
+  }, []); 
 
   const deleteNotification = async (notificationId) => {
     try {
-      await notificationService.deleteNotification(notificationId);
+      await notificationService.deleteNotification(notificationId); //
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
-      // Fetch new summary after deleting
-      const newSummary = await notificationService.getNotificationSummary();
+      const newSummary = await notificationService.getNotificationSummary(); //
       setSummary(newSummary);
       setUnreadCount(newSummary.unreadCount);
     } catch (error) {
@@ -249,7 +244,7 @@ export const NotificationProvider = ({ children }) => {
 
   const updateSettings = async (newSettings) => {
     try {
-      const updatedSettings = await notificationService.updateNotificationSettings(newSettings);
+      const updatedSettings = await notificationService.updateNotificationSettings(newSettings); //
       setSettings(updatedSettings);
       toast.success("Configurações salvas!");
       return updatedSettings;
@@ -281,17 +276,14 @@ export const NotificationProvider = ({ children }) => {
   };
 
   const loadAllHistoricalNotifications = useCallback(async (page = 0, size = 20) => {
-    // This function is for fetching all notifications for a dedicated page,
-    // not for the unread list in the bell.
     try {
       setLoading(true);
-      const data = await notificationService.getAllNotifications(page, size);
-      // This should set a different state if 'notifications' is just for the bell dropdown
+      const data = await notificationService.getAllNotifications(page, size); //
       return data; 
     } catch (error) {
       console.error('Erro carregar histórico:', error);
       toast.error("Falha ao carregar histórico de notificações.");
-      throw error; // Rethrow for the caller to handle
+      throw error; 
     } finally {
       setLoading(false);
     }
@@ -302,8 +294,8 @@ export const NotificationProvider = ({ children }) => {
     <NotificationContext.Provider value={{
       notifications, unreadCount, summary, settings, loading, connected,
       markAsRead, markAllAsRead, deleteNotification, updateSettings, 
-      loadInitialData, // Expose this if needed for manual refresh elsewhere
-      loadAllHistoricalNotifications, // For the dedicated notifications page
+      loadInitialData, 
+      loadAllHistoricalNotifications, 
       requestNotificationPermission
     }}>
       {children}

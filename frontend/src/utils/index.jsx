@@ -31,7 +31,7 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext } from '../context/AuthContext'; //
 
 // ============================================================================
 // CONSTANTES E CONFIGURAÇÕES CONSOLIDADAS
@@ -52,11 +52,11 @@ export const STATUS_CONFIG = {
   INACTIVE: { label: 'Inativo', color: 'default', icon: Person }, 
   
   // Notification Priorities - mapping to status-like display
-  LOW: { label: 'Baixa', color: 'info', icon: Notifications }, // Using Notifications as a generic icon
+  LOW: { label: 'Baixa', color: 'info', icon: Notifications }, 
   NORMAL: { label: 'Normal', color: 'primary', icon: NotificationsActive },
   HIGH: { label: 'Alta', color: 'warning', icon: Warning },
   URGENT: { label: 'Urgente', color: 'error', icon: Schedule }
-};
+}; //
 
 export const NOTIFICATION_TYPES = {
   DOCUMENT_CREATED: 'DOCUMENT_CREATED',
@@ -79,7 +79,7 @@ export const NOTIFICATION_TYPES = {
   DEADLINE_APPROACHING: 'DEADLINE_APPROACHING',
   DEADLINE_OVERDUE: 'DEADLINE_OVERDUE',
   TASK_ASSIGNED: 'TASK_ASSIGNED'
-};
+}; //
 
 export const APP_CONFIG = {
   api: {
@@ -95,7 +95,7 @@ export const APP_CONFIG = {
     enableNotifications: import.meta.env.VITE_ENABLE_NOTIFICATIONS !== 'false',
     enableWebSocket: import.meta.env.VITE_ENABLE_WEBSOCKET !== 'false'
   }
-};
+}; //
 
 // ============================================================================
 // UTILITY FUNCTIONS CONSOLIDADAS
@@ -116,7 +116,7 @@ export const formatTimeAgo = (dateString) => {
   const diffInDays = Math.floor(diffInHours / 24);
   if (diffInDays < 7) return `${diffInDays} dia${diffInDays > 1 ? 's' : ''} atrás`;
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-};
+}; //
 
 export const getNotificationIcon = (type) => {
   const icons = {
@@ -126,30 +126,27 @@ export const getNotificationIcon = (type) => {
     DEADLINE_APPROACHING: '⏰', DEADLINE_OVERDUE: '🚨', TASK_ASSIGNED: '📋', DEFAULT: '📢' 
   };
   return icons[type] || icons.DEFAULT;
-};
+}; //
 
 export const getPriorityColor = (priority) => {
-  const config = STATUS_CONFIG[priority]; // Check if priority matches a key in STATUS_CONFIG
+  const config = STATUS_CONFIG[priority]; //
   if (config && config.color) {
       return config.color;
   }
-  // Fallback for general priority strings not directly in STATUS_CONFIG as main keys
   const colors = { LOW: 'info', NORMAL: 'primary', HIGH: 'warning', URGENT: 'error' };
-  return colors[priority] || 'default'; // Return MUI color string
-};
+  return colors[priority] || 'default'; 
+}; //
 
 export const getStatusConfig = (statusKey, type = 'document') => {
-  // Try to find a direct match in STATUS_CONFIG first
-  const directMatch = STATUS_CONFIG[statusKey];
+  const directMatch = STATUS_CONFIG[statusKey]; //
   if (directMatch) {
     return directMatch;
   }
-  // Fallback for unknown status or specific types not directly in STATUS_CONFIG
-  if (type === 'user' && statusKey === true) return STATUS_CONFIG['APPROVED']; // Assuming true means approved for users
-  if (type === 'user' && statusKey === false) return STATUS_CONFIG['INACTIVE']; // Assuming false means inactive
+  if (type === 'user' && statusKey === true) return STATUS_CONFIG['APPROVED']; //
+  if (type === 'user' && statusKey === false) return STATUS_CONFIG['INACTIVE']; //
 
   return { label: statusKey?.toString() || 'Desconhecido', color: 'default', icon: <Info /> };
-};
+}; //
 
 export const renderMarkdownContent = (text) => {
   if (text === null || text === undefined || text.trim() === '') { return <Typography color="textSecondary" sx={{p: 2, fontStyle: 'italic'}}>Conteúdo não disponível ou vazio.</Typography>; }
@@ -165,15 +162,15 @@ export const renderMarkdownContent = (text) => {
   if (!html.endsWith('</p>') && !html.endsWith('</h1>') && !html.endsWith('</h2>') && !html.endsWith('</h3>') && !html.endsWith('</ul>') && !html.endsWith('</ol>')) { html += '</p>'; }
   html = html.replace(/<\/ul>\s*<ul.*?>/g, '').replace(/<\/ol>\s*<ol.*?>/g, '');
   return <div dangerouslySetInnerHTML={{ __html: html }} />;
-};
+}; //
 
 export const getTableColumns = (type) => {
   const configs = {
-    studentDocuments: [ { id: 'title', label: 'Título', render: (row) => ( <Box> <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 500 }}> {row.title || "Sem Título"} </Typography> <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 250, display: 'block' }}> {row.description || "Sem descrição"} </Typography> </Box> ) }, { id: 'status', label: 'Status', render: (row) => <StatusChip status={row.status} /> }, { id: 'advisorName', label: 'Orientador', render: (row) => row.advisorName || 'Não definido' }, { id: 'updatedAt', label: 'Atualizado em', render: (row) => row.updatedAt ? format(new Date(row.updatedAt), 'dd/MM/yy HH:mm') : '-' }, { id: 'versionCount', label: 'Versões', align: 'center', render: (row) => <Chip label={row.versionCount || 0} size="small" /> } ],
-    advisorDocuments: [ { id: 'title', label: 'Título', render: (row) => ( <Box> <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 500 }}> {row.title || "Sem Título"} </Typography> <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 250, display: 'block' }}> {row.description || "Sem descrição"} </Typography> </Box> ) }, { id: 'studentName', label: 'Estudante', render: (row) => ( <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}> <Avatar sx={{ width: 32, height: 32, fontSize: '0.875rem', bgcolor: 'primary.light' }}> {row.studentName ? row.studentName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : '?'} </Avatar> <Typography variant="body2">{row.studentName || "Desconhecido"}</Typography> </Box> ) }, { id: 'status', label: 'Status', render: (row) => <StatusChip status={row.status} /> }, { id: 'updatedAt', label: 'Submetido/Atualizado', render: (row) => row.submittedAt ? format(new Date(row.submittedAt), 'dd/MM/yy HH:mm') : (row.updatedAt ? format(new Date(row.updatedAt), 'dd/MM/yy HH:mm') : '-') } ],
-    pendingRegistrations: [ { id: 'user', label: 'Usuário Solicitante', render: (item) => ( <Box> <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 500 }}> {item.user?.name || "Nome Indisponível"} </Typography> <Typography variant="caption" color="text.secondary"> {item.user?.email || "Email Indisponível"} </Typography> </Box> ) }, { id: 'role', label: 'Papel Solicitado', render: (item) => { const roleName = item.user?.roles?.[0]?.name; const roleConfig = getStatusConfig(roleName, 'role'); return <Chip label={roleConfig.label} color={roleConfig.color} size="small" icon={roleConfig.icon && typeof roleConfig.icon === 'function' ? <roleConfig.icon fontSize="small"/> : roleConfig.icon}/>; } }, { id: 'institution', label: 'Instituição', render: (item) => item.institution || "Não Informada" }, { id: 'createdAt', label: 'Data da Solicitação', render: (item) => item.createdAt ? format(new Date(item.createdAt), 'dd/MM/yy HH:mm') : '-' } ]
+    studentDocuments: [ { id: 'title', label: 'Título', render: (row) => ( <Box> <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 500 }}> {row.title || "Sem Título"} </Typography> <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 250, display: 'block' }}> {row.description || "Sem descrição"} </Typography> </Box> ) }, { id: 'status', label: 'Status', render: (row) => <StatusChip status={row.status} /> }, { id: 'advisorName', label: 'Orientador', render: (row) => row.advisorName || 'Não definido' }, { id: 'updatedAt', label: 'Atualizado em', render: (row) => row.updatedAt ? format(new Date(row.updatedAt), 'dd/MM/yy HH:mm') : '-' }, { id: 'versionCount', label: 'Versões', align: 'center', render: (row) => <Chip label={row.versionCount || 0} size="small" /> } ], //
+    advisorDocuments: [ { id: 'title', label: 'Título', render: (row) => ( <Box> <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 500 }}> {row.title || "Sem Título"} </Typography> <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 250, display: 'block' }}> {row.description || "Sem descrição"} </Typography> </Box> ) }, { id: 'studentName', label: 'Estudante', render: (row) => ( <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}> <Avatar sx={{ width: 32, height: 32, fontSize: '0.875rem', bgcolor: 'primary.light' }}> {row.studentName ? row.studentName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : '?'} </Avatar> <Typography variant="body2">{row.studentName || "Desconhecido"}</Typography> </Box> ) }, { id: 'status', label: 'Status', render: (row) => <StatusChip status={row.status} /> }, { id: 'updatedAt', label: 'Submetido/Atualizado', render: (row) => row.submittedAt ? format(new Date(row.submittedAt), 'dd/MM/yy HH:mm') : (row.updatedAt ? format(new Date(row.updatedAt), 'dd/MM/yy HH:mm') : '-') } ], //
+    pendingRegistrations: [ { id: 'user', label: 'Usuário Solicitante', render: (item) => ( <Box> <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 500 }}> {item.user?.name || "Nome Indisponível"} </Typography> <Typography variant="caption" color="text.secondary"> {item.user?.email || "Email Indisponível"} </Typography> </Box> ) }, { id: 'role', label: 'Papel Solicitado', render: (item) => { const roleName = item.user?.roles?.[0]?.name; const roleConfig = getStatusConfig(roleName, 'role'); return <Chip label={roleConfig.label} color={roleConfig.color} size="small" icon={roleConfig.icon && typeof roleConfig.icon === 'function' ? <roleConfig.icon fontSize="small"/> : roleConfig.icon}/>; } }, { id: 'institution', label: 'Instituição', render: (item) => item.institution || "Não Informada" }, { id: 'createdAt', label: 'Data da Solicitação', render: (item) => item.createdAt ? format(new Date(item.createdAt), 'dd/MM/yy HH:mm') : '-' } ] //
   };
-  return configs[type] || configs.studentDocuments;
+  return configs[type] || configs.studentDocuments; //
 };
 
 // ============================================================================
@@ -223,7 +220,7 @@ export const useData = (fetchFn, initialFilterValue = 'ALL', initialDeps = []) =
     } finally {
       setLoading(false);
     }
-  }, [page, size, search, filter, sortBy, sortOrder, fetchFn, ...initialDeps]); // fetchFn e initialDeps devem estar aqui
+  }, [page, size, search, filter, sortBy, sortOrder, fetchFn, ...initialDeps]); //
 
   useEffect(() => {load();}, [load]); 
 
@@ -231,17 +228,17 @@ export const useData = (fetchFn, initialFilterValue = 'ALL', initialDeps = []) =
     data, loading, page, size, total, search, filter, error, sortBy, sortOrder,
     setPage, setSize, setSearch, setFilter, reload: load, setSortBy, setSortOrder
   };
-};
+}; //
 
 export const usePaginatedData = ({ fetchFunction, initialPageSize = 10, initialFilter = 'ALL', dependencies = [] }) => {
-  return useData(fetchFunction, initialFilter, dependencies);
+  return useData(fetchFunction, initialFilter, dependencies); //
 };
 
 // ============================================================================
 // COMPONENTES UI CONSOLIDADOS
 // ============================================================================
 export const StatusChip = ({ status, type = 'document', variant = 'filled', size = 'small', showIcon = true, sx }) => {
-  const config = getStatusConfig(status, type);
+  const config = getStatusConfig(status, type); //
   const IconComponent = config.icon;
   let iconElement = undefined;
 
@@ -251,17 +248,57 @@ export const StatusChip = ({ status, type = 'document', variant = 'filled', size
     } else if (React.isValidElement(IconComponent)) {
       iconElement = IconComponent;
     }
-    // Se IconComponent for null ou outro tipo não tratável, iconElement permanece undefined.
   }
   return (<Chip icon={iconElement} label={config.label} color={config.color} variant={variant} size={size} sx={{ fontWeight: variant === 'filled' ? 500 : 400, ...sx }} />);
-};
+}; //
 
-export const LoadingButton = ({ loading = false, children, loadingText = "Carregando...", ...props }) => ( <Button {...props} disabled={loading || props.disabled} startIcon={loading ? <CircularProgress size={16} color="inherit" /> : props.startIcon}> {loading && loadingText ? loadingText : children} </Button> );
-export const ConfirmDialog = ({ open = false, onClose = () => {}, onConfirm = () => {}, title = "Confirmar ação", message = "Tem certeza que deseja continuar?", confirmText = "Confirmar", cancelText = "Cancelar", variant = 'default', loading = false }) => { const variants = { default: { icon: Info, color: 'primary', confirmColor: 'primary' }, danger: { icon: DeleteIcon, color: 'error', confirmColor: 'error'}, warning: { icon: Warning, color: 'warning', confirmColor: 'warning'}, success: { icon: CheckCircle, color: 'success', confirmColor: 'success'} }; const config = variants[variant] || variants.default; const IconComponent = config.icon; return ( <Dialog open={open} onClose={!loading ? onClose : undefined} maxWidth="sm" fullWidth PaperProps={{ elevation: 3 }}> <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, borderBottom: `1px solid #eee` }}> {typeof IconComponent === 'function' ? <IconComponent sx={{ color: `${config.color}.main` }} /> : IconComponent} {title} </DialogTitle> <DialogContent sx={{pt: '20px !important'}}> <Typography variant="body1">{message}</Typography> </DialogContent> <DialogActions sx={{ p: '16px 24px', gap: 1, borderTop: `1px solid #eee` }}> <Button onClick={onClose} disabled={loading} variant="outlined"> {cancelText} </Button> <LoadingButton onClick={onConfirm} loading={loading} variant="contained" color={config.confirmColor} loadingText="Processando..."> {confirmText} </LoadingButton> </DialogActions> </Dialog> ); };
+export const LoadingButton = ({ loading = false, children, loadingText = "Carregando...", ...props }) => ( <Button {...props} disabled={loading || props.disabled} startIcon={loading ? <CircularProgress size={16} color="inherit" /> : props.startIcon}> {loading && loadingText ? loadingText : children} </Button> ); //
+
+export const ConfirmDialog = ({ 
+  open = false, 
+  onClose = () => {}, 
+  onConfirm = () => {}, 
+  title = "Confirmar ação", 
+  message = "Tem certeza que deseja continuar?", 
+  confirmText = "Confirmar", 
+  cancelText = "Cancelar", 
+  variant = 'default', 
+  loading = false 
+}) => {
+  const variants = {
+    default: { icon: Info, color: 'primary', confirmColor: 'primary' },
+    danger: { icon: DeleteIcon, color: 'error', confirmColor: 'error' },
+    warning: { icon: Warning, color: 'warning', confirmColor: 'warning' },
+    success: { icon: CheckCircle, color: 'success', confirmColor: 'success' }
+  };
+  const config = variants[variant] || variants.default;
+  const IconComponent = config.icon;
+
+  return (
+    <Dialog open={open} onClose={!loading ? onClose : undefined} maxWidth="sm" fullWidth PaperProps={{ elevation: 3 }}>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, borderBottom: `1px solid #eee` }}>
+        {typeof IconComponent === 'function' ? <IconComponent sx={{ color: `${config.color}.main` }} /> : IconComponent}
+        {title || ''} {/* MODIFIED: Ensure title is at least an empty string */}
+      </DialogTitle>
+      <DialogContent sx={{pt: '20px !important'}}>
+        <Typography variant="body1">{message}</Typography>
+      </DialogContent>
+      <DialogActions sx={{ p: '16px 24px', gap: 1, borderTop: `1px solid #eee` }}>
+        <Button onClick={onClose} disabled={loading} variant="outlined">
+          {cancelText}
+        </Button>
+        <LoadingButton onClick={onConfirm} loading={loading} variant="contained" color={config.confirmColor} loadingText="Processando...">
+          {confirmText}
+        </LoadingButton>
+      </DialogActions>
+    </Dialog>
+  );
+}; //
+
 export const PageHeader = ({ title, subtitle, breadcrumbs = [], actions = [], backButton = false, status = null, statusType = 'document', variant = 'default', onBackClick }) => {
   const navigate = useNavigate();
   const handleBack = onBackClick || (() => navigate(-1));
-  return ( <Box sx={{ mb: variant === 'compact' ? 2 : 3 }}> {breadcrumbs.length > 0 && ( <Breadcrumbs separator={<NavigateNext fontSize="small" />} sx={{ mb: 1 }}> {breadcrumbs.map((crumb, index) => ( crumb.href ? ( <Link key={index} color="inherit" component={RouterLink} to={crumb.href} sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}> {crumb.icon && <crumb.icon sx={{ mr: 0.5, fontSize: 'inherit', verticalAlign: 'bottom' }} />} {crumb.label} </Link> ) : ( <Typography key={index} color="text.primary" sx={{ display: 'flex', alignItems: 'center' }}> {crumb.icon && <crumb.icon sx={{ mr: 0.5, fontSize: 'inherit', verticalAlign: 'bottom' }} />} {crumb.label} </Typography> ) ))} </Breadcrumbs> )} <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: variant === 'compact' ? 'center' : 'flex-start', flexWrap: 'wrap', gap: 2, }}> <Box sx={{ display: 'flex', alignItems: 'center', gap: backButton ? 1 : 2, flexGrow: 1 }}> {backButton && ( <Tooltip title="Voltar"> <IconButton onClick={handleBack} sx={{ mr: variant === 'compact' ? 0.5 : 1 }}> <ArrowBack /> </IconButton> </Tooltip> )} <Box sx={{ flexGrow: 1 }}> <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}> <Typography variant={variant === 'compact' ? 'h5' : 'h4'} component="h1" sx={{ fontWeight: 600 }}> {title} </Typography> {status && <StatusChip status={status} type={statusType} showIcon={true} />} </Box> {subtitle && ( <Typography variant="subtitle1" color="text.secondary" sx={{ mt: 0.5 }}> {subtitle} </Typography> )} </Box> </Box> {actions.length > 0 && ( <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}> {actions.map((action, index) => ( <Button key={index} variant={action.variant || 'contained'} color={action.color || 'primary'} startIcon={action.icon} onClick={action.onClick} disabled={action.disabled} size={variant === 'compact' ? 'small' : 'medium'} sx={action.sx} > {action.label} </Button> ))} </Box> )} </Box> <Divider sx={{ mt: variant === 'compact' ? 1.5 : 2.5, mb: variant === 'compact' ? 1.5 : 2.5 }} /> </Box> );
+  return ( <Box sx={{ mb: variant === 'compact' ? 2 : 3 }}> {breadcrumbs.length > 0 && ( <Breadcrumbs separator={<NavigateNext fontSize="small" />} sx={{ mb: 1 }}> {breadcrumbs.map((crumb, index) => ( crumb.href ? ( <Link key={index} color="inherit" component={RouterLink} to={crumb.href} sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}> {crumb.icon && <crumb.icon sx={{ mr: 0.5, fontSize: 'inherit', verticalAlign: 'bottom' }} />} {crumb.label} </Link> ) : ( <Typography key={index} color="text.primary" sx={{ display: 'flex', alignItems: 'center' }}> {crumb.icon && <crumb.icon sx={{ mr: 0.5, fontSize: 'inherit', verticalAlign: 'bottom' }} />} {crumb.label} </Typography> ) ))} </Breadcrumbs> )} <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: variant === 'compact' ? 'center' : 'flex-start', flexWrap: 'wrap', gap: 2, }}> <Box sx={{ display: 'flex', alignItems: 'center', gap: backButton ? 1 : 2, flexGrow: 1 }}> {backButton && ( <Tooltip title="Voltar"> <IconButton onClick={handleBack} sx={{ mr: variant === 'compact' ? 0.5 : 1 }}> <ArrowBack /> </IconButton> </Tooltip> )} <Box sx={{ flexGrow: 1 }}> <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}> <Typography variant={variant === 'compact' ? 'h5' : 'h4'} component="h1" sx={{ fontWeight: 600 }}> {title} </Typography> {status && <StatusChip status={status} type={statusType} showIcon={true} />} </Box> {subtitle && ( <Typography variant="subtitle1" color="text.secondary" sx={{ mt: 0.5 }}> {subtitle} </Typography> )} </Box> </Box> {actions.length > 0 && ( <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}> {actions.map((action, index) => ( <Button key={index} variant={action.variant || 'contained'} color={action.color || 'primary'} startIcon={action.icon} onClick={action.onClick} disabled={action.disabled} size={variant === 'compact' ? 'small' : 'medium'} sx={action.sx} > {action.label} </Button> ))} </Box> )} </Box> <Divider sx={{ mt: variant === 'compact' ? 1.5 : 2.5, mb: variant === 'compact' ? 1.5 : 2.5 }} /> </Box> ); //
 };
 
 export const TableSkeleton = ({ rows = 5, columns = 4, showAvatar = true }) => (
@@ -301,14 +338,14 @@ export const TableSkeleton = ({ rows = 5, columns = 4, showAvatar = true }) => (
       </TableBody>
     </Table>
   </TableContainer>
-);
+); //
 
-export const PageSkeleton = ({ showStats = true, tableRows = 6 }) => ( <Box sx={{ p: {xs: 2, md: 3}, maxWidth: 1200, mx: 'auto' }}> <Skeleton variant="text" width="30%" height={40} sx={{ mb: 0.5 }} /> <Skeleton variant="text" width="50%" height={20} sx={{ mb: 3 }} /> {showStats && ( <Grid container spacing={2} sx={{ mb: 3 }}> {Array.from({ length: 4 }).map((_, index) => ( <Grid item xs={12} sm={6} md={3} key={index}> <Card elevation={1}> <CardContent sx={{ textAlign: 'center', py: 2.5 }}> <Skeleton variant="text" width="50%" height={36} sx={{ mx: 'auto', mb: 0.5 }} /> <Skeleton variant="text" width="70%" height={18} sx={{ mx: 'auto' }} /> </CardContent> </Card> </Grid> ))} </Grid> )} <Skeleton variant="rounded" width="100%" height={56} sx={{ mb: 3, borderRadius: 1 }} /> <TableSkeleton rows={tableRows} columns={4} /> </Box> );
-export const EmptyState = ({ icon: IconComponent = Assignment, title = "Nenhum item encontrado", description, actionLabel, onAction, variant = 'default', size = 'medium' }) => { const iconSizes = { small: 40, medium: 56, large: 72 }; const paddingY = { small: 2, medium: 4, large: 6 }; return ( <Box sx={{ textAlign: 'center', py: paddingY[size], px: 2, borderRadius: 1, bgcolor: 'grey.50', border: '1px dashed', borderColor: 'grey.300' }}> <IconComponent sx={{ fontSize: iconSizes[size], color: 'text.disabled', mb: 1.5 }} /> <Typography variant={size === 'large' ? 'h5' : 'h6'} gutterBottom color="text.secondary" sx={{ fontWeight: 500 }} > {title} </Typography> {description && ( <Typography variant="body2" color="text.secondary" sx={{ mb: actionLabel && onAction ? 2.5 : 0, maxWidth: 380, mx: 'auto' }} > {description} </Typography> )} {actionLabel && onAction && ( <Button variant="contained" onClick={onAction} startIcon={<Add />} size={size === 'small' ? 'small' : 'medium'} > {actionLabel} </Button> )} </Box> ); };
+export const PageSkeleton = ({ showStats = true, tableRows = 6 }) => ( <Box sx={{ p: {xs: 2, md: 3}, maxWidth: 1200, mx: 'auto' }}> <Skeleton variant="text" width="30%" height={40} sx={{ mb: 0.5 }} /> <Skeleton variant="text" width="50%" height={20} sx={{ mb: 3 }} /> {showStats && ( <Grid container spacing={2} sx={{ mb: 3 }}> {Array.from({ length: 4 }).map((_, index) => ( <Grid item xs={12} sm={6} md={3} key={index}> <Card elevation={1}> <CardContent sx={{ textAlign: 'center', py: 2.5 }}> <Skeleton variant="text" width="50%" height={36} sx={{ mx: 'auto', mb: 0.5 }} /> <Skeleton variant="text" width="70%" height={18} sx={{ mx: 'auto' }} /> </CardContent> </Card> </Grid> ))} </Grid> )} <Skeleton variant="rounded" width="100%" height={56} sx={{ mb: 3, borderRadius: 1 }} /> <TableSkeleton rows={tableRows} columns={4} /> </Box> ); //
+export const EmptyState = ({ icon: IconComponent = Assignment, title = "Nenhum item encontrado", description, actionLabel, onAction, variant = 'default', size = 'medium' }) => { const iconSizes = { small: 40, medium: 56, large: 72 }; const paddingY = { small: 2, medium: 4, large: 6 }; return ( <Box sx={{ textAlign: 'center', py: paddingY[size], px: 2, borderRadius: 1, bgcolor: 'grey.50', border: '1px dashed', borderColor: 'grey.300' }}> <IconComponent sx={{ fontSize: iconSizes[size], color: 'text.disabled', mb: 1.5 }} /> <Typography variant={size === 'large' ? 'h5' : 'h6'} gutterBottom color="text.secondary" sx={{ fontWeight: 500 }} > {title} </Typography> {description && ( <Typography variant="body2" color="text.secondary" sx={{ mb: actionLabel && onAction ? 2.5 : 0, maxWidth: 380, mx: 'auto' }} > {description} </Typography> )} {actionLabel && onAction && ( <Button variant="contained" onClick={onAction} startIcon={<Add />} size={size === 'small' ? 'small' : 'medium'} > {actionLabel} </Button> )} </Box> ); }; //
 
 export const DataTable = ({ data = [], columns = [], loading = false, pagination = null, onPageChange = () => {}, onRowsPerPageChange = () => {}, onSort = null, sortBy = null, sortOrder = 'asc', onRowClick = null, onActionMenuClick = null, emptyState = null, stickyHeader = true, size = 'medium' }) => {
   if (loading && data.length === 0) {
-    return <TableSkeleton rows={pagination?.rowsPerPage || 5} columns={columns.length} />;
+    return <TableSkeleton rows={pagination?.rowsPerPage || 5} columns={columns.length} />; //
   }
   return (
     <TableContainer component={Paper} elevation={2}>
@@ -335,7 +372,7 @@ export const DataTable = ({ data = [], columns = [], loading = false, pagination
             <TableRow>
               <TableCell colSpan={columns.length + (onActionMenuClick ? 1 : 0)} sx={{ textAlign: 'center', py: 6 }}>
                 {emptyState || (
-                  <EmptyState title="Nenhum dado encontrado" description="Não há itens para exibir no momento." size="small" />
+                  <EmptyState title="Nenhum dado encontrado" description="Não há itens para exibir no momento." size="small" /> //
                 )}
               </TableCell>
             </TableRow>
@@ -381,9 +418,9 @@ export const DataTable = ({ data = [], columns = [], loading = false, pagination
       )}
     </TableContainer>
   );
-};
+}; //
 
-export const GenericDataView = ({ title, subtitle, createButtonLabel, onCreateNew, data = [], loading = false, error = null, totalElements = 0, page = 0, rowsPerPage = 10, onPageChange, onRowsPerPageChange, searchTerm = '', onSearchChange, searchPlaceholder = "Buscar...", filters = [], columns = [], onRowClick, onActionMenuClick, emptyState, actions = [], showCreateFab = true, showStats = false, stats = {}, onRefresh }) => { const handleSearchChange = (event) => { if (onSearchChange) onSearchChange(event.target.value); }; const renderStats = () => { if (!showStats || !stats || Object.keys(stats).length === 0) return null; return ( <Grid container spacing={2} sx={{ mb: 3 }}> {Object.entries(stats).map(([key, { value, label, color = 'primary', icon: StatIcon }]) => ( <Grid item xs={12} sm={6} md={3} key={key}> <Card elevation={1} sx={{ textAlign: 'center', bgcolor: `${color}.50` }}> <CardContent sx={{ py: 2 }}> {StatIcon && <StatIcon sx={{ fontSize: 32, color: `${color}.main`, mb: 0.5 }} />} <Typography variant="h4" color={`${color}.main`} sx={{ fontWeight: 700 }}> {value} </Typography> <Typography variant="body2" color="text.secondary"> {label} </Typography> </CardContent> </Card> </Grid> ))} </Grid> ); }; if (error && !loading) { return ( <Container> <PageHeader title={title} subtitle={subtitle} backButton={true} /> <Alert severity="error" sx={{ mt: 2 }} action={ onRefresh && <Button color="inherit" size="small" onClick={onRefresh}>TENTAR NOVAMENTE</Button> }> {error} </Alert> </Container> ); } return ( <Container maxWidth="lg"> <PageHeader title={title} subtitle={subtitle} backButton={true} actions={[ ...(actions || []), ...(onCreateNew && !showCreateFab ? [{ label: createButtonLabel || 'Criar Novo', variant: 'contained', icon: <Add />, onClick: onCreateNew }] : []) ]} /> {renderStats()} <Card elevation={1} sx={{ p: 2, mb: 3 }}> <Grid container spacing={2} alignItems="center"> <Grid item xs={12} md={filters.length > 0 ? 6 : 12}> <TextField fullWidth variant="outlined" placeholder={searchPlaceholder} value={searchTerm} onChange={handleSearchChange} InputProps={{ startAdornment: ( <InputAdornment position="start"> <Search /> </InputAdornment> ), }} /> </Grid> {filters.map((filter, index) => ( <Grid item xs={12} sm={6} md={filters.length > 1 ? 3 : 6} key={filter.id || index}> <TextField select={filter.type === 'select'} fullWidth variant="outlined" label={filter.label} value={filter.value} onChange={filter.onChange} > {filter.type === 'select' && filter.options?.map(option => ( <MenuItem key={option.value} value={option.value}> {option.label} </MenuItem> ))} </TextField> </Grid> ))} </Grid> </Card> {loading && data.length === 0 ? ( <TableSkeleton rows={rowsPerPage} columns={columns.length}/> ) : ( <DataTable data={data} columns={columns} loading={loading} pagination={{ total: totalElements, page, rowsPerPage, rowsPerPageOptions: [5, 10, 25, 50] }} onPageChange={onPageChange} onRowsPerPageChange={onRowsPerPageChange} onRowClick={onRowClick} onActionMenuClick={onActionMenuClick} emptyState={emptyState} /> )} {showCreateFab && onCreateNew && ( <Tooltip title={createButtonLabel || 'Criar Novo'}> <Fab color="primary" aria-label="add" sx={{ position: 'fixed', bottom: {xs: 72, sm: 24}, right: 24 }} onClick={onCreateNew} > <Add /> </Fab> </Tooltip> )} </Container> ); };
+export const GenericDataView = ({ title, subtitle, createButtonLabel, onCreateNew, data = [], loading = false, error = null, totalElements = 0, page = 0, rowsPerPage = 10, onPageChange, onRowsPerPageChange, searchTerm = '', onSearchChange, searchPlaceholder = "Buscar...", filters = [], columns = [], onRowClick, onActionMenuClick, emptyState, actions = [], showCreateFab = true, showStats = false, stats = {}, onRefresh }) => { const handleSearchChange = (event) => { if (onSearchChange) onSearchChange(event.target.value); }; const renderStats = () => { if (!showStats || !stats || Object.keys(stats).length === 0) return null; return ( <Grid container spacing={2} sx={{ mb: 3 }}> {Object.entries(stats).map(([key, { value, label, color = 'primary', icon: StatIcon }]) => ( <Grid item xs={12} sm={6} md={3} key={key}> <Card elevation={1} sx={{ textAlign: 'center', bgcolor: `${color}.50` }}> <CardContent sx={{ py: 2 }}> {StatIcon && <StatIcon sx={{ fontSize: 32, color: `${color}.main`, mb: 0.5 }} />} <Typography variant="h4" color={`${color}.main`} sx={{ fontWeight: 700 }}> {value} </Typography> <Typography variant="body2" color="text.secondary"> {label} </Typography> </CardContent> </Card> </Grid> ))} </Grid> ); }; if (error && !loading) { return ( <Container> <PageHeader title={title} subtitle={subtitle} backButton={true} /> <Alert severity="error" sx={{ mt: 2 }} action={ onRefresh && <Button color="inherit" size="small" onClick={onRefresh}>TENTAR NOVAMENTE</Button> }> {error} </Alert> </Container> ); } return ( <Container maxWidth="lg"> <PageHeader title={title} subtitle={subtitle} backButton={true} actions={[ ...(actions || []), ...(onCreateNew && !showCreateFab ? [{ label: createButtonLabel || 'Criar Novo', variant: 'contained', icon: <Add />, onClick: onCreateNew }] : []) ]} /> {renderStats()} <Card elevation={1} sx={{ p: 2, mb: 3 }}> <Grid container spacing={2} alignItems="center"> <Grid item xs={12} md={filters.length > 0 ? 6 : 12}> <TextField fullWidth variant="outlined" placeholder={searchPlaceholder} value={searchTerm} onChange={handleSearchChange} InputProps={{ startAdornment: ( <InputAdornment position="start"> <Search /> </InputAdornment> ), }} /> </Grid> {filters.map((filter, index) => ( <Grid item xs={12} sm={6} md={filters.length > 1 ? 3 : 6} key={filter.id || index}> <TextField select={filter.type === 'select'} fullWidth variant="outlined" label={filter.label} value={filter.value} onChange={filter.onChange} > {filter.type === 'select' && filter.options?.map(option => ( <MenuItem key={option.value} value={option.value}> {option.label} </MenuItem> ))} </TextField> </Grid> ))} </Grid> </Card> {loading && data.length === 0 ? ( <TableSkeleton rows={rowsPerPage} columns={columns.length}/> ) : ( <DataTable data={data} columns={columns} loading={loading} pagination={{ total: totalElements, page, rowsPerPage, rowsPerPageOptions: [5, 10, 25, 50] }} onPageChange={onPageChange} onRowsPerPageChange={onRowsPerPageChange} onRowClick={onRowClick} onActionMenuClick={onActionMenuClick} emptyState={emptyState} /> )} {showCreateFab && onCreateNew && ( <Tooltip title={createButtonLabel || 'Criar Novo'}> <Fab color="primary" aria-label="add" sx={{ position: 'fixed', bottom: {xs: 72, sm: 24}, right: 24 }} onClick={onCreateNew} > <Add /> </Fab> </Tooltip> )} </Container> ); }; //
 
 export const createPage = ({ 
   title, 
@@ -405,28 +442,28 @@ export const createPage = ({
       }
       console.error(`[PageInstance for ${title}] fetchFunctionName '${fetchFunctionName}' não encontrado ou não é uma função no service:`, service);
       return Promise.resolve({ content: [], totalElements: 0, totalPages: 0 });
-    }, [service, fetchFunctionName, title]);
+    }, [service, fetchFunctionName, title]); //
     const initialMainFilterValue = defaultFilters.find(f => f.isMainFilter)?.defaultValue || 
-                                 (defaultFilters.find(f => f.type === 'select')?.defaultValue || 'ALL');
+                                 (defaultFilters.find(f => f.type === 'select')?.defaultValue || 'ALL'); //
     const { 
       data, loading, page, size, total, search, filter, error, sortBy, sortOrder,
       setPage, setSize, setSearch, setFilter, reload, setSortBy, setSortOrder 
-    } = useData(memoizedFetchFn, initialMainFilterValue, [fetchFunctionName]); // Added fetchFunctionName to deps of useData
+    } = useData(memoizedFetchFn, initialMainFilterValue, [fetchFunctionName]); //
     const [actionMenuAnchorEl, setActionMenuAnchorEl] = useState(null);
     const [selectedItemForAction, setSelectedItemForAction] = useState(null);
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
     const [confirmDialogProps, setConfirmDialogProps] = useState({
         title: "", message: "", onConfirm: () => {}, variant: 'default', confirmText: "Confirmar"
-    });
-    const columns = columnsConfig || getTableColumns(tableType);
+    }); //
+    const columns = columnsConfig || getTableColumns(tableType); //
     const handleActionMenuOpen = (event, item) => {
       setActionMenuAnchorEl(event.currentTarget);
       setSelectedItemForAction(item);
-    };
+    }; //
     const handleActionMenuClose = () => {
       setActionMenuAnchorEl(null);
       setSelectedItemForAction(null);
-    };
+    }; //
     const openConfirmation = (item, actionFn, dialogOptions) => {
         setConfirmDialogProps({
             title: dialogOptions.title || `Confirmar Ação`,
@@ -434,10 +471,10 @@ export const createPage = ({
             onConfirm: async () => { setConfirmDialogOpen(false); await actionFn(item); },
             variant: dialogOptions.variant || 'danger',
             confirmText: dialogOptions.confirmText || 'Confirmar'
-        });
+        }); //
         setConfirmDialogOpen(true);
         handleActionMenuClose();
-    };
+    }; //
     const handleDeleteAction = (item) => {
         openConfirmation(
             item,
@@ -454,14 +491,14 @@ export const createPage = ({
                 }
             },
             { title: `Confirmar Exclusão`, message: "Tem certeza? Esta ação não pode ser desfeita.", variant: 'danger', confirmText: 'Excluir' }
-        );
-    };
+        ); //
+    }; //
     const availableRowActions = selectedItemForAction 
       ? rowActions(selectedItemForAction, { navigate: actualNavigate, handleDelete: handleDeleteAction, currentUser, openConfirmation, reload }) 
-      : [];
-    const mainFilterConfig = defaultFilters.find(f => f.isMainFilter) || defaultFilters.find(f => f.type === 'select');
-    const searchFilterConfig = defaultFilters.find(f => f.type === 'search');
-    const otherFilters = defaultFilters.filter(f => f !== mainFilterConfig && f !== searchFilterConfig);
+      : []; //
+    const mainFilterConfig = defaultFilters.find(f => f.isMainFilter) || defaultFilters.find(f => f.type === 'select'); //
+    const searchFilterConfig = defaultFilters.find(f => f.type === 'search'); //
+    const otherFilters = defaultFilters.filter(f => f !== mainFilterConfig && f !== searchFilterConfig); //
 
     return (
       <Container maxWidth="lg" sx={{pb:4}}>
@@ -516,7 +553,7 @@ export const createPage = ({
              else if (typeof createPath === 'object' && createPath?.viewPath && item.id) { actualNavigate(createPath.viewPath.replace(':id', item.id));}
           }}
           onActionMenuClick={rowActions && typeof rowActions === 'function' && (rowActions()?.length > 0 || availableRowActions.length > 0) ? handleActionMenuOpen : null}
-          emptyState={ <EmptyState title={`Nenhum ${title.toLowerCase()} encontrado`} description="Tente ajustar os filtros ou crie um novo item." actionLabel={createPath ? (typeof createPath === 'string' ? "Criar Novo" : (createPath.label || "Criar Novo")) : null} onAction={createPath ? () => actualNavigate(typeof createPath === 'string' ? createPath : (createPath.path || '/')) : null}/> }
+          emptyState={ <EmptyState title={`Nenhum ${title.toLowerCase()} encontrado`} description="Tente ajustar os filtros ou crie um novo item." actionLabel={createPath ? (typeof createPath === 'string' ? "Criar Novo" : (createPath.label || "Criar Novo")) : null} onAction={createPath ? () => actualNavigate(typeof createPath === 'string' ? createPath : (createPath.path || '/')) : null}/> } //
         />
         {selectedItemForAction && availableRowActions.length > 0 && (
           <MenuComponent anchorEl={actionMenuAnchorEl} open={Boolean(actionMenuAnchorEl)} onClose={handleActionMenuClose} PaperProps={{ elevation: 2, sx: { minWidth: 180 } }}>
@@ -538,7 +575,7 @@ export const createPage = ({
       </Container>
     );
   };
-};
+}; //
 
 // ============================================================================
 // EXPORTS
@@ -553,4 +590,4 @@ export default {
   TableSkeleton, PageSkeleton, EmptyState, DataTable,
   GenericDataView,
   createPage
-};
+}; //

@@ -4,19 +4,20 @@ import {
   Container, Typography, Button, Box, Paper, Grid, Tabs, Tab,
   Card, CardContent, Accordion, AccordionSummary, AccordionDetails,
   Chip, IconButton, Tooltip, Alert, CircularProgress, TextField,
-  ListItem, ListItemText, ListItemAvatar, Avatar, List // Adicionado List, ListItem, etc. para renderCollaboratorSummary
+  ListItem, ListItemText, ListItemAvatar, Avatar, List,
+  Autocomplete // IMPORT Autocomplete
 } from '@mui/material';
 import {
-  Save, History, Comment as CommentIconMUI, Visibility, ArrowBack, Edit, // Renomeado Comment para CommentIconMUI para evitar conflito
+  Save, History, Comment as CommentIconMUI, Visibility, ArrowBack, Edit,
   Send, ExpandMore, Add, Group, Person, SupervisorAccount,
   CheckCircle, Warning, Error as ErrorIcon, Info,
   CloudUpload, CompareArrows, People,
-  School // Ícone School adicionado
+  School
 } from '@mui/icons-material';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { AuthContext } from '../../context/AuthContext';
-import { documentService, versionService, commentService } from "../../services"; //
+import { AuthContext } from '../../context/AuthContext'; //
+import { documentService, versionService, commentService, userService } from "../../services"; // userService IMPORTED //
 import { collaboratorService } from '../../services/collaboratorService'; //
 import CollaboratorManagement from '../../components/collaborators/CollaboratorManagement'; //
 
@@ -24,7 +25,7 @@ const DocumentEditorWithCollaborators = () => {
   const { id: documentIdFromParams } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentUser } = useContext(AuthContext); //
+  const { currentUser, hasRole } = useContext(AuthContext); // hasRole might be useful //
 
   const [document, setDocument] = useState(null);
   const [title, setTitle] = useState('');
@@ -47,7 +48,12 @@ const DocumentEditorWithCollaborators = () => {
   const [selectedTab, setSelectedTab] = useState(0);
   const [versions, setVersions] = useState([]);
   const [currentVersion, setCurrentVersion] = useState(null);
-  const [currentComments, setCurrentComments] = useState([]); // Estado para comentários da versão atual
+  const [currentComments, setCurrentComments] = useState([]);
+
+  const [selectedAdvisor, setSelectedAdvisor] = useState(null); 
+  const [advisorsList, setAdvisorsList] = useState([]); 
+  const [loadingAdvisors, setLoadingAdvisors] = useState(false);
+
 
   const loadDocumentAndPermissions = useCallback(async (id) => {
     setLoading(true);
@@ -58,6 +64,11 @@ const DocumentEditorWithCollaborators = () => {
       setTitle(docData.title);
       setDescription(docData.description || '');
       setStatus(docData.status);
+      
+      if (advisorsList.length > 0 && docData.advisorId) {
+        const foundAdvisor = advisorsList.find(a => a.id === docData.advisorId);
+        setSelectedAdvisor(foundAdvisor || null);
+      }
 
       const permissions = await collaboratorService.getCurrentUserPermissions(id); //
       setUserPermissions(permissions);
@@ -98,7 +109,33 @@ const DocumentEditorWithCollaborators = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [advisorsList]);
+
+  useEffect(() => {
+    const fetchAdvisorsForNewDoc = async () => {
+      if (isNewDocument && hasRole('STUDENT')) { 
+        setLoadingAdvisors(true);
+        try {
+          const data = await userService.getApprovedAdvisors(); //
+          setAdvisorsList(data || []);
+        } catch (error) {
+          toast.error('Falha ao carregar lista de orientadores.');
+          console.error("Erro ao buscar orientadores: ", error);
+        } finally {
+          setLoadingAdvisors(false);
+        }
+      }
+    };
+    fetchAdvisorsForNewDoc();
+  }, [isNewDocument, hasRole]);
+  
+  useEffect(() => {
+    if (document && document.advisorId && advisorsList.length > 0 && !selectedAdvisor) {
+      const foundAdvisor = advisorsList.find(a => a.id === document.advisorId);
+      setSelectedAdvisor(foundAdvisor || null);
+    }
+  }, [document, advisorsList, selectedAdvisor]);
+
 
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
@@ -123,15 +160,17 @@ const DocumentEditorWithCollaborators = () => {
       setUnsavedChanges(false);
       setPageError(null);
       setUserPermissions({ canRead: true, canWrite: true, canManage: true });
+      setSelectedAdvisor(null); 
     } else {
       setIsNewDocument(false);
-      loadDocumentAndPermissions(documentIdFromParams);
+       if (advisorsList.length > 0 || !hasRole('STUDENT')) { 
+            loadDocumentAndPermissions(documentIdFromParams);
+        }
       if (queryParams.get('edit') === 'true') {
-         // A permissão de escrita será verificada antes de realmente permitir a edição
         setIsEditing(true);
       }
     }
-  }, [documentIdFromParams, location.search, loadDocumentAndPermissions]);
+  }, [documentIdFromParams, location.search, loadDocumentAndPermissions, advisorsList, hasRole]);
 
 
   useEffect(() => {
@@ -166,6 +205,11 @@ const DocumentEditorWithCollaborators = () => {
       toast.error('O título da monografia é obrigatório.');
       return;
     }
+    if (isNewDocument && hasRole('STUDENT') && !selectedAdvisor) {
+      toast.error('Por favor, selecione um orientador.');
+      return;
+    }
+
     setSaving(true);
     try {
       if (isNewDocument) {
@@ -173,7 +217,7 @@ const DocumentEditorWithCollaborators = () => {
           title: title.trim(),
           description: description.trim(),
           studentId: currentUser.id,
-          advisorId: null, 
+          advisorId: selectedAdvisor?.id || null, 
         };
         const createdDoc = await documentService.createDocument(newDocData); //
         const versionData = {
@@ -191,6 +235,7 @@ const DocumentEditorWithCollaborators = () => {
           const updatedMetaData = {};
           if (title.trim() !== document.title) { updatedMetaData.title = title.trim(); documentMetaChanged = true; }
           if (description.trim() !== document.description) { updatedMetaData.description = description.trim(); documentMetaChanged = true; }
+          
           if (documentMetaChanged) {
             await documentService.updateDocument(document.id, updatedMetaData); //
           }
@@ -350,10 +395,10 @@ const DocumentEditorWithCollaborators = () => {
   const currentDisplayStatus = getStatusInfo(isNewDocument ? 'DRAFT' : (status || 'DRAFT'));
 
   return (
-    <Container maxWidth="xl">
+    <Container maxWidth="lg"> {/* MODIFIED from "xl" */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 1 }}>
-          <IconButton onClick={() => navigate(isNewDocument && !document?.id ? '/student/documents' : `/student/documents/${document?.id}`)} sx={{ mr: 1 }}>
+          <IconButton onClick={() => navigate(isNewDocument && !document?.id ? '/student/documents' : `/student/documents`)} sx={{ mr: 1 }}>
             <ArrowBack />
           </IconButton>
           <Typography variant="h4" component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -375,7 +420,13 @@ const DocumentEditorWithCollaborators = () => {
             </Button>
           )}
           {isEditing && (userPermissions.canWrite || isNewDocument) && (
-            <Button variant="contained" startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />} onClick={handleSave} disabled={saving || !unsavedChanges} size="small">
+            <Button 
+                variant="contained" 
+                startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />} 
+                onClick={handleSave} 
+                disabled={saving || !unsavedChanges || (isNewDocument && hasRole('STUDENT') && !selectedAdvisor)} 
+                size="small"
+            >
               {saving ? 'Salvando...' : (isNewDocument ? 'Criar Monografia' : 'Salvar Versão')}
             </Button>
           )}
@@ -408,10 +459,45 @@ const DocumentEditorWithCollaborators = () => {
 
       {selectedTab === 0 && (
         <Grid container spacing={3}>
-          <Grid item xs={12} md={isEditing && !isNewDocument ? 8 : 12}> {/* Ajuste para quando não for novo */}
+          <Grid item xs={12} md={isEditing && !isNewDocument ? 8 : 12}>
             <Paper sx={{ p: 3, minHeight: '70vh' }}>
               {isEditing ? (
                 <Box>
+                  {isNewDocument && hasRole('STUDENT') && (
+                    <Autocomplete
+                      id="advisor-select-editor"
+                      options={advisorsList}
+                      getOptionLabel={(option) => option.name || ""}
+                      value={selectedAdvisor}
+                      onChange={(event, newValue) => {
+                        setSelectedAdvisor(newValue);
+                        setUnsavedChanges(true);
+                      }}
+                      isOptionEqualToValue={(option, value) => option.id === value.id}
+                      loading={loadingAdvisors}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Orientador"
+                          variant="outlined"
+                          margin="normal"
+                          required
+                          error={!selectedAdvisor && unsavedChanges} 
+                          helperText={!selectedAdvisor && unsavedChanges ? "Orientador é obrigatório." : ""}
+                          InputProps={{
+                            ...params.InputProps,
+                            endAdornment: (
+                              <>
+                                {loadingAdvisors ? <CircularProgress color="inherit" size={20} /> : null}
+                                {params.InputProps.endAdornment}
+                              </>
+                            ),
+                          }}
+                        />
+                      )}
+                      sx={{ mb: 2 }}
+                    />
+                  )}
                   <TextField fullWidth label="Título da Monografia" value={title} onChange={handleFieldChange(setTitle)} margin="normal" disabled={saving || (!userPermissions.canWrite && !isNewDocument)} sx={{ mb: 2 }} variant="outlined" />
                   <TextField fullWidth label="Descrição" value={description} onChange={handleFieldChange(setDescription)} multiline rows={2} margin="normal" disabled={saving || (!userPermissions.canWrite && !isNewDocument)} sx={{ mb: 2 }} variant="outlined" />
                   <TextField fullWidth multiline minRows={20} label="Conteúdo da Monografia (Markdown)" value={content} onChange={handleContentChange} disabled={saving || (!userPermissions.canWrite && !isNewDocument)} variant="outlined" sx={{ '& .MuiOutlinedInput-root': { fontFamily: '"Roboto Mono", monospace', fontSize: '0.95rem', lineHeight: 1.7 }, bgcolor: 'grey.50' }} />
@@ -425,7 +511,7 @@ const DocumentEditorWithCollaborators = () => {
               )}
             </Paper>
           </Grid>
-          {isEditing && !isNewDocument && ( // Mostrar apenas se editando e não for novo
+          {isEditing && !isNewDocument && (
             <Grid item xs={12} md={4}>
               {renderCollaboratorSummary()}
             </Grid>
@@ -436,8 +522,9 @@ const DocumentEditorWithCollaborators = () => {
       {selectedTab === 1 && !isNewDocument && document?.id && (
         <CollaboratorManagement
           documentId={document.id}
+          currentUser={currentUser} 
           canManage={userPermissions.canManage}
-          onCollaboratorsChange={setCollaborators}
+          onCollaboratorsUpdate={setCollaborators} // Changed from onCollaboratorsChange
         />
       )}
 
