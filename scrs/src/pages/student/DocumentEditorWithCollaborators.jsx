@@ -1,9 +1,10 @@
+// Arquivo: scrs/src (cópia)/pages/student/DocumentEditorWithCollaborators.jsx
 // frontend/src/pages/student/DocumentEditorWithCollaborators.jsx
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import {
   Container, Typography, Button, Box, Paper, Grid, Tabs, Tab,
   Card, CardContent, Accordion, AccordionSummary, AccordionDetails,
-  Chip, IconButton, Tooltip, Alert
+  Chip, IconButton, Tooltip, Alert, CircularProgress
 } from '@mui/material';
 import {
   Save, History, Comment, Visibility, ArrowBack, Edit,
@@ -68,7 +69,7 @@ const DocumentEditorWithCollaborators = () => {
       setLoading(false);
       setUnsavedChanges(false);
       setPageError(null);
-      setUserPermissions({ canRead: true, canWrite: true, canManage: true });
+      setUserPermissions({ canRead: true, canWrite: true, canManage: true }); // Criador tem todas as permissões
     } else {
       setIsNewDocument(false);
       loadDocumentAndPermissions(documentIdFromParams);
@@ -83,6 +84,24 @@ const DocumentEditorWithCollaborators = () => {
     setLoading(true);
     setPageError(null);
     try {
+      // Carregar dados do documento
+      const docData = await documentService.getDocument(id);
+      setDocument(docData);
+      setTitle(docData.title);
+      setDescription(docData.description || '');
+      setStatus(docData.status);
+
+      // Carregar permissões do usuário atual
+      const permissions = await collaboratorService.getCurrentUserPermissions(id);
+      setUserPermissions(permissions);
+
+      // Verificar se o usuário tem permissão para visualizar o documento
+      if (!permissions.canRead) {
+        setPageError('Você não tem permissão para acessar este documento.');
+        setLoading(false);
+        return;
+      }
+
       // Carregar colaboradores
       const collaboratorsData = await collaboratorService.getDocumentCollaborators(id);
       setCollaborators(collaboratorsData);
@@ -103,7 +122,7 @@ const DocumentEditorWithCollaborators = () => {
           setComments([]);
         }
       } else {
-        setContent('');
+        setContent(docData.description || '# Comece a editar seu documento aqui.'); // Conteúdo inicial se não houver versões
         setCurrentVersion(null);
         setComments([]);
       }
@@ -146,8 +165,8 @@ const DocumentEditorWithCollaborators = () => {
         const newDocData = {
           title: title.trim(),
           description: description.trim(),
-          studentId: currentUser.id,
-          advisorId: null, // Será definido quando adicionar colaboradores
+          studentId: currentUser.id, // Para compatibilidade e definição do criador inicial
+          advisorId: null, // Será definido/confirmado ao adicionar colaboradores
         };
         
         const createdDoc = await documentService.createDocument(newDocData);
@@ -191,7 +210,7 @@ const DocumentEditorWithCollaborators = () => {
           await versionService.createVersion(versionData);
           
           toast.success('Nova versão salva com sucesso!');
-          await loadDocumentAndPermissions(document.id);
+          await loadDocumentAndPermissions(document.id); // Recarrega para pegar nova versão e metadados
         }
       }
       setUnsavedChanges(false);
@@ -205,7 +224,7 @@ const DocumentEditorWithCollaborators = () => {
   };
 
   const handleToggleEditMode = () => {
-    if (!userPermissions.canWrite) {
+    if (!userPermissions.canWrite && !isNewDocument) { // Permite edição para novo documento
       toast.error('Você não tem permissão para editar este documento.');
       return;
     }
@@ -214,7 +233,7 @@ const DocumentEditorWithCollaborators = () => {
       if (window.confirm('Você tem alterações não salvas. Deseja descartá-las e sair do modo de edição?')) {
         setIsEditing(false);
         if (!isNewDocument && document && document.id) {
-          loadDocumentAndPermissions(document.id);
+          loadDocumentAndPermissions(document.id); // Recarrega o conteúdo original
         }
       }
     } else {
@@ -337,12 +356,13 @@ const DocumentEditorWithCollaborators = () => {
     );
   };
 
-  if (loading) {
+  if (loading && !isNewDocument) { // Mostrar loading apenas se não for novo documento
     return (
       <Container maxWidth="lg">
         <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <CircularProgress />
           <Typography sx={{ mt: 2 }}>
-            Carregando {isNewDocument ? 'editor' : 'documento'}...
+            Carregando documento...
           </Typography>
         </Box>
       </Container>
@@ -369,7 +389,7 @@ const DocumentEditorWithCollaborators = () => {
     );
   }
 
-  const currentDisplayStatus = getStatusInfo(isNewDocument ? 'DRAFT' : (document?.status || 'DRAFT'));
+  const currentDisplayStatus = getStatusInfo(isNewDocument ? 'DRAFT' : (status || 'DRAFT'));
 
   return (
     <Container maxWidth="xl">
@@ -410,7 +430,7 @@ const DocumentEditorWithCollaborators = () => {
               Comparar
             </Button>
           )}
-          {userPermissions.canWrite && (
+          {(userPermissions.canWrite || isNewDocument) && ( // Permite edição para novo documento
             <Button
               variant="outlined"
               startIcon={isEditing ? <Visibility /> : <Edit />}
@@ -421,10 +441,10 @@ const DocumentEditorWithCollaborators = () => {
               {isEditing ? 'Visualizar' : 'Editar'}
             </Button>
           )}
-          {isEditing && userPermissions.canWrite && (
+          {isEditing && (userPermissions.canWrite || isNewDocument) && (
             <Button
               variant="contained"
-              startIcon={saving ? null : <Save />}
+              startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
               onClick={handleSave}
               disabled={saving || !unsavedChanges}
               size="small"
@@ -438,14 +458,15 @@ const DocumentEditorWithCollaborators = () => {
       {/* Informações sobre permissões */}
       {!isNewDocument && (
         <Alert 
-          severity={userPermissions.canWrite ? "success" : "info"} 
+          severity={userPermissions.canWrite ? "success" : (userPermissions.canRead ? "info" : "warning")} 
           sx={{ mb: 3 }}
-          icon={userPermissions.canWrite ? <CheckCircle /> : <Info />}
+          icon={userPermissions.canWrite ? <CheckCircle /> : (userPermissions.canRead ? <Info /> : <Warning />)}
         >
           <Typography variant="body2">
             {userPermissions.canManage && "Você pode gerenciar colaboradores, editar e visualizar este documento."}
             {userPermissions.canWrite && !userPermissions.canManage && "Você pode editar e visualizar este documento."}
             {!userPermissions.canWrite && userPermissions.canRead && "Você tem permissão apenas para visualizar este documento."}
+            {!userPermissions.canRead && "Você não tem permissão para ler este documento."}
           </Typography>
         </Alert>
       )}
@@ -458,6 +479,7 @@ const DocumentEditorWithCollaborators = () => {
             label={`Colaboradores (${collaborators.length})`} 
             icon={<Group />} 
             iconPosition="start"
+            disabled={isNewDocument} // Desabilita aba de colaboradores para novo documento até ser salvo
           />
           {!isNewDocument && <Tab label="Versões" icon={<History />} iconPosition="start" />}
           {!isNewDocument && <Tab label="Comentários" icon={<Comment />} iconPosition="start" />}
@@ -477,7 +499,7 @@ const DocumentEditorWithCollaborators = () => {
                     value={title}
                     onChange={handleFieldChange(setTitle)}
                     margin="normal"
-                    disabled={saving || !userPermissions.canWrite}
+                    disabled={saving || (!userPermissions.canWrite && !isNewDocument)}
                     sx={{ mb: 2 }}
                   />
                   
@@ -489,7 +511,7 @@ const DocumentEditorWithCollaborators = () => {
                     multiline
                     rows={2}
                     margin="normal"
-                    disabled={saving || !userPermissions.canWrite}
+                    disabled={saving || (!userPermissions.canWrite && !isNewDocument)}
                     sx={{ mb: 2 }}
                   />
                   
@@ -500,7 +522,7 @@ const DocumentEditorWithCollaborators = () => {
                     label="Conteúdo da Monografia (Markdown)"
                     value={content}
                     onChange={handleContentChange}
-                    disabled={saving || !userPermissions.canWrite}
+                    disabled={saving || (!userPermissions.canWrite && !isNewDocument)}
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         fontFamily: '"Roboto Mono", "Courier New", monospace',
@@ -534,7 +556,7 @@ const DocumentEditorWithCollaborators = () => {
                   {(!content && !description) && (
                     <Typography variant="body1" color="textSecondary" sx={{ textAlign: 'center', mt: 5 }}>
                       Este documento ainda não possui conteúdo. 
-                      {userPermissions.canWrite && " Clique em 'Editar' para começar."}
+                      {(userPermissions.canWrite || isNewDocument) && " Clique em 'Editar' para começar."}
                     </Typography>
                   )}
                 </Box>
@@ -560,6 +582,9 @@ const DocumentEditorWithCollaborators = () => {
                       <strong>Última Atualização:</strong> {document.updatedAt ? 
                         new Date(document.updatedAt).toLocaleDateString('pt-BR') : 'N/A'}
                     </Typography>
+                    <Typography variant="body2">
+                      <strong>ID do Documento:</strong> {document.id}
+                    </Typography>
                   </CardContent>
                 </Card>
               )}
@@ -568,9 +593,9 @@ const DocumentEditorWithCollaborators = () => {
         </Grid>
       )}
 
-      {selectedTab === 1 && (
+      {selectedTab === 1 && !isNewDocument && (
         <CollaboratorManagement
-          documentId={isNewDocument ? null : document?.id}
+          documentId={document?.id}
           currentUser={currentUser}
           canManage={userPermissions.canManage}
         />
@@ -585,8 +610,8 @@ const DocumentEditorWithCollaborators = () => {
                 {versions.map((version, index) => (
                   <ListItem key={version.id} divider={index < versions.length - 1}>
                     <ListItemText
-                      primary={`v${version.versionNumber} - ${version.commitMessage}`}
-                      secondary={`Por ${version.createdByName} em ${new Date(version.createdAt).toLocaleString('pt-BR')}`}
+                      primary={`v${version.versionNumber} - ${version.commitMessage || "Sem mensagem de commit"}`}
+                      secondary={`Por ${version.createdByName || "Desconhecido"} em ${new Date(version.createdAt).toLocaleString('pt-BR')}`}
                     />
                   </ListItem>
                 ))}
@@ -641,21 +666,4 @@ const DocumentEditorWithCollaborators = () => {
   );
 };
 
-export default DocumentEditorWithCollaborators; documento
-      const docData = await documentService.getDocument(id);
-      setDocument(docData);
-      setTitle(docData.title);
-      setDescription(docData.description || '');
-      setStatus(docData.status);
-
-      // Carregar permissões do usuário atual
-      const permissions = await collaboratorService.getCurrentUserPermissions(id);
-      setUserPermissions(permissions);
-
-      // Verificar se o usuário tem permissão para visualizar o documento
-      if (!permissions.canRead) {
-        setPageError('Você não tem permissão para acessar este documento.');
-        return;
-      }
-
-      // Carregar
+export default DocumentEditorWithCollaborators;

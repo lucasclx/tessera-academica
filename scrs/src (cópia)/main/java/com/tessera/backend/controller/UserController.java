@@ -1,3 +1,4 @@
+// Arquivo: scrs/src/main/java/com/tessera/backend/controller/UserController.java
 package com.tessera.backend.controller;
 
 import com.tessera.backend.dto.AdvisorDTO;
@@ -11,7 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication; // <-- ADICIONADO ESTE IMPORT
+import org.springframework.security.core.Authentication; // <-- IMPORTAÇÃO ADICIONADA
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -71,6 +72,8 @@ public class UserController {
         if (user == null) {
             return ResponseEntity.notFound().build();
         }
+        // Considerar retornar um UserProfileDTO para não expor a entidade User completa com senha, etc.
+        // Por ora, retorna a entidade User como no código original.
         return ResponseEntity.ok(user);
     }
 

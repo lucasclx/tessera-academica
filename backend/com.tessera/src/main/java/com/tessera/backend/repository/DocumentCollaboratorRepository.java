@@ -1,4 +1,4 @@
-// Arquivo: scrs/src/main/java/com/tessera/backend/repository/DocumentCollaboratorRepository.java
+// Arquivo: scrs/src (cópia)/main/java/com/tessera/backend/repository/DocumentCollaboratorRepository.java
 package com.tessera.backend.repository;
 
 import com.tessera.backend.entity.Document;
@@ -25,7 +25,6 @@ public interface DocumentCollaboratorRepository extends JpaRepository<DocumentCo
     // Buscar por papel específico
     List<DocumentCollaborator> findByDocumentAndRoleAndActiveTrue(Document document, CollaboratorRole role);
     
-    // CORREÇÃO: Renomeado de findByDocumentAndRoleAndActiveTrueFirst para findFirstByDocumentAndRoleAndActiveTrue
     Optional<DocumentCollaborator> findFirstByDocumentAndRoleAndActiveTrue(Document document, CollaboratorRole role);
     
     // Contar colaboradores por tipo
@@ -50,7 +49,7 @@ public interface DocumentCollaboratorRepository extends JpaRepository<DocumentCo
            "WHERE c.document = :document AND c.active = true " +
            "AND c.permission = :permission")
     List<DocumentCollaborator> findByDocumentAndPermissionAndActiveTrue(@Param("document") Document document, 
-                                                                       @Param("permission") String permission); // Note: permission is likely an Enum, should match type
+                                                                       @Param("permission") String permission);
     
     // Histórico de colaboradores (incluindo inativos)
     List<DocumentCollaborator> findByDocumentOrderByAddedAtDesc(Document document);
@@ -60,4 +59,7 @@ public interface DocumentCollaboratorRepository extends JpaRepository<DocumentCo
            "WHERE c.document = :document AND c.active = true " +
            "GROUP BY c.role")
     List<Object[]> getCollaboratorStatsByDocument(@Param("document") Document document);
+
+    // NOVO MÉTODO ADICIONADO
+    List<DocumentCollaborator> findAllByDocumentIdInAndActiveTrue(List<Long> documentIds);
 }

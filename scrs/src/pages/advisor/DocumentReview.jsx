@@ -1,3 +1,4 @@
+// Arquivo: scrs/src (cópia)/pages/advisor/DocumentReview.jsx
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
@@ -28,26 +29,31 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  Tooltip
+  Tooltip,
+  Menu, // Adicionado
+  ListItemIcon // Adicionado
 } from '@mui/material';
 import {
   ArrowBack,
-  Visibility,
   Comment as CommentIcon,
   AddComment,
   History,
   CheckCircleOutline,
   RateReviewOutlined,
-  // ThumbDownOutlined, // Removido por enquanto para simplificar
   InfoOutlined,
   CompareArrows,
   Person,
-  Schedule
+  Schedule,
+  Edit,
+  MoreVert as MoreVertIcon, // Adicionado
+  DeleteOutline as DeleteIcon, // Adicionado
+  CheckCircle as ResolveIcon // Adicionado
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import { format } from 'date-fns';
 import { AuthContext } from '../../context/AuthContext';
 import { documentService, versionService, commentService } from "../../services";
+import { ConfirmDialog, StatusChip as UtilityStatusChip } from '../../utils'; // Supondo que ConfirmDialog e StatusChip existam em utils
 
 // Função para renderizar conteúdo Markdown (pode ser movida para um utilitário)
 const renderFormattedContentPreview = (text) => {
@@ -80,11 +86,11 @@ const renderFormattedContentPreview = (text) => {
 
 const getStatusInfo = (status) => {
     const statusMap = {
-      'DRAFT': { label: 'Rascunho', color: 'default', icon: <InfoOutlined /> },
-      'SUBMITTED': { label: 'Submetido', color: 'primary', icon: <Person /> },
+      'DRAFT': { label: 'Rascunho', color: 'default', icon: <Edit /> },
+      'SUBMITTED': { label: 'Submetido', color: 'primary', icon: <Person /> }, // Icone alterado para representar submissão pelo aluno
       'REVISION': { label: 'Em Revisão', color: 'warning', icon: <RateReviewOutlined /> },
       'APPROVED': { label: 'Aprovado', color: 'success', icon: <CheckCircleOutline /> },
-      'FINALIZED': { label: 'Finalizado', color: 'info', icon: <CheckCircleOutline /> }
+      'FINALIZED': { label: 'Finalizado', color: 'info', icon: <CheckCircleOutline /> } // Pode ser outro ícone se desejar
     };
     return statusMap[status] || { label: status || 'Desconhecido', color: 'default', icon: <InfoOutlined /> };
 };
@@ -106,11 +112,18 @@ const DocumentReview = () => {
   const [commentError, setCommentError] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
 
-  // Estados para modais de ação
   const [actionModalOpen, setActionModalOpen] = useState(false);
-  const [actionType, setActionType] = useState(''); // 'approve', 'request_revision'
+  const [actionType, setActionType] = useState(''); 
   const [actionReason, setActionReason] = useState('');
   const [submittingAction, setSubmittingAction] = useState(false);
+
+  // Estados para menu de ações do comentário
+  const [commentMenuAnchorEl, setCommentMenuAnchorEl] = useState(null);
+  const [selectedCommentForAction, setSelectedCommentForAction] = useState(null);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmDialogAction, setConfirmDialogAction] = useState(() => {});
+  const [confirmDialogTitle, setConfirmDialogTitle] = useState('');
+  const [confirmDialogMessage, setConfirmDialogMessage] = useState('');
 
 
   const fetchData = useCallback(async () => {
@@ -126,7 +139,6 @@ const DocumentReview = () => {
       if (versionsData && versionsData.length > 0) {
         const latestVersion = versionsData[0];
         setSelectedVersionId(latestVersion.id.toString());
-        // O content já deve vir na lista de versões, conforme VersionDTO
         setSelectedVersionContent(latestVersion.content || '');
         const commentsData = await commentService.getCommentsByVersion(latestVersion.id);
         setComments(commentsData || []);
@@ -154,12 +166,7 @@ const DocumentReview = () => {
     try {
       const version = versions.find(v => v.id.toString() === versionId);
       if (version) {
-        // O DTO da versão (VersionDTO) já inclui o 'content'.
-        // Se o conteúdo não estivesse no DTO, precisaríamos buscar a versão completa:
-        // const versionDetails = await versionService.getVersion(versionId);
-        // setSelectedVersionContent(versionDetails.content || '');
         setSelectedVersionContent(version.content || '');
-
         const commentsData = await commentService.getCommentsByVersion(versionId);
         setComments(commentsData || []);
       }
@@ -190,7 +197,7 @@ const DocumentReview = () => {
         content: newComment.trim(),
       };
       const createdComment = await commentService.createComment(commentData);
-      setComments(prevComments => [createdComment, ...prevComments]);
+      setComments(prevComments => [createdComment, ...prevComments].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
       setNewComment('');
       toast.success('Comentário adicionado com sucesso!');
     } catch (err) {
@@ -222,17 +229,66 @@ const DocumentReview = () => {
             const updatedDocument = await documentService.changeStatus(documentId, newStatus, actionReason);
             setDocument(updatedDocument); 
             toast.success(`Documento ${newStatus === 'APPROVED' ? 'aprovado' : 'enviado para revisão'} com sucesso!`);
-             // Recarregar os dados para refletir qualquer mudança, incluindo o status chip.
             fetchData();
         }
         setActionModalOpen(false);
         setActionReason('');
     } catch (err) {
-        console.error(`Erro ao ${actionType}:`, err);
+        console.error(`Erro na ação ${actionType}:`, err);
         toast.error(err.response?.data?.message || `Erro ao ${actionType === 'approve' ? 'aprovar' : 'solicitar revisão'} o documento.`);
     } finally {
         setSubmittingAction(false);
     }
+  };
+
+  const handleOpenCommentMenu = (event, comment) => {
+    setCommentMenuAnchorEl(event.currentTarget);
+    setSelectedCommentForAction(comment);
+  };
+
+  const handleCloseCommentMenu = () => {
+    setCommentMenuAnchorEl(null);
+    setSelectedCommentForAction(null);
+  };
+
+  const handleResolveComment = async () => {
+    if (!selectedCommentForAction) return;
+    setConfirmDialogOpen(false);
+    try {
+      const updatedComment = await commentService.resolveComment(selectedCommentForAction.id);
+      setComments(prevComments => 
+        prevComments.map(c => c.id === selectedCommentForAction.id ? updatedComment : c)
+      );
+      toast.success('Comentário marcado como resolvido!');
+    } catch (err) {
+      console.error('Erro ao resolver comentário:', err);
+      toast.error(err.response?.data?.message || 'Erro ao resolver comentário.');
+    }
+    handleCloseCommentMenu();
+  };
+
+  const handleDeleteComment = async () => {
+    if (!selectedCommentForAction) return;
+    setConfirmDialogOpen(false);
+    try {
+      await commentService.delete(selectedCommentForAction.id); // Utilizando commentService.delete
+      setComments(prevComments => 
+        prevComments.filter(c => c.id !== selectedCommentForAction.id)
+      );
+      toast.success('Comentário excluído com sucesso!');
+    } catch (err) {
+      console.error('Erro ao excluir comentário:', err);
+      toast.error(err.response?.data?.message || 'Erro ao excluir comentário.');
+    }
+    handleCloseCommentMenu();
+  };
+
+  const openConfirmDialog = (action, title, message) => {
+    setConfirmDialogAction(() => action); // Usa callback para garantir a função correta
+    setConfirmDialogTitle(title);
+    setConfirmDialogMessage(message);
+    setConfirmDialogOpen(true);
+    handleCloseCommentMenu();
   };
 
 
@@ -279,11 +335,7 @@ const DocumentReview = () => {
         <Typography variant="h5" component="h1" sx={{ flexGrow: 1, whiteSpace: 'normal', wordBreak: 'break-word', mr:1 }}>
           Revisão: {document.title}
         </Typography>
-        <Chip
-          icon={currentDocStatusInfo.icon}
-          label={currentDocStatusInfo.label}
-          color={currentDocStatusInfo.color}
-        />
+        <UtilityStatusChip status={document.status} />
       </Toolbar>
 
       <Grid container spacing={3}>
@@ -311,7 +363,7 @@ const DocumentReview = () => {
             </Box>
             <Divider sx={{ mb: 2 }} />
             {loading && !selectedVersionContent && selectedVersionId ? <Box sx={{display: 'flex', justifyContent:'center', p:3}}><CircularProgress /></Box> :
-             <Box sx={{ maxHeight: '60vh', overflowY: 'auto', p:1, border: '1px solid #eee', borderRadius: 1, background: '#f9f9f9' }}>
+             <Box sx={{ maxHeight: '60vh', overflowY: 'auto', p:1, border: '1px solid #eee', borderRadius: 1, background: '#f9f9f9', minHeight:'300px' }}>
                 {renderFormattedContentPreview(selectedVersionContent)}
              </Box>
             }
@@ -351,7 +403,7 @@ const DocumentReview = () => {
             <Divider sx={{ mb: 1 }}/>
             <Typography variant="body2"><strong>Estudante:</strong> {document.studentName}</Typography>
             <Typography variant="body2"><strong>Orientador:</strong> {document.advisorName}</Typography>
-            <Typography variant="body2"><strong>Status Atual:</strong> <Chip size="small" label={currentDocStatusInfo.label} color={currentDocStatusInfo.color} icon={currentDocStatusInfo.icon}/></Typography>
+            <Typography variant="body2" sx={{display:'flex', alignItems:'center'}}><strong>Status Atual:</strong> <UtilityStatusChip status={document.status} size="small" sx={{ml:0.5}}/></Typography>
             <Typography variant="body2"><strong>Criado em:</strong> {format(new Date(document.createdAt), 'dd/MM/yyyy HH:mm')}</Typography>
             <Typography variant="body2"><strong>Última atualização:</strong> {format(new Date(document.updatedAt), 'dd/MM/yyyy HH:mm')}</Typography>
             {selectedVersionDetails && (
@@ -365,7 +417,7 @@ const DocumentReview = () => {
             )}
             <Button
                 component={RouterLink}
-                to={`/student/documents/${documentId}/compare`}
+                to={`/student/documents/${documentId}/compare`} // Idealmente, esta rota seria parametrizada para o orientador também
                 startIcon={<CompareArrows />}
                 size="small"
                 sx={{ mt: 2 }}
@@ -405,11 +457,24 @@ const DocumentReview = () => {
               </Button>
             </Box>
             <List sx={{ maxHeight: '40vh', overflowY: 'auto' }}>
-              {loading && comments.length === 0 && <Box sx={{display: 'flex', justifyContent:'center'}}><CircularProgress size={24}/></Box>}
+              {loading && comments.length === 0 && selectedVersionId && <Box sx={{display: 'flex', justifyContent:'center'}}><CircularProgress size={24}/></Box>}
               {!loading && comments.length === 0 && <Typography variant="body2" color="textSecondary">Nenhum comentário para esta versão.</Typography>}
               {comments.map(comment => (
                 <React.Fragment key={comment.id}>
-                  <ListItem alignItems="flex-start">
+                  <ListItem 
+                    alignItems="flex-start"
+                    secondaryAction={
+                      currentUser?.id === comment.userId || document?.advisor?.id === currentUser?.id ? ( // Permite orientador e autor deletar/resolver
+                        <IconButton 
+                            edge="end" 
+                            aria-label="actions"
+                            onClick={(e) => handleOpenCommentMenu(e, comment)}
+                        >
+                          <MoreVertIcon />
+                        </IconButton>
+                      ) : null
+                    }
+                  >
                     <ListItemAvatar>
                       <Avatar>{comment.userName ? comment.userName.charAt(0).toUpperCase() : 'U'}</Avatar>
                     </ListItemAvatar>
@@ -436,6 +501,35 @@ const DocumentReview = () => {
           </Paper>
         </Grid>
       </Grid>
+
+      {/* Menu de Ações do Comentário */}
+      <Menu
+        anchorEl={commentMenuAnchorEl}
+        open={Boolean(commentMenuAnchorEl)}
+        onClose={handleCloseCommentMenu}
+      >
+        {!selectedCommentForAction?.resolved && (
+          <MenuItem onClick={() => openConfirmDialog(handleResolveComment, "Resolver Comentário", "Tem certeza que deseja marcar este comentário como resolvido?")}>
+            <ListItemIcon><ResolveIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Resolver</ListItemText>
+          </MenuItem>
+        )}
+        {/* Adicionar "Marcar como Não Resolvido" aqui se o backend suportar */}
+        <MenuItem onClick={() => openConfirmDialog(handleDeleteComment, "Excluir Comentário", "Tem certeza que deseja excluir este comentário? Esta ação não pode ser desfeita.")}>
+          <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+          <ListItemText primaryTypographyProps={{ color: 'error' }}>Excluir</ListItemText>
+        </MenuItem>
+      </Menu>
+
+      {/* Diálogo de Confirmação para Ações de Comentário */}
+      <ConfirmDialog
+        open={confirmDialogOpen}
+        onClose={() => setConfirmDialogOpen(false)}
+        onConfirm={confirmDialogAction}
+        title={confirmDialogTitle}
+        message={confirmDialogMessage}
+      />
+
 
       <Dialog open={actionModalOpen} onClose={() => setActionModalOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>

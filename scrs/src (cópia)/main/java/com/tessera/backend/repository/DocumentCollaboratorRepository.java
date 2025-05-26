@@ -1,3 +1,4 @@
+// Arquivo: scrs/src/main/java/com/tessera/backend/repository/DocumentCollaboratorRepository.java
 package com.tessera.backend.repository;
 
 import com.tessera.backend.entity.Document;
@@ -23,7 +24,9 @@ public interface DocumentCollaboratorRepository extends JpaRepository<DocumentCo
     
     // Buscar por papel específico
     List<DocumentCollaborator> findByDocumentAndRoleAndActiveTrue(Document document, CollaboratorRole role);
-    Optional<DocumentCollaborator> findByDocumentAndRoleAndActiveTrueFirst(Document document, CollaboratorRole role);
+    
+    // CORREÇÃO: Renomeado de findByDocumentAndRoleAndActiveTrueFirst para findFirstByDocumentAndRoleAndActiveTrue
+    Optional<DocumentCollaborator> findFirstByDocumentAndRoleAndActiveTrue(Document document, CollaboratorRole role);
     
     // Contar colaboradores por tipo
     @Query("SELECT COUNT(c) FROM DocumentCollaborator c WHERE c.document = :document AND c.active = true AND c.role IN :roles")
@@ -47,7 +50,7 @@ public interface DocumentCollaboratorRepository extends JpaRepository<DocumentCo
            "WHERE c.document = :document AND c.active = true " +
            "AND c.permission = :permission")
     List<DocumentCollaborator> findByDocumentAndPermissionAndActiveTrue(@Param("document") Document document, 
-                                                                       @Param("permission") String permission);
+                                                                       @Param("permission") String permission); // No backend, CollaboratorPermission é um Enum. Se o param é String, o Spring pode converter.
     
     // Histórico de colaboradores (incluindo inativos)
     List<DocumentCollaborator> findByDocumentOrderByAddedAtDesc(Document document);
