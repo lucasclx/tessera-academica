@@ -1,34 +1,148 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect } from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { useAuthStore } from '@/stores/authStore'
+import { useNotificationStore } from '@/stores/notificationStore'
+
+// Layouts
+import AuthLayout from '@/layouts/AuthLayout'
+import DashboardLayout from '@/layouts/DashboardLayout'
+import PublicLayout from '@/layouts/PublicLayout'
+
+// Pages - Auth
+import LoginPage from '@/pages/auth/LoginPage'
+import RegisterPage from '@/pages/auth/RegisterPage'
+import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage'
+
+// Pages - Public
+import LandingPage from '@/pages/public/LandingPage'
+import AboutPage from '@/pages/public/AboutPage'
+import ContactPage from '@/pages/public/ContactPage'
+
+// Pages - Dashboard
+import DashboardPage from '@/pages/dashboard/DashboardPage'
+import DocumentsPage from '@/pages/documents/DocumentsPage'
+import DocumentDetailsPage from '@/pages/documents/DocumentDetailsPage'
+import DocumentEditorPage from '@/pages/documents/DocumentEditorPage'
+import CollaboratorsPage from '@/pages/collaborators/CollaboratorsPage'
+import VersionsPage from '@/pages/versions/VersionsPage'
+import ProfilePage from '@/pages/profile/ProfilePage'
+import NotificationsPage from '@/pages/notifications/NotificationsPage'
+
+// Pages - Admin
+import AdminDashboardPage from '@/pages/admin/AdminDashboardPage'
+import UsersManagementPage from '@/pages/admin/UsersManagementPage'
+import RegistrationRequestsPage from '@/pages/admin/RegistrationRequestsPage'
+
+// Components
+import ProtectedRoute from '@/components/auth/ProtectedRoute'
+import AdminRoute from '@/components/auth/AdminRoute'
+import LoadingScreen from '@/components/ui/LoadingScreen'
+import ErrorBoundary from '@/components/ui/ErrorBoundary'
+
+// Services
+import { initializeWebSocket } from '@/services/websocket'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const { user, isLoading, checkAuth } = useAuthStore()
+  const { connect: connectNotifications } = useNotificationStore()
+
+  useEffect(() => {
+    // Verificar autenticação ao carregar a aplicação
+    checkAuth()
+  }, [checkAuth])
+
+  useEffect(() => {
+    // Conectar WebSocket quando usuário estiver autenticado
+    if (user) {
+      initializeWebSocket()
+      connectNotifications()
+    }
+  }, [user, connectNotifications])
+
+  if (isLoading) {
+    return <LoadingScreen />
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <ErrorBoundary>
+      <Routes>
+        {/* Rotas Públicas */}
+        <Route path="/" element={<PublicLayout />}>
+          <Route index element={<LandingPage />} />
+          <Route path="sobre" element={<AboutPage />} />
+          <Route path="contato" element={<ContactPage />} />
+        </Route>
+
+        {/* Rotas de Autenticação */}
+        <Route path="/auth" element={<AuthLayout />}>
+          <Route path="login" element={<LoginPage />} />
+          <Route path="register" element={<RegisterPage />} />
+          <Route path="forgot-password" element={<ForgotPasswordPage />} />
+        </Route>
+
+        {/* Rotas Protegidas - Dashboard */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<DashboardPage />} />
+          
+          {/* Documentos */}
+          <Route path="documents" element={<DocumentsPage />} />
+          <Route path="documents/:id" element={<DocumentDetailsPage />} />
+          <Route path="documents/:id/edit" element={<DocumentEditorPage />} />
+          <Route path="documents/:id/collaborators" element={<CollaboratorsPage />} />
+          <Route path="documents/:id/versions" element={<VersionsPage />} />
+          
+          {/* Perfil e Configurações */}
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+        </Route>
+
+        {/* Rotas de Administração */}
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <DashboardLayout />
+            </AdminRoute>
+          }
+        >
+          <Route index element={<AdminDashboardPage />} />
+          <Route path="users" element={<UsersManagementPage />} />
+          <Route path="registrations" element={<RegistrationRequestsPage />} />
+        </Route>
+
+        {/* Redirecionamentos */}
+        <Route
+          path="/app"
+          element={<Navigate to="/dashboard" replace />}
+        />
+        
+        {/* 404 - Rota não encontrada */}
+        <Route
+          path="*"
+          element={
+            <div className="min-h-screen flex items-center justify-center bg-secondary-50">
+              <div className="text-center">
+                <h1 className="text-6xl font-bold text-secondary-900 mb-4">404</h1>
+                <p className="text-xl text-secondary-600 mb-8">Página não encontrada</p>
+                <button
+                  onClick={() => window.history.back()}
+                  className="btn-primary"
+                >
+                  Voltar
+                </button>
+              </div>
+            </div>
+          }
+        />
+      </Routes>
+    </ErrorBoundary>
   )
 }
 
