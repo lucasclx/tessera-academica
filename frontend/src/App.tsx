@@ -1,16 +1,17 @@
+// File: srcs/src/App.tsx
 import { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useNotificationStore } from '@/stores/notificationStore'
 
 // Layouts
-import AuthLayout from '@/layouts/AuthLayout'
-import DashboardLayout from '@/layouts/DashboardLayout'
-import PublicLayout from '@/layouts/PublicLayout'
+import AuthLayout from '@/components/layouts/AuthLayout'
+import DashboardLayout from '@/components/layouts/DashboardLayout'
+import PublicLayout from '@/components/layouts/PublicLayout'
 
 // Pages - Auth
-import LoginPage from '@/pages/auth/LoginPage'
-import RegisterPage from '@/pages/auth/RegisterPage'
+import LoginPage from '@/components/auth/LoginPage' // Caminho corrigido para o arquivo existente
+import RegisterPage from '@/pages/auth/RegisterPage' // Mantido, pois RegisterPage.tsx foi gerado para esta pasta
 import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage'
 
 // Pages - Public
@@ -47,12 +48,10 @@ function App() {
   const { connect: connectNotifications } = useNotificationStore()
 
   useEffect(() => {
-    // Verificar autenticação ao carregar a aplicação
     checkAuth()
   }, [checkAuth])
 
   useEffect(() => {
-    // Conectar WebSocket quando usuário estiver autenticado
     if (user) {
       initializeWebSocket()
       connectNotifications()
@@ -90,15 +89,11 @@ function App() {
           }
         >
           <Route index element={<DashboardPage />} />
-          
-          {/* Documentos */}
           <Route path="documents" element={<DocumentsPage />} />
           <Route path="documents/:id" element={<DocumentDetailsPage />} />
           <Route path="documents/:id/edit" element={<DocumentEditorPage />} />
           <Route path="documents/:id/collaborators" element={<CollaboratorsPage />} />
           <Route path="documents/:id/versions" element={<VersionsPage />} />
-          
-          {/* Perfil e Configurações */}
           <Route path="profile" element={<ProfilePage />} />
           <Route path="notifications" element={<NotificationsPage />} />
         </Route>

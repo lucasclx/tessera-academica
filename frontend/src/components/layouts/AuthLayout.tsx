@@ -1,18 +1,22 @@
+// File: srcs/src/components/layouts/AuthLayout.tsx
 import { Outlet, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { BookOpen, ArrowLeft } from 'lucide-react'
+
+const backgroundPattern1 = `url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%239C92AC" fill-opacity="0.05"%3E%3Ccircle cx="30" cy="30" r="30"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')`
+const backgroundPattern2 = `url('data:image/svg+xml,%3Csvg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="white" fill-opacity="0.1"%3E%3Cpolygon points="50 0 60 40 100 50 60 60 50 100 40 60 0 50 40 40"/%3E%3C/g%3E%3C/svg%3E')`
 
 const AuthLayout = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50">
       {/* Background Pattern */}
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%239C92AC" fill-opacity="0.05"%3E%3Ccircle cx="30" cy="30" r="30"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-40" />
+      <div className={`absolute inset-0 bg-[${backgroundPattern1}] opacity-40`} />
       
       <div className="relative min-h-screen flex">
         {/* Left Side - Hero Section */}
         <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary-600 to-primary-800 relative overflow-hidden">
           {/* Background Pattern */}
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="white" fill-opacity="0.1"%3E%3Cpolygon points="50 0 60 40 100 50 60 60 50 100 40 60 0 50 40 40"/%3E%3C/g%3E%3C/svg%3E')] opacity-20" />
+          <div className={`absolute inset-0 bg-[${backgroundPattern2}] opacity-20`} />
           
           <div className="relative z-10 flex flex-col justify-center px-12 py-16 text-white">
             {/* Logo */}

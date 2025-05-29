@@ -1,4 +1,4 @@
-2import { io, Socket } from 'socket.io-client'
+import { io, Socket } from 'socket.io-client'
 import { Notification, NotificationSummary, DocumentActivity } from '@/types'
 
 interface WebSocketCallbacks {
