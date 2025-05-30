@@ -256,3 +256,93 @@ const RegisterPage: React.FC = () => {
                 <label htmlFor="institution" className="block text-sm font-medium text-gray-700 mb-2">
                   Instituição
                 </label>
+                <input
+                  {...register('institution')}
+                  type="text"
+                  id="institution"
+                  placeholder="Nome da sua instituição"
+                  className={`input-field ${errors.institution ? 'input-error' : ''}`}
+                />
+                {errors.institution && (
+                  <p className="mt-1 text-sm text-red-600">{errors.institution.message}</p>
+                )}
+              </div>
+
+              {/* Departamento */}
+              <div>
+                <label htmlFor="department" className="block text-sm font-medium text-gray-700 mb-2">
+                  Departamento
+                </label>
+                <input
+                  {...register('department')}
+                  type="text"
+                  id="department"
+                  placeholder="Seu departamento"
+                  className={`input-field ${errors.department ? 'input-error' : ''}`}
+                />
+                {errors.department && (
+                  <p className="mt-1 text-sm text-red-600">{errors.department.message}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Justificativa */}
+            <div>
+              <label htmlFor="justification" className="block text-sm font-medium text-gray-700 mb-2">
+                Justificativa
+              </label>
+              <textarea
+                {...register('justification')}
+                id="justification"
+                rows={4}
+                placeholder="Explique por que você precisa acessar o sistema..."
+                className={`input-field ${errors.justification ? 'input-error' : ''}`}
+              />
+              <div className="flex justify-between items-center mt-1">
+                {errors.justification ? (
+                  <p className="text-sm text-red-600">{errors.justification.message}</p>
+                ) : (
+                  <div></div>
+                )}
+                <p className="text-sm text-gray-500">
+                  {justification.length}/500
+                </p>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="btn btn-primary w-full btn-lg"
+            >
+              {isLoading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  Registrando...
+                </div>
+              ) : (
+                'Criar Conta'
+              )}
+            </button>
+          </form>
+
+          {/* Links */}
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">
+              Já tem uma conta?{' '}
+              <Link
+                to="/login"
+                className="font-medium text-primary-600 hover:text-primary-500 transition-colors"
+              >
+                Faça login aqui
+              </Link>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default RegisterPage;
