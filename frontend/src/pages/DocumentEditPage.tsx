@@ -7,7 +7,7 @@ import * as yup from 'yup';
 import {
   ArrowLeftIcon,
   DocumentTextIcon,
-  SaveIcon,
+  DocumentArrowUpIcon as SaveIcon,
   ClockIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline';
