@@ -1,149 +1,180 @@
-import { useEffect } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
-import { useAuthStore } from '@/stores/authStore'
-import { useNotificationStore } from '@/stores/notificationStore'
+// src/App.tsx
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { useAuthStore } from './store/authStore';
 
-// Layouts
-import AuthLayout from '@/layouts/AuthLayout'
-import DashboardLayout from '@/layouts/DashboardLayout'
-import PublicLayout from '@/layouts/PublicLayout'
-
-// Pages - Auth
-import LoginPage from '@/pages/auth/LoginPage'
-import RegisterPage from '@/pages/auth/RegisterPage'
-import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage'
-
-// Pages - Public
-import LandingPage from '@/pages/public/LandingPage'
-import AboutPage from '@/pages/public/AboutPage'
-import ContactPage from '@/pages/public/ContactPage'
-
-// Pages - Dashboard
-import DashboardPage from '@/pages/dashboard/DashboardPage'
-import DocumentsPage from '@/pages/documents/DocumentsPage'
-import DocumentDetailsPage from '@/pages/documents/DocumentDetailsPage'
-import DocumentEditorPage from '@/pages/documents/DocumentEditorPage'
-import CollaboratorsPage from '@/pages/collaborators/CollaboratorsPage'
-import VersionsPage from '@/pages/versions/VersionsPage'
-import ProfilePage from '@/pages/profile/ProfilePage'
-import NotificationsPage from '@/pages/notifications/NotificationsPage'
-
-// Pages - Admin
-import AdminDashboardPage from '@/pages/admin/AdminDashboardPage'
-import UsersManagementPage from '@/pages/admin/UsersManagementPage'
-import RegistrationRequestsPage from '@/pages/admin/RegistrationRequestsPage'
+// Pages
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import StudentDashboard from './pages/student/StudentDashboard';
+import AdvisorDashboard from './pages/advisor/AdvisorDashboard';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import DocumentListPage from './pages/DocumentListPage';
+import DocumentViewPage from './pages/DocumentViewPage';
+import DocumentEditPage from './pages/DocumentEditPage';
+import ProfilePage from './pages/ProfilePage';
+import NotFoundPage from './pages/NotFoundPage';
 
 // Components
-import ProtectedRoute from '@/components/auth/ProtectedRoute'
-import AdminRoute from '@/components/auth/AdminRoute'
-import LoadingScreen from '@/components/ui/LoadingScreen'
-import ErrorBoundary from '@/components/ui/ErrorBoundary'
+import Layout from './components/Layout/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
 
-// Services
-import { initializeWebSocket } from '@/services/websocket'
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
-function App() {
-  const { user, isLoading, checkAuth } = useAuthStore()
-  const { connect: connectNotifications } = useNotificationStore()
-
-  useEffect(() => {
-    // Verificar autenticação ao carregar a aplicação
-    checkAuth()
-  }, [checkAuth])
-
-  useEffect(() => {
-    // Conectar WebSocket quando usuário estiver autenticado
-    if (user) {
-      initializeWebSocket()
-      connectNotifications()
-    }
-  }, [user, connectNotifications])
-
-  if (isLoading) {
-    return <LoadingScreen />
-  }
+const App: React.FC = () => {
+  const { isAuthenticated } = useAuthStore();
 
   return (
-    <ErrorBoundary>
-      <Routes>
-        {/* Rotas Públicas */}
-        <Route path="/" element={<PublicLayout />}>
-          <Route index element={<LandingPage />} />
-          <Route path="sobre" element={<AboutPage />} />
-          <Route path="contato" element={<ContactPage />} />
-        </Route>
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <div className="App">
+          <Routes>
+            {/* Public Routes */}
+            <Route
+              path="/login"
+              element={
+                isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                isAuthenticated ? <Navigate to="/dashboard" replace /> : <RegisterPage />
+              }
+            />
 
-        {/* Rotas de Autenticação */}
-        <Route path="/auth" element={<AuthLayout />}>
-          <Route path="login" element={<LoginPage />} />
-          <Route path="register" element={<RegisterPage />} />
-          <Route path="forgot-password" element={<ForgotPasswordPage />} />
-        </Route>
+            {/* Protected Routes */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
+              {/* Dashboard Routes */}
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route
+                path="dashboard"
+                element={
+                  <RoleBasedDashboard />
+                }
+              />
 
-        {/* Rotas Protegidas - Dashboard */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <DashboardLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<DashboardPage />} />
-          
-          {/* Documentos */}
-          <Route path="documents" element={<DocumentsPage />} />
-          <Route path="documents/:id" element={<DocumentDetailsPage />} />
-          <Route path="documents/:id/edit" element={<DocumentEditorPage />} />
-          <Route path="documents/:id/collaborators" element={<CollaboratorsPage />} />
-          <Route path="documents/:id/versions" element={<VersionsPage />} />
-          
-          {/* Perfil e Configurações */}
-          <Route path="profile" element={<ProfilePage />} />
-          <Route path="notifications" element={<NotificationsPage />} />
-        </Route>
+              {/* Student Routes */}
+              <Route
+                path="student/*"
+                element={
+                  <ProtectedRoute requiredRole="STUDENT">
+                    <Routes>
+                      <Route index element={<Navigate to="documents" replace />} />
+                      <Route path="documents" element={<DocumentListPage />} />
+                      <Route path="documents/:id" element={<DocumentViewPage />} />
+                      <Route path="documents/:id/edit" element={<DocumentEditPage />} />
+                      <Route path="documents/new" element={<DocumentEditPage />} />
+                    </Routes>
+                  </ProtectedRoute>
+                }
+              />
 
-        {/* Rotas de Administração */}
-        <Route
-          path="/admin"
-          element={
-            <AdminRoute>
-              <DashboardLayout />
-            </AdminRoute>
-          }
-        >
-          <Route index element={<AdminDashboardPage />} />
-          <Route path="users" element={<UsersManagementPage />} />
-          <Route path="registrations" element={<RegistrationRequestsPage />} />
-        </Route>
+              {/* Advisor Routes */}
+              <Route
+                path="advisor/*"
+                element={
+                  <ProtectedRoute requiredRole="ADVISOR">
+                    <Routes>
+                      <Route index element={<Navigate to="documents" replace />} />
+                      <Route path="documents" element={<DocumentListPage />} />
+                      <Route path="documents/:id" element={<DocumentViewPage />} />
+                      <Route path="documents/:id/edit" element={<DocumentEditPage />} />
+                      <Route path="students" element={<div>Meus Estudantes</div>} />
+                    </Routes>
+                  </ProtectedRoute>
+                }
+              />
 
-        {/* Redirecionamentos */}
-        <Route
-          path="/app"
-          element={<Navigate to="/dashboard" replace />}
-        />
-        
-        {/* 404 - Rota não encontrada */}
-        <Route
-          path="*"
-          element={
-            <div className="min-h-screen flex items-center justify-center bg-secondary-50">
-              <div className="text-center">
-                <h1 className="text-6xl font-bold text-secondary-900 mb-4">404</h1>
-                <p className="text-xl text-secondary-600 mb-8">Página não encontrada</p>
-                <button
-                  onClick={() => window.history.back()}
-                  className="btn-primary"
-                >
-                  Voltar
-                </button>
-              </div>
-            </div>
-          }
-        />
-      </Routes>
-    </ErrorBoundary>
-  )
-}
+              {/* Admin Routes */}
+              <Route
+                path="admin/*"
+                element={
+                  <ProtectedRoute requiredRole="ADMIN">
+                    <Routes>
+                      <Route index element={<AdminDashboard />} />
+                      <Route path="users" element={<div>Gerenciar Usuários</div>} />
+                      <Route path="registrations" element={<div>Solicitações de Registro</div>} />
+                      <Route path="settings" element={<div>Configurações</div>} />
+                    </Routes>
+                  </ProtectedRoute>
+                }
+              />
 
-export default App
+              {/* Shared Routes */}
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="notifications" element={<div>Notificações</div>} />
+            </Route>
+
+            {/* 404 Route */}
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+
+          {/* Toast notifications */}
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: '#363636',
+                color: '#fff',
+              },
+              success: {
+                duration: 3000,
+                style: {
+                  background: '#10B981',
+                },
+              },
+              error: {
+                duration: 5000,
+                style: {
+                  background: '#EF4444',
+                },
+              },
+            }}
+          />
+        </div>
+      </Router>
+      
+      {/* React Query Devtools - only in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <ReactQueryDevtools initialIsOpen={false} />
+      )}
+    </QueryClientProvider>
+  );
+};
+
+// Component to render role-based dashboard
+const RoleBasedDashboard: React.FC = () => {
+  const { isStudent, isAdvisor, isAdmin } = useAuthStore();
+
+  if (isAdmin()) {
+    return <AdminDashboard />;
+  } else if (isAdvisor()) {
+    return <AdvisorDashboard />;
+  } else if (isStudent()) {
+    return <StudentDashboard />;
+  } else {
+    return <Navigate to="/login" replace />;
+  }
+};
+
+export default App;
