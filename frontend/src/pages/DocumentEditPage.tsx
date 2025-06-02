@@ -445,3 +445,123 @@ const DocumentEditPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Deletar documento
+  const handleDeleteDocument = async () => {
+    if (!document) return;
+    
+    const confirmed = await confirmDeletion(document.title);
+    if (!confirmed) return;
+
+    setLoading(true);
+    try {
+      await documentsApi.delete(document.id);
+      toast.success('Documento excluído com sucesso!');
+      navigate('/student/documents', { replace: true });
+    } catch (error: any) {
+      console.error('❌ Erro ao excluir documento:', error);
+      toast.error(error.response?.data?.message || 'Erro ao excluir documento');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (documentLoading || advisorsLoading) {
+    return <LoadingSpinner size="lg" message="Carregando..." fullScreen />;
+  }
+
+  if (!advisorsData) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-600">Erro ao carregar orientadores. Tente recarregar a página.</p>
+      </div>
+    );
+  }
+
+  const pageTitle = isEditing 
+    ? `Editando: ${document?.title || 'Documento'}` 
+    : 'Novo Documento';
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-6 pb-10">
+      <PageHeader
+        title={pageTitle}
+        subtitle={isEditing && document ? (
+          <div className="space-y-1">
+            <p>ID: {document.id} | Versões: {document.versionCount}</p>
+            <p>Criado: {formatDateTime(document.createdAt)} | Atualizado: {formatDateTime(document.updatedAt)}</p>
+          </div>
+        ) : (
+          <p>Crie um novo documento acadêmico</p>
+        )}
+        actions={
+          <div className="flex items-center space-x-3">
+            <UnsavedChangesIndicator hasChanges={hasUnsavedChanges} />
+            
+            <button
+              onClick={() => navigate(-1)}
+              className="btn btn-secondary"
+              disabled={loading}
+            >
+              <ArrowLeftIcon className="h-5 w-5 mr-2" />
+              Voltar
+            </button>
+
+            {isEditing && document && (
+              <button
+                onClick={handleDeleteDocument}
+                className="btn btn-danger"
+                disabled={loading}
+              >
+                <TrashIcon className="h-5 w-5 mr-2" />
+                Excluir
+              </button>
+            )}
+
+            <button
+              onClick={handleSubmit(onSubmitDocument)}
+              className="btn btn-primary"
+              disabled={loading || !advisorsData}
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  {isEditing ? 'Salvando...' : 'Criando...'}
+                </>
+              ) : (
+                <>
+                  <SaveIcon className="h-5 w-5 mr-2" />
+                  {isEditing ? 'Salvar' : 'Criar Documento'}
+                </>
+              )}
+            </button>
+          </div>
+        }
+      />
+
+      <form onSubmit={handleSubmit(onSubmitDocument)} className="space-y-6">
+        <DocumentForm 
+          register={register}
+          errors={errors}
+          advisors={advisorsData}
+          onFieldChange={handleFormChange}
+          disabled={loading}
+        />
+
+        <DocumentEditor 
+          editorRef={editorRef}
+          initialContent={editorContent}
+          commitMessage={commitMessage}
+          setCommitMessage={setCommitMessage}
+          onContentChange={handleEditorContentChange}
+          isEditing={isEditing}
+          latestVersion={latestVersion}
+          disabled={loading}
+        />
+      </form>
+    </div>
+  );
+};
+
+export default DocumentEditPage;

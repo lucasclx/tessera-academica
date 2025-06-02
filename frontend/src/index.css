@@ -287,3 +287,11 @@
   z-index: 1000;
 }
 
+.ql-tooltip input {
+  border: 1px solid #d1d5db !important;
+  border-radius: 0.375rem !important;
+  padding: 0.5rem !important;
+  font-size: 0.875rem !important;
+  background-color: white !important;
+  color: #374151 !important;
+}
