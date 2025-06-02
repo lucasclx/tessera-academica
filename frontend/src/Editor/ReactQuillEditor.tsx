@@ -1,5 +1,5 @@
-// src/Editor/ReactQuillEditor.tsx
-import React, { useState, useEffect, useImperativeHandle, forwardRef, useRef, useCallback } from 'react';
+// src/Editor/ReactQuillEditor.tsx - VERSÃO OTIMIZADA
+import React, { useState, useEffect, useImperativeHandle, forwardRef, useRef, useCallback, useMemo } from 'react';
 import ReactQuill, { Quill } from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
@@ -39,53 +39,159 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
   const quillRef = useRef<ReactQuill>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const lastContentRef = useRef<string>(content);
+  const isUpdatingRef = useRef(false);
   const initTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // Debug logs
-  console.log('🎯 ReactQuillEditor renderizando', { content, editable, showToolbar });
+  // Debug logs reduzidos - apenas para mudanças importantes
+  const debugLog = useCallback((message: string, data?: any) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🎯 ReactQuillEditor: ${message}`, data || '');
+    }
+  }, []);
+
+  // Memoizar configurações da toolbar para evitar re-criações
+  const toolbarModules = useMemo(() => {
+    if (!showToolbar) return { toolbar: false };
+    
+    return {
+      toolbar: {
+        container: [
+          [{ 'header': [1, 2, 3, false] }],
+          [{ 'font': [] }],
+          [{ 'size': ['small', false, 'large', 'huge'] }],
+          ['bold', 'italic', 'underline', 'strike'],
+          [{ 'color': [] }, { 'background': [] }],
+          [{ 'script': 'sub'}, { 'script': 'super' }],
+          [{ 'align': [] }],
+          [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+          [{ 'indent': '-1'}, { 'indent': '+1' }],
+          ['blockquote', 'code-block'],
+          ['link', 'image', 'video'],
+          ['clean']
+        ],
+        handlers: {
+          image: function() {
+            if (!isMounted || !editable) return;
+            
+            const url = prompt('Insira a URL da imagem:');
+            if (url && quillRef.current) {
+              try {
+                const editor = quillRef.current.getEditor();
+                const range = editor.getSelection(true);
+                if (editor && range) {
+                  editor.insertEmbed(range.index, 'image', url, Quill.sources.USER);
+                }
+              } catch (error) {
+                console.warn('⚠️ Erro ao inserir imagem:', error);
+              }
+            }
+          }
+        }
+      },
+    };
+  }, [showToolbar, isMounted, editable]);
+
+  const formats = useMemo(() => [
+    'header', 'font', 'size',
+    'bold', 'italic', 'underline', 'strike',
+    'color', 'background',
+    'script',
+    'align',
+    'list', 'bullet', 'indent',
+    'blockquote', 'code-block',
+    'link', 'image', 'video'
+  ], []);
 
   // Efeito para marcar como montado
   useEffect(() => {
-    console.log('📦 ReactQuillEditor montado');
+    debugLog('📦 Componente montado');
     setIsMounted(true);
+    
     return () => {
-      console.log('📦 ReactQuillEditor desmontado');
+      debugLog('📦 Componente desmontado');
       setIsMounted(false);
       if (initTimeoutRef.current) {
         clearTimeout(initTimeoutRef.current);
       }
     };
-  }, []);
+  }, [debugLog]);
 
-  // Efeito para sincronizar conteúdo externo
+  // Efeito para sincronização de conteúdo externo (OTIMIZADO)
   useEffect(() => {
-    if (content !== editorHtml && isInitialized && isMounted) {
-      console.log('🔄 Sincronizando conteúdo externo:', content);
+    // Evitar loops: só atualizar se o conteúdo realmente mudou e não estamos em atualização
+    if (
+      content !== lastContentRef.current && 
+      content !== editorHtml && 
+      !isUpdatingRef.current &&
+      isMounted &&
+      isInitialized
+    ) {
+      debugLog('🔄 Sincronizando conteúdo externo', { 
+        new: content.substring(0, 50) + '...', 
+        current: editorHtml.substring(0, 50) + '...' 
+      });
+      
+      lastContentRef.current = content;
       setEditorHtml(content);
+      
+      // Atualizar o editor se estiver pronto
+      if (quillRef.current) {
+        try {
+          const editor = quillRef.current.getEditor();
+          const currentContent = editor.root.innerHTML;
+          if (currentContent !== content) {
+            isUpdatingRef.current = true;
+            editor.clipboard.dangerouslyPasteHTML(0, content);
+            setTimeout(() => {
+              isUpdatingRef.current = false;
+            }, 100);
+          }
+        } catch (error) {
+          console.warn('⚠️ Erro ao sincronizar conteúdo:', error);
+          isUpdatingRef.current = false;
+        }
+      }
     }
-  }, [content, editorHtml, isInitialized, isMounted]);
+  }, [content, editorHtml, isMounted, isInitialized, debugLog]);
 
-  // Efeito para inicialização do editor
+  // Efeito para inicialização do editor (OTIMIZADO)
   useEffect(() => {
     if (quillRef.current && !isInitialized && isMounted) {
-      console.log('🚀 Inicializando editor Quill');
-      // Adicionar um pequeno delay para garantir que o DOM esteja pronto
+      debugLog('🚀 Inicializando editor Quill');
+      
       initTimeoutRef.current = setTimeout(() => {
         if (!isMounted) return;
         
         try {
           const editor = quillRef.current?.getEditor();
-          if (editor && onSelectionChange) {
-            editor.on('selection-change', (range) => {
-              if (range && isMounted) {
-                onSelectionChange({ from: range.index, to: range.index + range.length });
-              }
-            });
+          if (editor) {
+            // Configurar listener de seleção apenas uma vez
+            if (onSelectionChange) {
+              editor.on('selection-change', (range) => {
+                if (range && isMounted && !isUpdatingRef.current) {
+                  onSelectionChange({ from: range.index, to: range.index + range.length });
+                }
+              });
+            }
+            
+            // Definir conteúdo inicial se houver
+            if (content && content !== editor.root.innerHTML) {
+              isUpdatingRef.current = true;
+              editor.clipboard.dangerouslyPasteHTML(0, content);
+              setEditorHtml(content);
+              lastContentRef.current = content;
+              setTimeout(() => {
+                isUpdatingRef.current = false;
+              }, 100);
+            }
+            
+            debugLog('✅ Editor Quill inicializado com sucesso');
+            setIsInitialized(true);
           }
-          console.log('✅ Editor Quill inicializado com sucesso');
-          setIsInitialized(true);
         } catch (error) {
           console.warn('❌ Erro na inicialização do Quill:', error);
+          isUpdatingRef.current = false;
         }
       }, 100);
     }
@@ -95,24 +201,34 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
         clearTimeout(initTimeoutRef.current);
       }
     };
-  }, [onSelectionChange, isInitialized, isMounted]);
+  }, [onSelectionChange, isInitialized, isMounted, content, debugLog]);
 
+  // Handler de mudança otimizado
   const handleChange = useCallback((html: string, delta: any, source: string) => {
-    console.log('📝 Editor onChange:', { html: html.substring(0, 100) + '...', source });
-    
-    if (!isMounted) return;
+    // Evitar loops durante atualizações programáticas
+    if (isUpdatingRef.current || !isMounted) {
+      return;
+    }
 
-    if (maxLength && quillRef.current) {
+    debugLog('📝 Editor onChange', { source, length: html.length });
+
+    // Verificar limite de caracteres
+    if (maxLength && quillRef.current && source === 'user') {
       try {
         const editor = quillRef.current.getEditor();
         const textLength = editor.getText().trim().length;
         
-        if (textLength > maxLength && source === 'user') {
+        if (textLength > maxLength) {
           // Prevenir mudança se exceder o limite
+          isUpdatingRef.current = true;
           editor.deleteText(maxLength, textLength);
           const currentContentAfterDelete = editor.root.innerHTML;
           setEditorHtml(currentContentAfterDelete);
+          lastContentRef.current = currentContentAfterDelete;
           onChange(currentContentAfterDelete);
+          setTimeout(() => {
+            isUpdatingRef.current = false;
+          }, 50);
           return;
         }
       } catch (error) {
@@ -120,61 +236,74 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
       }
     }
     
+    // Atualizar estados
     setEditorHtml(html);
+    lastContentRef.current = html;
     onChange(html);
-  }, [onChange, maxLength, isMounted]);
+  }, [onChange, maxLength, isMounted, debugLog]);
 
   // Expor métodos via ref com verificações de segurança
   useImperativeHandle(ref, () => ({
     getContent: () => {
       try {
-        return quillRef.current?.getEditor().root.innerHTML || '';
+        return quillRef.current?.getEditor().root.innerHTML || editorHtml;
       } catch {
         return editorHtml;
       }
     },
+    
     setContent: (newContent: string, source: string = 'api') => {
-      console.log('📥 setContent chamado:', { newContent: newContent.substring(0, 100) + '...', source });
+      debugLog('📥 setContent chamado', { 
+        source, 
+        contentLength: newContent.length,
+        isUpdating: isUpdatingRef.current 
+      });
       
-      if (!isMounted || !quillRef.current) return;
+      if (!isMounted || !quillRef.current || isUpdatingRef.current) return;
 
       try {
         const editor = quillRef.current.getEditor();
         const currentDOMContent = editor.root.innerHTML;
         
         if (currentDOMContent !== newContent) {
+          isUpdatingRef.current = true;
+          
           if (source === 'api') {
-            // Limpar primeiro, depois definir conteúdo
-            editor.setText('');
-            setTimeout(() => {
-              if (isMounted && quillRef.current) {
-                try {
-                  editor.clipboard.dangerouslyPasteHTML(0, newContent);
-                  setEditorHtml(newContent);
-                  console.log('✅ Conteúdo definido com sucesso');
-                } catch (error) {
-                  console.warn('⚠️ Erro ao definir conteúdo do editor:', error);
-                  setEditorHtml(newContent);
-                }
-              }
-            }, 0);
-          } else {
+            // Para updates programáticos, usar pasteHTML
             editor.clipboard.dangerouslyPasteHTML(0, newContent);
-            setEditorHtml(newContent);
+          } else {
+            // Para updates do usuário, usar pasteHTML também
+            editor.clipboard.dangerouslyPasteHTML(0, newContent);
           }
+          
+          setEditorHtml(newContent);
+          lastContentRef.current = newContent;
+          
+          setTimeout(() => {
+            isUpdatingRef.current = false;
+          }, 100);
+          
+          debugLog('✅ Conteúdo definido com sucesso');
         }
       } catch (error) {
         console.warn('⚠️ Erro ao definir conteúdo:', error);
+        isUpdatingRef.current = false;
+        // Fallback para state
         setEditorHtml(newContent);
+        lastContentRef.current = newContent;
       }
     },
+    
     focus: () => {
       try {
-        quillRef.current?.focus();
+        if (quillRef.current && isMounted) {
+          quillRef.current.focus();
+        }
       } catch (error) {
         console.warn('⚠️ Erro ao focar editor:', error);
       }
     },
+    
     insertText: (text: string) => {
       if (!isMounted || !quillRef.current) return;
 
@@ -186,6 +315,7 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
         console.warn('⚠️ Erro ao inserir texto:', error);
       }
     },
+    
     getText: () => {
       try {
         return quillRef.current?.getEditor().getText() || '';
@@ -196,6 +326,7 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
         return div.textContent || div.innerText || '';
       }
     },
+    
     getLength: () => {
       try {
         return quillRef.current?.getEditor().getLength() || 0;
@@ -203,83 +334,39 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
         return 0;
       }
     },
-  }));
+  }), [editorHtml, isMounted, debugLog]);
 
-  // Configuração da toolbar
-  const toolbarModules = showToolbar ? {
-    toolbar: {
-      container: [
-        [{ 'header': [1, 2, 3, false] }],
-        [{ 'font': [] }],
-        [{ 'size': ['small', false, 'large', 'huge'] }],
-        ['bold', 'italic', 'underline', 'strike'],
-        [{ 'color': [] }, { 'background': [] }],
-        [{ 'script': 'sub'}, { 'script': 'super' }],
-        [{ 'align': [] }],
-        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-        [{ 'indent': '-1'}, { 'indent': '+1' }],
-        ['blockquote', 'code-block'],
-        ['link', 'image', 'video'],
-        ['clean']
-      ],
-      handlers: {
-        image: function() {
-          if (!isMounted) return;
-          
-          const url = prompt('Insira a URL da imagem:');
-          if (url && quillRef.current) {
-            try {
-              const editor = quillRef.current.getEditor();
-              const range = editor.getSelection(true);
-              if (editor && range) {
-                editor.insertEmbed(range.index, 'image', url, Quill.sources.USER);
-              }
-            } catch (error) {
-              console.warn('⚠️ Erro ao inserir imagem:', error);
-            }
-          }
-        }
-      }
-    },
-  } : { toolbar: false };
-
-  const formats = [
-    'header', 'font', 'size',
-    'bold', 'italic', 'underline', 'strike',
-    'color', 'background',
-    'script',
-    'align',
-    'list', 'bullet', 'indent',
-    'blockquote', 'code-block',
-    'link', 'image', 'video'
-  ];
-
-  // Calcular comprimento do texto
-  const textLength = (() => {
+  // Calcular comprimento do texto de forma otimizada
+  const textLength = useMemo(() => {
     try {
-      return quillRef.current?.getEditor().getText().trim().length || 0;
+      if (quillRef.current && isInitialized) {
+        return quillRef.current.getEditor().getText().trim().length || 0;
+      }
     } catch {
+      // Fallback
       const div = document.createElement('div');
       div.innerHTML = editorHtml;
       return (div.textContent || div.innerText || '').trim().length;
     }
-  })();
+    return 0;
+  }, [editorHtml, isInitialized]);
 
-  console.log('📊 Renderizando ReactQuillEditor:', { 
-    editorHtml: editorHtml.substring(0, 50) + '...', 
+  debugLog('📊 Renderizando ReactQuillEditor', { 
     textLength, 
     isInitialized, 
-    isMounted 
+    isMounted,
+    isUpdating: isUpdatingRef.current
   });
 
   return (
     <div className={className}>
-      {/* Debug info - remover em produção */}
+      {/* Debug info - apenas em desenvolvimento */}
       {process.env.NODE_ENV === 'development' && (
         <div className="mb-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs">
-          🔍 DEBUG: Editor montado: {isMounted ? 'Sim' : 'Não'} | 
-          Inicializado: {isInitialized ? 'Sim' : 'Não'} | 
-          Editável: {editable ? 'Sim' : 'Não'}
+          🔍 DEBUG: Montado: {isMounted ? '✅' : '❌'} | 
+          Inicializado: {isInitialized ? '✅' : '❌'} | 
+          Editável: {editable ? '✅' : '❌'} |
+          Atualizando: {isUpdatingRef.current ? '⚠️' : '✅'}
         </div>
       )}
       
