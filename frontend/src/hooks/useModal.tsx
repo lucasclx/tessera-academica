@@ -1,3 +1,4 @@
+// Arquivo: srcs/src (cópia)/hooks/useModal.tsx
 import { useState, useCallback } from 'react';
 
 interface UseModalResult<T = any> {
@@ -21,7 +22,8 @@ export function useModal<T = any>(): UseModalResult<T> {
 
   const closeModal = useCallback(() => {
     setIsOpen(false);
-    setSelectedItem(null);
+    // Opcionalmente, resete selectedItem apenas se não for uma reabertura rápida
+    // setSelectedItem(null); 
   }, []);
 
   return {
@@ -30,65 +32,5 @@ export function useModal<T = any>(): UseModalResult<T> {
     openModal,
     closeModal,
     setSelectedItem,
-  };
-}
-
-// src/hooks/useApiData.ts
-import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
-import { api } from '../lib/api';
-
-interface UseApiDataResult<T> {
-  data: T | null;
-  loading: boolean;
-  error: string | null;
-  refetch: () => Promise<void>;
-}
-
-export function useApiData<T>(
-  endpoint: string,
-  dependencies: any[] = [],
-  options?: { 
-    errorMessage?: string;
-    showToastOnError?: boolean;
-    immediate?: boolean;
-  }
-): UseApiDataResult<T> {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(options?.immediate !== false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = async () => {
-    if (!endpoint) return;
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await api.get<T>(endpoint);
-      setData(response);
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || options?.errorMessage || 'Erro ao carregar dados';
-      setError(errorMessage);
-      
-      if (options?.showToastOnError !== false) {
-        toast.error(errorMessage);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (options?.immediate !== false) {
-      fetchData();
-    }
-  }, dependencies);
-
-  return {
-    data,
-    loading,
-    error,
-    refetch: fetchData,
   };
 }

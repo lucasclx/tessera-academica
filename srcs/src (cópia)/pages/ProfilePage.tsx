@@ -3,17 +3,19 @@ import React, { useState } from 'react';
 import {
   UserCircleIcon,
   EnvelopeIcon,
-  CalendarIcon,
   AcademicCapIcon,
   ShieldCheckIcon,
   Cog6ToothIcon,
   BellIcon,
+  KeyIcon, 
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../store/authStore';
+import ChangePasswordModal from '../components/Layout/ChangePasswordModal'; // <<< IMPORTAR O MODAL
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState('profile');
+  const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false); // <<< ESTADO PARA O MODAL
 
   const getRoleDisplayName = (roles: string[]) => {
     if (roles.includes('ROLE_ADMIN')) return 'Administrador';
@@ -215,13 +217,19 @@ const ProfilePage: React.FC = () => {
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Segurança da Conta</h3>
                 <div className="space-y-6">
                   <div>
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">Alterar Senha</h4>
-                    <p className="text-sm text-gray-500 mb-4">
+                    <h4 className="text-sm font-medium text-gray-900 mb-1">Alterar Senha</h4>
+                    <p className="text-sm text-gray-500 mb-3">
                       Para sua segurança, escolha uma senha forte e única.
                     </p>
-                    <button className="btn btn-secondary">
+                    {/* >>> INÍCIO DA ALTERAÇÃO: Botão para abrir modal */}
+                    <button 
+                      onClick={() => setIsChangePasswordModalOpen(true)}
+                      className="btn btn-secondary inline-flex items-center"
+                    >
+                      <KeyIcon className="h-5 w-5 mr-2" />
                       Alterar Senha
                     </button>
+                    {/* <<< FIM DA ALTERAÇÃO */}
                   </div>
 
                   <div className="border-t border-gray-200 pt-6">
@@ -232,7 +240,7 @@ const ProfilePage: React.FC = () => {
                     <div className="bg-gray-50 rounded-lg p-4">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-900">Último login:</span>
-                        <span className="text-gray-500">Hoje às 14:30</span>
+                        <span className="text-gray-500">Hoje às 14:30</span> {/* Dado de exemplo */}
                       </div>
                     </div>
                   </div>
@@ -252,6 +260,12 @@ const ProfilePage: React.FC = () => {
           )}
         </div>
       </div>
+      
+      {/* Modal de Alteração de Senha */}
+      <ChangePasswordModal
+        isOpen={isChangePasswordModalOpen}
+        onClose={() => setIsChangePasswordModalOpen(false)}
+      />
     </div>
   );
 };
