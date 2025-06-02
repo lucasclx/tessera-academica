@@ -22,12 +22,12 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans', 'sans-serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       animation: {
-        'fade-in': 'fadeIn 0.5s ease-in-out',
+        'fade-in': 'fadeIn 0.3s ease-in-out',
         'slide-up': 'slideUp 0.3s ease-out',
-        'spin': 'spin 1s linear infinite',
+        'pulse': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
       keyframes: {
         fadeIn: {
@@ -37,95 +37,121 @@ export default {
         slideUp: {
           '0%': { transform: 'translateY(10px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
-        },
+        }
       },
-      typography: (theme) => ({
+      typography: {
         DEFAULT: {
           css: {
-            color: theme('colors.gray.900'),
             maxWidth: 'none',
-            a: {
-              color: theme('colors.primary.600'),
-              '&:hover': {
-                color: theme('colors.primary.700'),
-              },
+            color: '#374151',
+            lineHeight: '1.6',
+            p: {
+              marginBottom: '1rem',
             },
             h1: {
-              color: theme('colors.gray.900'),
+              fontSize: '2rem',
+              fontWeight: '700',
+              lineHeight: '1.25',
+              marginBottom: '1rem',
+              color: '#111827',
             },
             h2: {
-              color: theme('colors.gray.900'),
+              fontSize: '1.5rem',
+              fontWeight: '600',
+              lineHeight: '1.25',
+              marginBottom: '0.75rem',
+              color: '#111827',
             },
             h3: {
-              color: theme('colors.gray.900'),
-            },
-            h4: {
-              color: theme('colors.gray.900'),
+              fontSize: '1.25rem',
+              fontWeight: '600',
+              lineHeight: '1.25',
+              marginBottom: '0.75rem',
+              color: '#111827',
             },
             blockquote: {
-              borderLeftColor: theme('colors.primary.200'),
-              color: theme('colors.gray.700'),
+              borderLeft: '4px solid #e5e7eb',
+              paddingLeft: '1rem',
+              margin: '1rem 0',
+              fontStyle: 'italic',
+              color: '#6b7280',
+              backgroundColor: '#f9fafb',
+              padding: '1rem',
+              borderRadius: '0.375rem',
             },
             code: {
-              color: theme('colors.primary.600'),
-              backgroundColor: theme('colors.gray.100'),
-              paddingLeft: theme('spacing.1'),
-              paddingRight: theme('spacing.1'),
-              paddingTop: theme('spacing.0.5'),
-              paddingBottom: theme('spacing.0.5'),
-              borderRadius: theme('borderRadius.sm'),
-              fontWeight: '400',
+              backgroundColor: '#f3f4f6',
+              color: '#ef4444',
+              padding: '0.125rem 0.25rem',
+              borderRadius: '0.25rem',
+              fontSize: '0.875em',
+              fontFamily: 'Monaco, Menlo, Ubuntu Mono, monospace',
             },
-            'code::before': {
-              content: '""',
+            pre: {
+              backgroundColor: '#1f2937',
+              color: '#f9fafb',
+              padding: '1rem',
+              borderRadius: '0.5rem',
+              overflow: 'auto',
+              margin: '1rem 0',
+              fontFamily: 'Monaco, Menlo, Ubuntu Mono, monospace',
             },
-            'code::after': {
-              content: '""',
+            'pre code': {
+              backgroundColor: 'transparent',
+              color: 'inherit',
+              padding: '0',
+            },
+            img: {
+              maxWidth: '100%',
+              height: 'auto',
+              borderRadius: '0.5rem',
+              margin: '1rem 0',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+            },
+            a: {
+              color: '#2563eb',
+              textDecoration: 'underline',
+              textDecorationColor: 'rgba(37, 99, 235, 0.3)',
+              transition: 'text-decoration-color 0.15s ease-in-out',
+              '&:hover': {
+                textDecorationColor: '#2563eb',
+              },
+            },
+            table: {
+              borderCollapse: 'collapse',
+              width: '100%',
+              margin: '1rem 0',
+              border: '1px solid #e5e7eb',
+              borderRadius: '0.5rem',
+              overflow: 'hidden',
+            },
+            'table th, table td': {
+              border: '1px solid #e5e7eb',
+              padding: '0.75rem',
+              textAlign: 'left',
+            },
+            'table th': {
+              backgroundColor: '#f9fafb',
+              fontWeight: '600',
+              color: '#374151',
+            },
+            'table tbody tr:nth-child(even)': {
+              backgroundColor: '#f9fafb',
             },
           },
         },
-      }),
+      },
+      backdropBlur: {
+        xs: '2px',
+      },
+      boxShadow: {
+        'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
+        'medium': '0 4px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+        'large': '0 10px 50px -12px rgba(0, 0, 0, 0.25)',
+      },
     },
   },
   plugins: [
     require('@tailwindcss/typography'),
-    require('@tailwindcss/forms'),
-  ],
-  safelist: [
-    // Status badges
-    'status-badge',
-    'status-draft',
-    'status-submitted',
-    'status-revision',
-    'status-approved',
-    'status-finalized',
-    // Button variants
-    'btn',
-    'btn-primary',
-    'btn-secondary',
-    'btn-success',
-    'btn-danger',
-    'btn-sm',
-    'btn-lg',
-    // Navigation
-    'nav-link',
-    'nav-link-active',
-    'nav-link-inactive',
-    // Cards
-    'card',
-    'card-hover',
-    // Form elements
-    'input-field',
-    'input-error',
-    // Primary color variants
-    {
-      pattern: /bg-primary-(50|100|200|300|400|500|600|700|800|900)/,
-    },
-    {
-      pattern: /text-primary-(50|100|200|300|400|500|600|700|800|900)/,
-    },
-    {
-      pattern: /border-primary-(50|100|200|300|400|500|600|700|800|900)/,
-    },
   ],
 }

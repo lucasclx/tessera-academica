@@ -1,4 +1,4 @@
-// src/Editor/ReactQuillEditor.tsx - VERSÃO CORRIGIDA
+// src/Editor/ReactQuillEditor.tsx
 import React, { useState, useEffect, useImperativeHandle, forwardRef, useRef, useCallback } from 'react';
 import ReactQuill, { Quill } from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
@@ -41,10 +41,15 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
   const [isMounted, setIsMounted] = useState(false);
   const initTimeoutRef = useRef<NodeJS.Timeout>();
 
+  // Debug logs
+  console.log('🎯 ReactQuillEditor renderizando', { content, editable, showToolbar });
+
   // Efeito para marcar como montado
   useEffect(() => {
+    console.log('📦 ReactQuillEditor montado');
     setIsMounted(true);
     return () => {
+      console.log('📦 ReactQuillEditor desmontado');
       setIsMounted(false);
       if (initTimeoutRef.current) {
         clearTimeout(initTimeoutRef.current);
@@ -55,6 +60,7 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
   // Efeito para sincronizar conteúdo externo
   useEffect(() => {
     if (content !== editorHtml && isInitialized && isMounted) {
+      console.log('🔄 Sincronizando conteúdo externo:', content);
       setEditorHtml(content);
     }
   }, [content, editorHtml, isInitialized, isMounted]);
@@ -62,6 +68,7 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
   // Efeito para inicialização do editor
   useEffect(() => {
     if (quillRef.current && !isInitialized && isMounted) {
+      console.log('🚀 Inicializando editor Quill');
       // Adicionar um pequeno delay para garantir que o DOM esteja pronto
       initTimeoutRef.current = setTimeout(() => {
         if (!isMounted) return;
@@ -75,9 +82,10 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
               }
             });
           }
+          console.log('✅ Editor Quill inicializado com sucesso');
           setIsInitialized(true);
         } catch (error) {
-          console.warn('Erro na inicialização do Quill:', error);
+          console.warn('❌ Erro na inicialização do Quill:', error);
         }
       }, 100);
     }
@@ -90,6 +98,8 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
   }, [onSelectionChange, isInitialized, isMounted]);
 
   const handleChange = useCallback((html: string, delta: any, source: string) => {
+    console.log('📝 Editor onChange:', { html: html.substring(0, 100) + '...', source });
+    
     if (!isMounted) return;
 
     if (maxLength && quillRef.current) {
@@ -106,7 +116,7 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
           return;
         }
       } catch (error) {
-        console.warn('Erro ao verificar limite de caracteres:', error);
+        console.warn('⚠️ Erro ao verificar limite de caracteres:', error);
       }
     }
     
@@ -124,6 +134,8 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
       }
     },
     setContent: (newContent: string, source: string = 'api') => {
+      console.log('📥 setContent chamado:', { newContent: newContent.substring(0, 100) + '...', source });
+      
       if (!isMounted || !quillRef.current) return;
 
       try {
@@ -131,7 +143,6 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
         const currentDOMContent = editor.root.innerHTML;
         
         if (currentDOMContent !== newContent) {
-          // Usar setText + setContents para evitar problemas de range
           if (source === 'api') {
             // Limpar primeiro, depois definir conteúdo
             editor.setText('');
@@ -140,9 +151,9 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
                 try {
                   editor.clipboard.dangerouslyPasteHTML(0, newContent);
                   setEditorHtml(newContent);
+                  console.log('✅ Conteúdo definido com sucesso');
                 } catch (error) {
-                  console.warn('Erro ao definir conteúdo do editor:', error);
-                  // Fallback: definir através do estado
+                  console.warn('⚠️ Erro ao definir conteúdo do editor:', error);
                   setEditorHtml(newContent);
                 }
               }
@@ -153,8 +164,7 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
           }
         }
       } catch (error) {
-        console.warn('Erro ao definir conteúdo:', error);
-        // Fallback para estado React
+        console.warn('⚠️ Erro ao definir conteúdo:', error);
         setEditorHtml(newContent);
       }
     },
@@ -162,7 +172,7 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
       try {
         quillRef.current?.focus();
       } catch (error) {
-        console.warn('Erro ao focar editor:', error);
+        console.warn('⚠️ Erro ao focar editor:', error);
       }
     },
     insertText: (text: string) => {
@@ -173,7 +183,7 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
         const selection = editor.getSelection() || { index: editor.getLength(), length: 0 };
         editor.insertText(selection.index, text);
       } catch (error) {
-        console.warn('Erro ao inserir texto:', error);
+        console.warn('⚠️ Erro ao inserir texto:', error);
       }
     },
     getText: () => {
@@ -195,7 +205,7 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
     },
   }));
 
-  // Configuração da toolbar com handlers seguros
+  // Configuração da toolbar
   const toolbarModules = showToolbar ? {
     toolbar: {
       container: [
@@ -225,7 +235,7 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
                 editor.insertEmbed(range.index, 'image', url, Quill.sources.USER);
               }
             } catch (error) {
-              console.warn('Erro ao inserir imagem:', error);
+              console.warn('⚠️ Erro ao inserir imagem:', error);
             }
           }
         }
@@ -244,20 +254,35 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
     'link', 'image', 'video'
   ];
 
-  // Calcular comprimento do texto com verificação de segurança
+  // Calcular comprimento do texto
   const textLength = (() => {
     try {
       return quillRef.current?.getEditor().getText().trim().length || 0;
     } catch {
-      // Fallback: contar caracteres do HTML sem tags
       const div = document.createElement('div');
       div.innerHTML = editorHtml;
       return (div.textContent || div.innerText || '').trim().length;
     }
   })();
 
+  console.log('📊 Renderizando ReactQuillEditor:', { 
+    editorHtml: editorHtml.substring(0, 50) + '...', 
+    textLength, 
+    isInitialized, 
+    isMounted 
+  });
+
   return (
     <div className={className}>
+      {/* Debug info - remover em produção */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mb-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs">
+          🔍 DEBUG: Editor montado: {isMounted ? 'Sim' : 'Não'} | 
+          Inicializado: {isInitialized ? 'Sim' : 'Não'} | 
+          Editável: {editable ? 'Sim' : 'Não'}
+        </div>
+      )}
+      
       <ReactQuill
         ref={quillRef}
         theme={showToolbar ? theme : "bubble"}
@@ -270,7 +295,7 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
         style={{
           minHeight: showToolbar ? '400px' : '300px',
         }}
-        preserveWhitespace={false} // Ajuda a evitar problemas de range
+        preserveWhitespace={false}
       />
       
       {/* Contador de caracteres */}
