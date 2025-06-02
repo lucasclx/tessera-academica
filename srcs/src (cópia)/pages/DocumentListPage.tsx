@@ -1,4 +1,4 @@
-// src/pages/DocumentListPage.tsx
+// src/pages/DocumentListPage.tsx - VERSÃO CORRIGIDA
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import {
@@ -22,9 +22,10 @@ const DocumentListPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Mudança: iniciar com false
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
+  const [error, setError] = useState<string | null>(null); // Novo: estado de erro
   
   // Filter and search states
   const [currentPage, setCurrentPage] = useState(0);
@@ -32,6 +33,7 @@ const DocumentListPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'ALL');
   const [showFilters, setShowFilters] = useState(false);
 
+  // Carregamento inicial
   useEffect(() => {
     loadDocuments();
   }, [currentPage, statusFilter]);
@@ -42,20 +44,44 @@ const DocumentListPage: React.FC = () => {
     if (searchTerm) params.set('search', searchTerm);
     if (statusFilter !== 'ALL') params.set('status', statusFilter);
     if (currentPage > 0) params.set('page', currentPage.toString());
-    setSearchParams(params);
+    setSearchParams(params, { replace: true }); // Evita criar histórico excessivo
   }, [searchTerm, statusFilter, currentPage, setSearchParams]);
 
   const loadDocuments = async () => {
     try {
       setLoading(true);
-      const apiCall = isAdvisor() ? documentsApi.getAdvisorDocuments : documentsApi.getAll;
-      const response = await apiCall(currentPage, 10, searchTerm, statusFilter);
+      setError(null); // Limpar erro anterior
+
+      // Escolher o endpoint correto baseado no papel do usuário
+      let apiCall;
+      if (isAdvisor()) {
+        apiCall = () => documentsApi.getAdvisorDocuments(currentPage, 10, searchTerm, statusFilter);
+      } else if (isStudent()) {
+        apiCall = () => documentsApi.getMyDocuments(currentPage, 10, searchTerm, statusFilter);
+      } else {
+        // Fallback para administradores ou outros casos
+        apiCall = () => documentsApi.getAll(currentPage, 10, searchTerm, statusFilter);
+      }
+
+      const response = await apiCall();
       
       setDocuments(response.content);
       setTotalPages(response.totalPages);
       setTotalElements(response.totalElements);
-    } catch (error) {
-      toast.error('Erro ao carregar documentos');
+    } catch (error: any) {
+      console.error('Erro ao carregar documentos:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Erro ao carregar documentos';
+      setError(errorMessage);
+      
+      // Mostrar toast apenas se não for um erro 401 (já tratado pelo interceptor)
+      if (error.response?.status !== 401) {
+        toast.error(errorMessage);
+      }
+      
+      // Limpar dados em caso de erro
+      setDocuments([]);
+      setTotalPages(0);
+      setTotalElements(0);
     } finally {
       setLoading(false);
     }
@@ -110,6 +136,33 @@ const DocumentListPage: React.FC = () => {
     { value: 'FINALIZED', label: 'Finalizado' },
   ];
 
+  // Renderização de erro
+  if (error && !loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {isAdvisor() ? 'Documentos dos Orientandos' : 'Meus Documentos'}
+            </h1>
+          </div>
+        </div>
+        
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <ExclamationTriangleIcon className="mx-auto h-12 w-12 text-red-400 mb-4" />
+          <h3 className="text-lg font-medium text-red-800 mb-2">Erro ao Carregar Documentos</h3>
+          <p className="text-red-600 mb-4">{error}</p>
+          <button 
+            onClick={loadDocuments}
+            className="btn btn-primary"
+          >
+            Tentar Novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -119,7 +172,7 @@ const DocumentListPage: React.FC = () => {
             {isAdvisor() ? 'Documentos dos Orientandos' : 'Meus Documentos'}
           </h1>
           <p className="text-gray-600 mt-1">
-            {totalElements} documento(s) encontrado(s)
+            {loading ? 'Carregando...' : `${totalElements} documento(s) encontrado(s)`}
           </p>
         </div>
         {isStudent() && (
@@ -148,6 +201,7 @@ const DocumentListPage: React.FC = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="input-field pl-10"
+                disabled={loading}
               />
             </div>
           </form>
@@ -157,6 +211,7 @@ const DocumentListPage: React.FC = () => {
             <button
               onClick={() => setShowFilters(!showFilters)}
               className="btn btn-secondary"
+              disabled={loading}
             >
               <FunnelIcon className="h-5 w-5 mr-2" />
               Filtros
@@ -172,11 +227,12 @@ const DocumentListPage: React.FC = () => {
                 <button
                   key={option.value}
                   onClick={() => handleStatusFilter(option.value)}
+                  disabled={loading}
                   className={`text-sm px-3 py-2 rounded-lg border transition-colors ${
                     statusFilter === option.value
                       ? 'bg-primary-100 border-primary-300 text-primary-700'
                       : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
+                  } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {option.label}
                 </button>
@@ -191,6 +247,7 @@ const DocumentListPage: React.FC = () => {
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+            <span className="ml-3 text-gray-600">Carregando documentos...</span>
           </div>
         ) : documents.length === 0 ? (
           <div className="p-12 text-center">
@@ -324,7 +381,7 @@ const DocumentListPage: React.FC = () => {
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
-                      disabled={currentPage === 0}
+                      disabled={currentPage === 0 || loading}
                       className="btn btn-secondary btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Anterior
@@ -337,11 +394,12 @@ const DocumentListPage: React.FC = () => {
                         <button
                           key={page}
                           onClick={() => setCurrentPage(page)}
+                          disabled={loading}
                           className={`btn btn-sm ${
                             currentPage === page
                               ? 'btn-primary'
                               : 'btn-secondary'
-                          }`}
+                          } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                           {page + 1}
                         </button>
@@ -350,7 +408,7 @@ const DocumentListPage: React.FC = () => {
                     
                     <button
                       onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))}
-                      disabled={currentPage >= totalPages - 1}
+                      disabled={currentPage >= totalPages - 1 || loading}
                       className="btn btn-secondary btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Próximo

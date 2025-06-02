@@ -69,9 +69,9 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
       TableCell.configure({ HTMLAttributes: { class: 'border border-gray-300 p-2 align-top' } }),
       Placeholder.configure({ placeholder }),
     ],
-    content: content,
+    content: content, // Conteúdo inicial
     editable,
-    onUpdate: ({ editor: currentEditor }) => onChange(currentEditor.getHTML()),
+    onUpdate: ({ editor: currentEditor }) => onChange(currentEditor.getHTML()), // Notifica o pai sobre mudanças
     onSelectionUpdate: ({ editor: currentEditor }) => {
       if (onSelectionChange) {
         const { from, to } = currentEditor.state.selection;
@@ -83,15 +83,20 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
     },
   });
 
+  // Efeito para sincronizar a prop 'content' (externa) com o conteúdo interno do editor Tiptap.
   useEffect(() => {
     if (editor) { 
       const currentEditorHTML = editor.getHTML();
+      // Apenas atualiza o conteúdo do editor se a prop 'content' for diferente do HTML atual do editor.
+      // 'emitUpdate: false' é crucial para evitar que esta chamada programática dispare o evento 'onUpdate',
+      // prevenindo assim loops de atualização infinitos.
       if (content !== currentEditorHTML) {
-        editor.commands.setContent(content, false);
+        editor.commands.setContent(content, false); 
       }
     }
-  }, [content, editor]);
+  }, [content, editor]); // Roda quando a prop 'content' ou a instância do 'editor' mudam.
 
+  // Expõe métodos do editor para o componente pai via ref.
   useImperativeHandle(ref, () => ({
     getContent: () => editor?.getHTML() || '',
     setContent: (newContent: string, emitUpdate: boolean = false) => editor?.commands.setContent(newContent, emitUpdate),
@@ -100,10 +105,12 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
     getEditor: () => editor,
   }));
 
+  // Callbacks para ações da toolbar, usando 'useCallback' para memoização.
   const setLinkCallback = useCallback(() => { if (!editor || !editable) return; const previousUrl = editor.getAttributes('link').href; const url = window.prompt('Insira a URL do link:', previousUrl || 'https://'); if (url === null) return; if (url === '') { editor.chain().focus().extendMarkRange('link').unsetLink().run(); return; } editor.chain().focus().extendMarkRange('link').setLink({ href: url, target: '_blank' }).run(); }, [editor, editable]);
   const addImageCallback = useCallback(() => { if (!editor || !editable) return; const url = window.prompt('Insira a URL da imagem:'); if (url) { editor.chain().focus().setImage({ src: url }).run(); } }, [editor, editable]);
   const insertTableCallback = useCallback(() => { if (!editor || !editable) return; editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(); }, [editor, editable]);
 
+  // Componente interno para botões da toolbar.
   const ToolbarButton: React.FC<React.PropsWithChildren<{ onClick?: () => void; isActive?: boolean; disabled?: boolean; title?: string; className?: string; }>> = 
   ({ onClick, isActive = false, disabled = false, children, title, className = '' }) => (
     <button type="button" onClick={onClick} disabled={!editor || !editable || disabled} title={title}
@@ -111,6 +118,7 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
     >{children}</button>
   );
   
+  // Componente interno para a barra de ferramentas do editor.
   const EditorToolbar: React.FC = () => {
     if (!editor) {
       return <div className="editor-toolbar sticky top-0 z-10 bg-gray-50 border-b border-gray-300 p-2 flex flex-wrap items-center gap-x-1 gap-y-0.5 h-[46px] min-h-[46px]"><span className="text-sm text-gray-400">Carregando editor...</span></div>;
@@ -120,7 +128,6 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
 
     return (
       <div className="editor-toolbar sticky top-0 z-10 bg-gray-50 border-b border-gray-200 p-1 sm:p-2 flex flex-wrap items-center gap-x-1 gap-y-0.5">
-        {/* Botões da Toolbar... (iguais à versão anterior) */}
         <div className="flex items-center border-r border-gray-200 pr-1 mr-1">
           <ToolbarButton onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} title="Desfazer (Ctrl+Z)"><UndoIcon size={18} /></ToolbarButton>
           <ToolbarButton onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} title="Refazer (Ctrl+Y)"><RedoIcon size={18} /></ToolbarButton>
@@ -134,7 +141,6 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
         <div className="flex items-center border-r border-gray-200 pr-1 mr-1">
           <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')} title="Negrito (Ctrl+B)"><BoldIcon size={18} /></ToolbarButton>
           <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} isActive={editor.isActive('italic')} title="Itálico (Ctrl+I)"><ItalicIcon size={18} /></ToolbarButton>
-          {/* ... demais botões da toolbar como na versão anterior ... */}
           <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} isActive={editor.isActive('underline')} title="Sublinhado (Ctrl+U)"><UnderlineIcon size={18} /></ToolbarButton>
           <ToolbarButton onClick={() => editor.chain().focus().toggleStrike().run()} isActive={editor.isActive('strike')} title="Riscado"><StrikethroughIcon size={18} /></ToolbarButton>
           <ToolbarButton onClick={() => editor.chain().focus().toggleHighlight({color: '#FFF3A3'}).run()} isActive={editor.isActive('highlight')} title="Realçar"><HighlighterIcon size={18} /></ToolbarButton>
@@ -163,19 +169,6 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
   return (
     <div className={className}>
       {showToolbar && editable && <EditorToolbar />}
-      
-      {/* BubbleMenu COMENTADA para teste:
-      {editor && (
-        <BubbleMenu editor={editor} tippyOptions={{ duration: 100, placement: 'top' }}
-          className="bg-gray-800 text-white shadow-lg border border-gray-700 rounded-md p-1 flex items-center space-x-0.5"
-        >
-          <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')} title="Negrito" className="text-white hover:bg-gray-700 !p-1.5"><BoldIcon size={16} /></ToolbarButton>
-          <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} isActive={editor.isActive('italic')} title="Itálico" className="text-white hover:bg-gray-700 !p-1.5"><ItalicIcon size={16} /></ToolbarButton>
-          <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} isActive={editor.isActive('underline')} title="Sublinhado" className="text-white hover:bg-gray-700 !p-1.5"><UnderlineIcon size={16} /></ToolbarButton>
-          <ToolbarButton onClick={setLinkCallback} isActive={editor.isActive('link')} title="Link" className="text-white hover:bg-gray-700 !p-1.5"><LinkIcon size={16} /></ToolbarButton>
-        </BubbleMenu>
-      )}
-      */}
       <EditorContent editor={editor} />
     </div>
   );

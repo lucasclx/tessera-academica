@@ -1,4 +1,5 @@
-// src/Editor/ReactQuillEditor.tsx - VERSÃO OTIMIZADA
+// Arquivo: srcs/src (cópia)/Editor/ReactQuillEditor.tsx
+// src/Editor/ReactQuillEditor.tsx - VERSÃO OTIMIZADA E CORRIGIDA
 import React, { useState, useEffect, useImperativeHandle, forwardRef, useRef, useCallback, useMemo } from 'react';
 import ReactQuill, { Quill } from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
@@ -10,6 +11,7 @@ export interface EditorRef {
   insertText: (text: string) => void;
   getText: () => string;
   getLength: () => number;
+  getEditor: () => Quill | null; // Adicionado para debug externo se necessário
 }
 
 interface ReactQuillEditorProps {
@@ -25,9 +27,9 @@ interface ReactQuillEditorProps {
 }
 
 const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
-  content = '', 
+  content = '',
   placeholder = 'Escreva seu texto aqui...',
-  onChange, 
+  onChange,
   onSelectionChange,
   editable = true,
   className = 'bg-white border border-gray-300 rounded-lg shadow-sm overflow-hidden',
@@ -39,21 +41,18 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
   const quillRef = useRef<ReactQuill>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const lastContentRef = useRef<string>(content);
-  const isUpdatingRef = useRef(false);
+  const lastContentPropRef = useRef<string>(content); // Para rastrear a prop 'content'
+  const isUpdatingProgrammaticallyRef = useRef(false); // Para controle de updates programáticos
   const initTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // Debug logs reduzidos - apenas para mudanças importantes
   const debugLog = useCallback((message: string, data?: any) => {
     if (process.env.NODE_ENV === 'development') {
       console.log(`🎯 ReactQuillEditor: ${message}`, data || '');
     }
   }, []);
 
-  // Memoizar configurações da toolbar para evitar re-criações
   const toolbarModules = useMemo(() => {
     if (!showToolbar) return { toolbar: false };
-    
     return {
       toolbar: {
         container: [
@@ -72,16 +71,13 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
         ],
         handlers: {
           image: function() {
-            if (!isMounted || !editable) return;
-            
+            if (!isMounted || !editable || !quillRef.current) return;
             const url = prompt('Insira a URL da imagem:');
-            if (url && quillRef.current) {
+            if (url) {
               try {
                 const editor = quillRef.current.getEditor();
                 const range = editor.getSelection(true);
-                if (editor && range) {
-                  editor.insertEmbed(range.index, 'image', url, Quill.sources.USER);
-                }
+                editor.insertEmbed(range.index, 'image', url, Quill.sources.USER);
               } catch (error) {
                 console.warn('⚠️ Erro ao inserir imagem:', error);
               }
@@ -93,283 +89,227 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
   }, [showToolbar, isMounted, editable]);
 
   const formats = useMemo(() => [
-    'header', 'font', 'size',
-    'bold', 'italic', 'underline', 'strike',
-    'color', 'background',
-    'script',
-    'align',
-    'list', 'bullet', 'indent',
-    'blockquote', 'code-block',
-    'link', 'image', 'video'
+    'header', 'font', 'size', 'bold', 'italic', 'underline', 'strike',
+    'color', 'background', 'script', 'align', 'list', 'bullet', 'indent',
+    'blockquote', 'code-block', 'link', 'image', 'video'
   ], []);
 
-  // Efeito para marcar como montado
   useEffect(() => {
     debugLog('📦 Componente montado');
     setIsMounted(true);
-    
     return () => {
       debugLog('📦 Componente desmontado');
       setIsMounted(false);
-      if (initTimeoutRef.current) {
-        clearTimeout(initTimeoutRef.current);
-      }
+      if (initTimeoutRef.current) clearTimeout(initTimeoutRef.current);
     };
   }, [debugLog]);
 
-  // Efeito para sincronização de conteúdo externo (OTIMIZADO)
+  // Efeito para sincronização de conteúdo externo (prop 'content')
   useEffect(() => {
-    // Evitar loops: só atualizar se o conteúdo realmente mudou e não estamos em atualização
-    if (
-      content !== lastContentRef.current && 
-      content !== editorHtml && 
-      !isUpdatingRef.current &&
-      isMounted &&
-      isInitialized
-    ) {
-      debugLog('🔄 Sincronizando conteúdo externo', { 
-        new: content.substring(0, 50) + '...', 
-        current: editorHtml.substring(0, 50) + '...' 
+    if (isMounted && isInitialized && !isUpdatingProgrammaticallyRef.current && content !== lastContentPropRef.current) {
+      debugLog('🔄 Sincronizando prop "content" com editor', {
+        newPropContent: content.substring(0, 50) + '...',
+        currentEditorHtml: editorHtml.substring(0, 50) + '...'
       });
-      
-      lastContentRef.current = content;
-      setEditorHtml(content);
-      
-      // Atualizar o editor se estiver pronto
-      if (quillRef.current) {
-        try {
-          const editor = quillRef.current.getEditor();
-          const currentContent = editor.root.innerHTML;
-          if (currentContent !== content) {
-            isUpdatingRef.current = true;
-            editor.clipboard.dangerouslyPasteHTML(0, content);
-            setTimeout(() => {
-              isUpdatingRef.current = false;
-            }, 100);
-          }
-        } catch (error) {
-          console.warn('⚠️ Erro ao sincronizar conteúdo:', error);
-          isUpdatingRef.current = false;
+
+      const editor = quillRef.current?.getEditor();
+      if (editor) {
+        const currentEditorDOMContent = editor.root.innerHTML;
+        if (currentEditorDOMContent !== content) {
+          isUpdatingProgrammaticallyRef.current = true;
+          editor.clipboard.dangerouslyPasteHTML(0, content);
+          lastContentPropRef.current = content; // Crucial para evitar loop com a prop
+
+          setTimeout(() => {
+            if (isMounted) isUpdatingProgrammaticallyRef.current = false;
+          }, 100);
+        } else {
+           lastContentPropRef.current = content;
         }
       }
     }
-  }, [content, editorHtml, isMounted, isInitialized, debugLog]);
+  }, [content, isMounted, isInitialized, editorHtml, debugLog]);
 
-  // Efeito para inicialização do editor (OTIMIZADO)
+
+  // Efeito para inicialização do editor Quill
   useEffect(() => {
     if (quillRef.current && !isInitialized && isMounted) {
-      debugLog('🚀 Inicializando editor Quill');
-      
+      debugLog('🚀 Tentando inicializar editor Quill...');
       initTimeoutRef.current = setTimeout(() => {
         if (!isMounted) return;
-        
         try {
           const editor = quillRef.current?.getEditor();
           if (editor) {
-            // Configurar listener de seleção apenas uma vez
             if (onSelectionChange) {
-              editor.on('selection-change', (range) => {
-                if (range && isMounted && !isUpdatingRef.current) {
+              editor.on('selection-change', (range, _oldRange, source) => { // Corrigido _oldRange
+                if (range && isMounted && !isUpdatingProgrammaticallyRef.current && source === Quill.sources.USER) {
                   onSelectionChange({ from: range.index, to: range.index + range.length });
                 }
               });
             }
-            
-            // Definir conteúdo inicial se houver
-            if (content && content !== editor.root.innerHTML) {
-              isUpdatingRef.current = true;
-              editor.clipboard.dangerouslyPasteHTML(0, content);
-              setEditorHtml(content);
-              lastContentRef.current = content;
-              setTimeout(() => {
-                isUpdatingRef.current = false;
-              }, 100);
+            // O conteúdo inicial é passado via `value` para ReactQuill.
+            // Se a prop `content` for diferente do que o editor renderizou inicialmente,
+            // o useEffect de sincronização acima cuidará disso.
+            // Atualiza o editorHtml e lastContentPropRef para o estado inicial do editor, se necessário.
+            const initialDOMContent = editor.root.innerHTML;
+            if (editorHtml !== initialDOMContent) {
+                setEditorHtml(initialDOMContent);
             }
-            
+            if (lastContentPropRef.current !== initialDOMContent) {
+                lastContentPropRef.current = initialDOMContent;
+            }
+
             debugLog('✅ Editor Quill inicializado com sucesso');
             setIsInitialized(true);
+          } else {
+            console.warn('❓ Editor Quill (getEditor()) não encontrado durante a tentativa de inicialização.');
           }
         } catch (error) {
           console.warn('❌ Erro na inicialização do Quill:', error);
-          isUpdatingRef.current = false;
         }
-      }, 100);
+      }, 150);
     }
-
     return () => {
-      if (initTimeoutRef.current) {
-        clearTimeout(initTimeoutRef.current);
-      }
+      if (initTimeoutRef.current) clearTimeout(initTimeoutRef.current);
     };
-  }, [onSelectionChange, isInitialized, isMounted, content, debugLog]);
+  }, [isInitialized, isMounted, onSelectionChange, debugLog, editorHtml]); // Adicionado editorHtml para re-avaliar se a inicialização precisa forçar o estado
 
-  // Handler de mudança otimizado
-  const handleChange = useCallback((html: string, delta: any, source: string) => {
-    // Evitar loops durante atualizações programáticas
-    if (isUpdatingRef.current || !isMounted) {
+
+  const handleChange = useCallback((newHtml: string, _delta: any, source: string, editorInstance: Quill) => { // Corrigido _delta
+    if (isUpdatingProgrammaticallyRef.current || !isMounted) {
       return;
     }
 
-    debugLog('📝 Editor onChange', { source, length: html.length });
+    const textContent = editorInstance.getText();
+    debugLog('📝 Editor onChange disparado', { source, htmlLength: newHtml.length, textLength: textContent.trim().length });
 
-    // Verificar limite de caracteres
-    if (maxLength && quillRef.current && source === 'user') {
-      try {
-        const editor = quillRef.current.getEditor();
-        const textLength = editor.getText().trim().length;
-        
-        if (textLength > maxLength) {
-          // Prevenir mudança se exceder o limite
-          isUpdatingRef.current = true;
-          editor.deleteText(maxLength, textLength);
-          const currentContentAfterDelete = editor.root.innerHTML;
-          setEditorHtml(currentContentAfterDelete);
-          lastContentRef.current = currentContentAfterDelete;
-          onChange(currentContentAfterDelete);
-          setTimeout(() => {
-            isUpdatingRef.current = false;
-          }, 50);
-          return;
+    if (maxLength && source === Quill.sources.USER) {
+      const textLength = textContent.trim().length;
+      if (textLength > maxLength) {
+        isUpdatingProgrammaticallyRef.current = true;
+        // Quill pode ser um pouco temperamental com deleteText e o cursor.
+        // Guardar a seleção, deletar, e restaurar pode ser necessário em casos complexos.
+        const selection = editorInstance.getSelection();
+        editorInstance.deleteText(maxLength, textLength - maxLength + 1);
+        // O Quill vai disparar outro onChange após deleteText.
+        // Deixar esse onChange propagar as alterações.
+        if(selection) {
+            // Tenta restaurar o cursor para uma posição válida
+            editorInstance.setSelection(Math.min(selection.index, maxLength), 0, Quill.sources.SILENT);
         }
-      } catch (error) {
-        console.warn('⚠️ Erro ao verificar limite de caracteres:', error);
+        setTimeout(() => {
+          if(isMounted) isUpdatingProgrammaticallyRef.current = false;
+        }, 50);
+        return;
       }
     }
-    
-    // Atualizar estados
-    setEditorHtml(html);
-    lastContentRef.current = html;
-    onChange(html);
-  }, [onChange, maxLength, isMounted, debugLog]);
 
-  // Expor métodos via ref com verificações de segurança
+    // Atualizar estados e notificar o pai
+    // Compara com o estado interno editorHtml para evitar chamar onChange desnecessariamente
+    // se o conteúdo for o mesmo que já está no estado (útil se Quill disparar múltiplos eventos)
+    if (newHtml !== editorHtml) {
+        setEditorHtml(newHtml);
+        lastContentPropRef.current = newHtml; // Mantém sincronizado com o que está efetivamente no editor
+        onChange(newHtml);
+    }
+
+  }, [onChange, maxLength, isMounted, debugLog, editorHtml]);
+
   useImperativeHandle(ref, () => ({
     getContent: () => {
       try {
         return quillRef.current?.getEditor().root.innerHTML || editorHtml;
-      } catch {
-        return editorHtml;
-      }
+      } catch { return editorHtml; }
     },
-    
-    setContent: (newContent: string, source: string = 'api') => {
-      debugLog('📥 setContent chamado', { 
-        source, 
-        contentLength: newContent.length,
-        isUpdating: isUpdatingRef.current 
-      });
-      
-      if (!isMounted || !quillRef.current || isUpdatingRef.current) return;
-
+    setContent: (newContent: string, source: string = 'api') // source é mais informativo que emitUpdate
+      : void => {
+      debugLog('📥 setContent chamado externamente', { source, newContentLength: newContent.length, currentEditorHtmlLength: editorHtml.length });
+      if (!isMounted || !quillRef.current || !isInitialized ) { // Checa isInitialized
+        console.warn("setContent chamado mas editor não está pronto/montado/inicializado. Agendando ou atualizando estado.");
+        // Se não estiver inicializado, atualiza o estado para que o useEffect de sync pegue
+        // ou para que seja o valor inicial quando o ReactQuill montar.
+        lastContentPropRef.current = newContent;
+        setEditorHtml(newContent); // Isso fará com que o ReactQuill receba o novo `value`
+        return;
+      }
       try {
         const editor = quillRef.current.getEditor();
         const currentDOMContent = editor.root.innerHTML;
-        
+
         if (currentDOMContent !== newContent) {
-          isUpdatingRef.current = true;
-          
-          if (source === 'api') {
-            // Para updates programáticos, usar pasteHTML
-            editor.clipboard.dangerouslyPasteHTML(0, newContent);
-          } else {
-            // Para updates do usuário, usar pasteHTML também
-            editor.clipboard.dangerouslyPasteHTML(0, newContent);
-          }
-          
-          setEditorHtml(newContent);
-          lastContentRef.current = newContent;
-          
+          isUpdatingProgrammaticallyRef.current = true;
+          editor.clipboard.dangerouslyPasteHTML(0, newContent); // Colar no início
+          // O evento onChange do Quill será disparado por pasteHTML.
+          // Esse evento atualizará editorHtml e lastContentPropRef.
+          // lastContentPropRef.current = newContent; // Atualizado no onChange disparado
           setTimeout(() => {
-            isUpdatingRef.current = false;
-          }, 100);
-          
-          debugLog('✅ Conteúdo definido com sucesso');
+            if(isMounted) isUpdatingProgrammaticallyRef.current = false;
+          }, 100); // Aumentar um pouco para dar tempo ao editor
+          debugLog('✅ Conteúdo definido programaticamente com sucesso via setContent');
         }
       } catch (error) {
-        console.warn('⚠️ Erro ao definir conteúdo:', error);
-        isUpdatingRef.current = false;
-        // Fallback para state
+        console.warn('⚠️ Erro ao definir conteúdo programaticamente via setContent:', error);
+        if(isMounted) isUpdatingProgrammaticallyRef.current = false;
+        // Fallback para o estado se o editor falhar
         setEditorHtml(newContent);
-        lastContentRef.current = newContent;
+        lastContentPropRef.current = newContent;
       }
     },
-    
     focus: () => {
       try {
-        if (quillRef.current && isMounted) {
-          quillRef.current.focus();
-        }
-      } catch (error) {
-        console.warn('⚠️ Erro ao focar editor:', error);
-      }
+        if (quillRef.current && isMounted && isInitialized) quillRef.current.focus();
+      } catch (error) { console.warn('⚠️ Erro ao focar editor:', error); }
     },
-    
     insertText: (text: string) => {
-      if (!isMounted || !quillRef.current) return;
-
+      if (!isMounted || !quillRef.current || !isInitialized) return;
       try {
         const editor = quillRef.current.getEditor();
         const selection = editor.getSelection() || { index: editor.getLength(), length: 0 };
-        editor.insertText(selection.index, text);
-      } catch (error) {
-        console.warn('⚠️ Erro ao inserir texto:', error);
-      }
+        editor.insertText(selection.index, text, Quill.sources.USER);
+      } catch (error) { console.warn('⚠️ Erro ao inserir texto:', error); }
     },
-    
     getText: () => {
       try {
         return quillRef.current?.getEditor().getText() || '';
       } catch {
-        // Fallback: extrair texto do HTML
         const div = document.createElement('div');
         div.innerHTML = editorHtml;
-        return div.textContent || div.innerText || '';
+        return (div.textContent || div.innerText || '').trim();
       }
     },
-    
     getLength: () => {
       try {
         return quillRef.current?.getEditor().getLength() || 0;
-      } catch {
-        return 0;
-      }
+      } catch { return 0; }
     },
-  }), [editorHtml, isMounted, debugLog]);
-
-  // Calcular comprimento do texto de forma otimizada
-  const textLength = useMemo(() => {
-    try {
-      if (quillRef.current && isInitialized) {
-        return quillRef.current.getEditor().getText().trim().length || 0;
-      }
-    } catch {
-      // Fallback
-      const div = document.createElement('div');
-      div.innerHTML = editorHtml;
-      return (div.textContent || div.innerText || '').trim().length;
+    getEditor: () => {
+        try {
+            return quillRef.current?.getEditor() || null;
+        } catch { return null; }
     }
-    return 0;
-  }, [editorHtml, isInitialized]);
+  }), [editorHtml, isMounted, isInitialized, debugLog, onChange]); // Adicionado onChange às dependências
 
-  debugLog('📊 Renderizando ReactQuillEditor', { 
-    textLength, 
-    isInitialized, 
-    isMounted,
-    isUpdating: isUpdatingRef.current
-  });
+  const textLength = useMemo(() => {
+    if (isInitialized && quillRef.current) {
+        try { return quillRef.current.getEditor().getText().trim().length || 0; } catch { /* fallback abaixo */ }
+    }
+    const div = document.createElement('div'); div.innerHTML = editorHtml;
+    return (div.textContent || div.innerText || '').trim().length;
+  }, [editorHtml, isInitialized]);
 
   return (
     <div className={className}>
-      {/* Debug info - apenas em desenvolvimento */}
       {process.env.NODE_ENV === 'development' && (
-        <div className="mb-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs">
-          🔍 DEBUG: Montado: {isMounted ? '✅' : '❌'} | 
-          Inicializado: {isInitialized ? '✅' : '❌'} | 
+        <div className="mb-1 p-1 bg-yellow-50 border border-yellow-200 rounded text-xs">
+          DEBUG: Montado: {isMounted ? '✅' : '❌'} |
+          Inicializado: {isInitialized ? '✅' : '❌'} |
           Editável: {editable ? '✅' : '❌'} |
-          Atualizando: {isUpdatingRef.current ? '⚠️' : '✅'}
+          ProgUpdate: {isUpdatingProgrammaticallyRef.current ? '⚠️' : '✅'} |
+          PropContent: {(content || '').substring(0,20)}... |
+          EditorHTML: {editorHtml.substring(0,20)}... |
+          LastPropContent: {(lastContentPropRef.current || '').substring(0,20)}...
         </div>
       )}
-      
       <ReactQuill
         ref={quillRef}
         theme={showToolbar ? theme : "bubble"}
@@ -379,18 +319,12 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
         formats={formats}
         readOnly={!editable}
         placeholder={placeholder}
-        style={{
-          minHeight: showToolbar ? '400px' : '300px',
-        }}
+        style={{ minHeight: showToolbar ? '400px' : '300px' }}
         preserveWhitespace={false}
       />
-      
-      {/* Contador de caracteres */}
       {maxLength && (
         <div className="flex justify-between items-center px-3 py-2 border-t border-gray-200 bg-gray-50 text-xs text-gray-500">
-          <span>
-            {textLength}/{maxLength} caracteres
-          </span>
+          <span>{textLength}/{maxLength} caracteres</span>
           {textLength > maxLength * 0.9 && (
             <span className={textLength >= maxLength ? 'text-red-600 font-semibold' : 'text-yellow-600'}>
               {textLength >= maxLength ? 'Limite atingido!' : 'Próximo do limite'}
@@ -401,6 +335,5 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
     </div>
   );
 });
-
 ReactQuillEditor.displayName = 'ReactQuillEditor';
 export default ReactQuillEditor;
