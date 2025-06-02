@@ -1,9 +1,10 @@
-// src/pages/DocumentEditPage.tsx - OTIMIZADO
+// src/pages/DocumentEditPage.tsx - MIGRADO PARA REACT QUILL
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import { useApiData } from '../hooks/useApiData'; 
 import {
   ArrowLeftIcon,
   DocumentArrowUpIcon as SaveIcon,
@@ -13,12 +14,11 @@ import {
 import { useAuthStore } from '../store/authStore';
 import { documentsApi, versionsApi, usersApi, Document, Version } from '../lib/api';
 import { toast } from 'react-hot-toast';
-import TiptapEditor, { EditorRef } from '../Editor/TiptapEditor';
+import ReactQuillEditor, { EditorRef } from '../Editor/ReactQuillEditor'; // <<<< MUDANÇA AQUI
 
 // Componentes otimizados
 import PageHeader from '../components/common/PageHeader';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { useApiData } from '../hooks/useApiData';
 import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import { formatDateTime } from '../utils/dateUtils';
 
@@ -113,7 +113,7 @@ const DocumentForm: React.FC<{
   </div>
 );
 
-// Componente de Editor otimizado
+// Componente de Editor otimizado - MIGRADO PARA REACT QUILL
 const DocumentEditor: React.FC<{
   editorRef: React.RefObject<EditorRef>;
   content: string;
@@ -161,12 +161,14 @@ const DocumentEditor: React.FC<{
         </p>
       </div>
       
-      <TiptapEditor
+      {/* <<<< MUDANÇA PRINCIPAL: Usar ReactQuillEditor em vez de TiptapEditor */}
+      <ReactQuillEditor
         ref={editorRef}
         content={content}
         onChange={onContentChange}
         placeholder="Comece a escrever seu documento aqui..."
         className="min-h-[500px] max-w-4xl mx-auto"
+        showToolbar={true}
       />
     </div>
   </div>

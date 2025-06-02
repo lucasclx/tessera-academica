@@ -1,4 +1,4 @@
-// src/lib/api.tsx
+// Arquivo: srcs/src (cópia)/lib/api.tsx
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { toast } from 'react-hot-toast';
 
@@ -21,25 +21,26 @@ export interface Page<T> {
   empty: boolean;
 }
 
-// Todas as interfaces existentes permanecem as mesmas...
-export interface User {
-  id: number;
-  name:string;
-  email: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
-  roles: string[]; // e.g., ["ROLE_STUDENT", "ROLE_ADMIN"]
-  registrationDate?: string;
-  approvalDate?: string;
-  approvedBy?: User;
-  rejectionReason?: string;
-  updatedAt?: string;
-}
-
+// Role e User Types (simplificado para o contexto do AdminUserListPage)
 export interface Role {
   id: number;
   name: string;
 }
 
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  roles: Role[];
+  registrationDate: string;
+  approvalDate?: string;
+  approvedBy?: { id: number; name: string }; // Simplificado, pode ser UserSummary
+  rejectionReason?: string;
+  updatedAt: string;
+}
+
+// ... (outras interfaces permanecem como no arquivo original) ...
 export interface LoginRequest {
   email: string;
   password: string;
@@ -57,7 +58,7 @@ export interface RegisterRequest {
   name: string;
   email: string;
   password: string;
-  role: string; // "STUDENT" ou "ADVISOR"
+  role: string; 
   institution: string;
   department: string;
   justification: string;
@@ -89,6 +90,19 @@ export interface DocumentDetailDTO extends Document {
     collaborators: DocumentCollaborator[];
     canEdit: boolean;
     canManageCollaborators: boolean;
+    // Adicione os campos que faltam de acordo com DocumentDetailDTO.java
+    students: UserSelection[];
+    advisors: UserSelection[];
+    canSubmitDocument: boolean;
+    canApproveDocument: boolean;
+    canAddMoreStudents: boolean;
+    canAddMoreAdvisors: boolean;
+    activeStudentCount: number;
+    activeAdvisorCount: number;
+    primaryStudentName?: string;
+    primaryAdvisorName?: string;
+    allStudentNames?: string;
+    allAdvisorNames?: string;
 }
 
 export interface Version {
@@ -153,8 +167,8 @@ export interface NotificationSettings {
   browserComments: boolean;
   browserApprovals: boolean;
   digestFrequency: 'NONE' | 'DAILY' | 'WEEKLY';
-  quietHoursStart: string; // HH:mm
-  quietHoursEnd: string; // HH:mm
+  quietHoursStart: string; 
+  quietHoursEnd: string; 
 }
 
 export interface NotificationSummary {
@@ -168,7 +182,7 @@ export interface NotificationSummary {
 
 export interface RegistrationRequestItem {
   id: number;
-  user: User;
+  user: User; // User aqui deve ser a interface User definida acima
   institution: string;
   department: string;
   justification: string;
@@ -245,161 +259,142 @@ export interface PasswordChangePayload {
   confirmNewPassword: string;
 }
 
-// Rate Limiting System
+
 class RateLimiter {
   private requests: Map<string, number[]> = new Map();
-  private readonly maxRequests: number = 10; // máximo de 10 requests
-  private readonly timeWindow: number = 60000; // por minuto
+  private readonly maxRequests: number = 30; // Aumentado para requests gerais
+  private readonly timeWindow: number = 60000; // 1 minuto
 
   canMakeRequest(key: string): boolean {
     const now = Date.now();
-    const requests = this.requests.get(key) || [];
-    
-    // Remove requests antigas (fora da janela de tempo)
-    const validRequests = requests.filter(time => now - time < this.timeWindow);
-    
+    const requestTimestamps = this.requests.get(key) || [];
+    const validRequests = requestTimestamps.filter(time => now - time < this.timeWindow);
+
     if (validRequests.length >= this.maxRequests) {
+      console.warn(`Rate limit exceeded for key: ${key}`);
       return false;
     }
-    
     validRequests.push(now);
     this.requests.set(key, validRequests);
     return true;
   }
 
   getRemainingTime(key: string): number {
-    const requests = this.requests.get(key) || [];
-    if (requests.length === 0) return 0;
+    const requestTimestamps = this.requests.get(key) || [];
+    if (requestTimestamps.length < this.maxRequests) return 0;
     
-    const oldestRequest = Math.min(...requests);
-    const timeElapsed = Date.now() - oldestRequest;
-    return Math.max(0, this.timeWindow - timeElapsed);
+    const oldestRequestInWindow = requestTimestamps.sort((a,b) => a-b)[requestTimestamps.length - this.maxRequests];
+    return Math.max(0, this.timeWindow - (Date.now() - oldestRequestInWindow));
   }
 }
 
-// --- API Client Class ---
 class ApiClient {
   private client: AxiosInstance;
   private rateLimiter = new RateLimiter();
   private retryCount = new Map<string, number>();
-  private maxRetries = 3;
+  private maxRetries = 2; // Reduzido para 2 retries em caso de erro de rede
 
   constructor() {
     this.client = axios.create({
       baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
-      timeout: 15000, // Reduzido para 15 segundos
+      timeout: 15000,
       headers: {
         'Content-Type': 'application/json',
       },
     });
-
     this.setupInterceptors();
   }
 
   private setupInterceptors() {
-    // Request interceptor
     this.client.interceptors.request.use(
       (config) => {
         const token = localStorage.getItem('token');
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
-
-        // Rate limiting check
-        const requestKey = `${config.method}-${config.url}`;
+        const requestKey = `${config.method?.toUpperCase()}-${config.url}`;
         if (!this.rateLimiter.canMakeRequest(requestKey)) {
           const remainingTime = this.rateLimiter.getRemainingTime(requestKey);
-          console.warn(`Rate limit exceeded for ${requestKey}. Try again in ${Math.ceil(remainingTime / 1000)}s`);
-          return Promise.reject(new Error(`Rate limit exceeded. Try again in ${Math.ceil(remainingTime / 1000)} seconds.`));
+          const message = `Limite de requisições excedido. Tente novamente em ${Math.ceil(remainingTime / 1000)} segundos.`;
+          if (!toast.isActive('rate-limit-error')) {
+            toast.error(message, { id: 'rate-limit-error' });
+          }
+          return Promise.reject(new Error(message));
         }
-
         return config;
       },
       (error) => Promise.reject(error)
     );
 
-    // Response interceptor
     this.client.interceptors.response.use(
       (response: AxiosResponse) => {
-        // Reset retry count on success
-        const requestKey = `${response.config.method}-${response.config.url}`;
+        const requestKey = `${response.config.method?.toUpperCase()}-${response.config.url}`;
         this.retryCount.delete(requestKey);
         return response;
       },
       (error) => {
-        const requestKey = `${error.config?.method}-${error.config?.url}`;
+        const config = error.config;
+        const requestKey = config ? `${config.method?.toUpperCase()}-${config.url}` : `unknown-${Date.now()}`;
         const currentRetries = this.retryCount.get(requestKey) || 0;
+        let toastDisplayed = false;
 
-        // Handle different types of errors
-        if (error.response?.status === 401) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          window.location.href = '/login';
-          toast.error('Sessão expirada. Faça login novamente.');
-          return Promise.reject(error);
-        } 
-        
-        if (error.response?.status === 403) {
-          toast.error(error.response?.data?.message || 'Você não tem permissão para realizar esta ação.');
-          return Promise.reject(error);
-        }
-        
-        if (error.response?.status >= 500) {
-          toast.error('Erro interno do servidor. Tente novamente mais tarde.');
-          return Promise.reject(error);
-        }
+        if (error.response) {
+          const { status, data } = error.response;
+          const message = data?.message || error.message || `Erro ${status}`;
+          const toastId = `api-error-${status}-${requestKey}`;
 
-        // Network errors or timeout
-        if (!error.response) {
-          if (error.code === 'ECONNABORTED') {
-            toast.error('Timeout: A requisição demorou muito para responder.');
-          } else if (error.message?.includes('Network Error')) {
-            // Só mostra erro de rede se for a primeira tentativa para evitar spam
-            if (currentRetries === 0) {
-              toast.error('Erro de conexão. Verifique se o backend está rodando.');
-            }
-            
-            // Retry logic for network errors
-            if (currentRetries < this.maxRetries && error.config) {
-              this.retryCount.set(requestKey, currentRetries + 1);
-              
-              // Wait before retry (exponential backoff)
-              const delay = Math.pow(2, currentRetries) * 1000;
-              return new Promise(resolve => {
-                setTimeout(() => {
-                  resolve(this.client.request(error.config));
-                }, delay);
-              });
-            } else {
-              toast.error(`Falha na conexão após ${this.maxRetries} tentativas. Verifique se o backend está rodando em ${this.client.defaults.baseURL}`);
+          if (!toast.isActive(toastId)) {
+            if (status === 401) {
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              toast.error('Sessão expirada. Por favor, faça login novamente.', { id: 'auth-error' });
+              setTimeout(() => { if (window.location.pathname !== '/login') window.location.href = '/login'; }, 500);
+              toastDisplayed = true;
+            } else if (status === 403) {
+              toast.error(message, { id: 'forbidden-error' });
+              toastDisplayed = true;
+            } else if (status >= 500) {
+              toast.error(message, { id: 'server-error' });
+              toastDisplayed = true;
+            } else if (status >= 400) {
+              toast.error(message, { id: `client-error-${status}` });
+              toastDisplayed = true;
             }
           } else {
-            toast.error(`Erro de rede: ${error.message}`);
+            toastDisplayed = true; // Assume toast for this error is already active
           }
-          return Promise.reject(error);
+        } else if (error.request) { // Erro de rede ou timeout
+          const networkToastId = `network-error-${requestKey}`;
+          if (currentRetries < this.maxRetries && config) {
+            this.retryCount.set(requestKey, currentRetries + 1);
+            const delay = Math.pow(2, currentRetries) * 1500; // Aumentar um pouco o delay
+            console.warn(`Retry ${requestKey} (tentativa ${currentRetries + 1}/${this.maxRetries}) em ${delay}ms`);
+            if (currentRetries === 0 && !toast.isActive(networkToastId)) { // Toast apenas na primeira tentativa de erro de rede
+                 toast.loading('Problema de conexão. Tentando reconectar...', { id: networkToastId, duration: delay - 200 });
+                 toastDisplayed = true;
+            }
+            return new Promise(resolve => setTimeout(() => {
+                 // Remove o toast de loading antes de tentar novamente
+                 if(toast.isActive(networkToastId)) toast.dismiss(networkToastId);
+                 this.client.request(config).then(resolve).catch(e => resolve(Promise.reject(e)));
+            }, delay));
+          } else {
+            if (!toast.isActive(networkToastId)) {
+                 toast.error('Erro de conexão. Não foi possível comunicar com o servidor após várias tentativas.', { id: networkToastId });
+                 toastDisplayed = true;
+            }
+            if (config) this.retryCount.delete(requestKey);
+          }
         }
-
-        // API errors with specific messages
-        if (error.response?.data?.message) {
-          // Só mostra se não é um erro repetido
-          if (currentRetries === 0) {
-            toast.error(error.response.data.message);
-          }
+        
+        // Se nenhum toast específico foi mostrado e ainda há uma mensagem de erro genérica
+        if (!toastDisplayed && error.message && !toast.isActive('generic-api-error')) {
+          toast.error(`Erro: ${error.message}`, {id: 'generic-api-error'});
         }
 
         return Promise.reject(error);
       }
     );
-  }
-
-  // Health check method
-  async healthCheck(): Promise<boolean> {
-    try {
-      await this.client.get('/health', { timeout: 5000 });
-      return true;
-    } catch {
-      return false;
-    }
   }
 
   async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
@@ -430,7 +425,7 @@ class ApiClient {
 
 export const api = new ApiClient();
 
-// --- API Functions ---
+// Funções da API existentes...
 export const authApi = {
   login: (data: LoginRequest) => api.post<LoginResponse>('/auth/login', data),
   register: (data: RegisterRequest) => api.post<{ message: string }>('/auth/register', data),
@@ -438,17 +433,17 @@ export const authApi = {
 
 export const adminApi = {
   getStats: () => api.get<DashboardStats>('/admin/stats'),
-  getPendingRegistrations: (page = 0, size = 10) =>
-    api.get<Page<RegistrationRequestItem>>(`/admin/registrations?page=${page}&size=${size}`),
+  getPendingRegistrations: (page = 0, size = 10, sort = 'createdAt,asc') =>
+    api.get<Page<RegistrationRequestItem>>(`/admin/registrations?page=${page}&size=${size}&sort=${sort}`),
   getRegistrationDetails: (id: number) =>
     api.get<RegistrationRequestItem>(`/admin/registrations/${id}`),
   approveRegistration: (id: number, payload: RegistrationApprovalPayload) =>
     api.put<{ message: string }>(`/admin/registrations/${id}/approve`, payload),
   rejectRegistration: (id: number, payload: RegistrationRejectionPayload) =>
     api.put<{ message: string }>(`/admin/registrations/${id}/reject`, payload),
-  getUsers: (page = 0, size = 10, status?: string) => {
-    let url = `/admin/users?page=${page}&size=${size}`;
-    if (status) url += `&status=${status}`;
+  getUsers: (page = 0, size = 10, status?: string, sort = 'registrationDate,desc') => {
+    let url = `/admin/users?page=${page}&size=${size}&sort=${sort}`;
+    if (status && status !== 'ALL') url += `&status=${status}`;
     return api.get<Page<User>>(url);
   },
   updateUserStatus: (userId: number, payload: UserStatusUpdatePayload) =>
@@ -457,17 +452,17 @@ export const adminApi = {
 
 export const documentsApi = {
   getMyDocuments: (page = 0, size = 10, searchTerm = '', status = 'ALL') =>
-    api.get<Page<Document>>(`/documents/student?page=${page}&size=${size}&searchTerm=${searchTerm}&status=${status}`),
+    api.get<Page<Document>>(`/documents/student?page=${page}&size=${size}&searchTerm=${encodeURIComponent(searchTerm)}&status=${status}`),
   getAdvisorDocuments: (page = 0, size = 10, searchTerm = '', status = 'ALL') =>
-    api.get<Page<Document>>(`/documents/advisor?page=${page}&size=${size}&searchTerm=${searchTerm}&status=${status}`),
-  getAll: (page = 0, size = 10, searchTerm = '', status = 'ALL') =>
-    api.get<Page<Document>>(`/documents?page=${page}&size=${size}&searchTerm=${searchTerm}&status=${status}`),
+    api.get<Page<Document>>(`/documents/advisor?page=${page}&size=${size}&searchTerm=${encodeURIComponent(searchTerm)}&status=${status}`),
+  getAll: (page = 0, size = 10, searchTerm = '', status = 'ALL') => // Endpoint genérico, permissões controladas no backend
+    api.get<Page<Document>>(`/documents?page=${page}&size=${size}&searchTerm=${encodeURIComponent(searchTerm)}&status=${status}`),    
   getById: (id: number) => api.get<DocumentDetailDTO>(`/documents/${id}`),
   create: (data: Partial<Document>) => api.post<Document>(`/documents`, data),
-  update: (id: number, data: Partial<Document>) => api.put<Document>(`/documents/${id}`, data),
+  update: (id: number, data: Partial<DocumentDetailDTO>) => api.put<DocumentDetailDTO>(`/documents/${id}`, data),
   delete: (id: number) => api.delete<{ message: string }>(`/documents/${id}`),
   changeStatus: (id: number, status: string, reason?: string) =>
-    api.put<Document>(`/documents/${id}/status/${status}`, reason ? { reason } : {}),
+    api.put<DocumentDetailDTO>(`/documents/${id}/status/${status}`, reason ? { reason } : {}),
 };
 
 export const versionsApi = {
@@ -502,16 +497,15 @@ export const collaboratorsApi = {
   removeCollaborator: (documentId: number, collaboratorId: number) =>
     api.delete<void>(`/documents/${documentId}/collaborators/${collaboratorId}`),
   updatePermissions: (documentId: number, collaboratorId: number, permission: string) =>
-    api.put<DocumentCollaborator>(`/documents/${documentId}/collaborators/${collaboratorId}/permissions`, permission, {
-      headers: { 'Content-Type': 'application/json' }
+    api.put<DocumentCollaborator>(`/documents/${documentId}/collaborators/${collaboratorId}/permissions`, JSON.stringify(permission), {
+      headers: { 'Content-Type': 'application/json' } // Assegurar que o backend espera JSON String
     }),
   updateRole: (documentId: number, collaboratorId: number, role: string) =>
-    api.put<DocumentCollaborator>(`/documents/${documentId}/collaborators/${collaboratorId}/role`, role, {
-      headers: { 'Content-Type': 'application/json' }
+    api.put<DocumentCollaborator>(`/documents/${documentId}/collaborators/${collaboratorId}/role`, JSON.stringify(role), {
+      headers: { 'Content-Type': 'application/json' } // Assegurar que o backend espera JSON String
     }),
   promoteToPrimary: (documentId: number, collaboratorId: number) =>
     api.put<DocumentCollaborator>(`/documents/${documentId}/collaborators/${collaboratorId}/promote`),
-  migrateAllCollaborators: () => api.post<{ message: string }>('/documents/collaborators/migrate-all'),
 };
 
 export const notificationsApi = {
@@ -529,9 +523,9 @@ export const notificationsApi = {
 
 export const usersApi = {
   getAdvisors: () => api.get<Advisor[]>('/users/advisors'),
-  getStudents: () => api.get<UserSelection[]>('/users/students'),
+  getStudents: () => api.get<UserSelection[]>('/users/students'), // Para seleção em formulários
   getProfile: () => api.get<User>('/users/profile'),
-  changePassword: (data: PasswordChangePayload) => api.put<{ message: string }>('/users/change-password', data),
+  changePassword: (data: PasswordChangePayload) => api.post<{message: string}>('/users/profile/change-password', data), // Era PUT, mas POST é comum para ações que não são idempotentes
   searchPotentialCollaborators: (search?: string, role?: string, excludeDocumentId?: number) => {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
@@ -547,13 +541,8 @@ export const usersApi = {
   },
   checkUserByEmail: (email: string) =>
     api.get<{ exists: boolean; id?: number; name?: string; status?: string; roles?: string[] }>(`/users/check-email?email=${email}`),
-  getUserById: (id: number) => api.get<UserSelection>(`/users/${id}`),
-  getAllUsers: (page = 0, size = 20, search?: string, status?: string) => {
-    const params = new URLSearchParams({ page: page.toString(), size: size.toString() });
-    if (search) params.append('search', search);
-    if (status) params.append('status', status);
-    return api.get<Page<User>>(`/users?${params.toString()}`);
-  },
+  getUserById: (id: number) => api.get<UserSelection>(`/users/${id}`), // Para obter dados básicos de um usuário
+  // getUsers (para admin) já está em adminApi.
   getMyAdvisedStudents: (page = 0, size = 10, search?: string) => {
     const params = new URLSearchParams({ page: page.toString(), size: size.toString() });
     if (search) params.append('search', search);

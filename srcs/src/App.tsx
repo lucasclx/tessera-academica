@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useAuthStore } from './store/authStore'; //
+import 'react-quill/dist/quill.snow.css'; // Ou quill.bubble.css
 
 // Componentes de Layout e Proteção (carregados diretamente pois são essenciais para a estrutura)
 import Layout from './components/Layout/Layout'; //

@@ -1,51 +1,104 @@
-// Arquivo: srcs/src (cópia)/Editor/ReactQuillEditor.tsx (Novo arquivo)
-import React, { useState, useEffect, useImperativeHandle, forwardRef, useRef } from 'react';
-import ReactQuill, { Quill } from 'react-quill'; // Import Quill para tipos, se necessário
-import 'react-quill/dist/quill.snow.css'; // Importe o tema CSS (ex: snow)
+// src/Editor/ReactQuillEditor.tsx - VERSÃO OTIMIZADA
+import React, { useState, useEffect, useImperativeHandle, forwardRef, useRef, useCallback } from 'react';
+import ReactQuill, { Quill } from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 
-// Defina a interface EditorRef se o componente pai ainda precisar dela
+// Registrar formatos customizados do Quill, se necessário
+// import BlotFormatter from 'quill-blot-formatter'; // Para redimensionar imagens
+// Quill.register('modules/blotFormatter', BlotFormatter);
+
 export interface EditorRef {
   getContent: () => string;
   setContent: (content: string, source?: string) => void;
   focus: () => void;
-  // Adicione outros métodos que seu DocumentEditPage possa precisar
+  insertText: (text: string) => void;
+  getText: () => string;
+  getLength: () => number;
 }
 
 interface ReactQuillEditorProps {
   content?: string;
   placeholder?: string;
   onChange: (content: string) => void;
+  onSelectionChange?: (selection: { from: number; to: number }) => void;
   editable?: boolean;
-  className?: string; // Para o container do editor
-  editorClassName?: string; // Para a área de edição interna (se aplicável via CSS)
-  showToolbar?: boolean; // Controla a visibilidade da toolbar
+  className?: string;
+  showToolbar?: boolean;
+  maxLength?: number;
+  theme?: 'snow' | 'bubble';
 }
 
 const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
-  content = '',
+  content = '', // Conteúdo inicial e prop para atualizações externas
   placeholder = 'Escreva seu texto aqui...',
-  onChange,
+  onChange, // Callback para notificar mudanças de conteúdo ao componente pai
+  onSelectionChange,
   editable = true,
   className = 'bg-white border border-gray-300 rounded-lg shadow-sm overflow-hidden',
-  // editorClassName não é diretamente aplicável ao ReactQuill da mesma forma, mas você pode estilizar .ql-editor
   showToolbar = true,
+  maxLength,
+  theme = 'snow',
 }, ref) => {
+  // Estado interno para o HTML do editor, permitindo que o editor seja um componente controlado
+  // e também reaja a mudanças na prop 'content'.
   const [editorHtml, setEditorHtml] = useState<string>(content);
   const quillRef = useRef<ReactQuill>(null);
+  // Flag para controlar se o editor Quill interno já foi inicializado.
+  // Evita que a prop 'content' sobrescreva o estado interno prematuramente
+  // ou em momentos inadequados durante a montagem inicial.
+  const [isInitialized, setIsInitialized] = useState(false);
 
+  // Efeito para sincronizar a prop 'content' (externa) com o estado 'editorHtml' (interno).
+  // Roda quando 'content' muda ou quando 'isInitialized' muda.
   useEffect(() => {
-    // Sincroniza o conteúdo se a prop 'content' mudar externamente
-    // Evita loop se a mudança foi originada pelo próprio editor
-    if (content !== editorHtml) {
+    // Apenas atualiza o estado interno se:
+    // 1. O conteúdo da prop for diferente do estado HTML interno (evita loops).
+    // 2. O editor interno Quill já estiver inicializado.
+    if (content !== editorHtml && isInitialized) {
       setEditorHtml(content);
     }
-  }, [content]);
+  }, [content, editorHtml, isInitialized]); // Adicionado editorHtml à lista de dependências para maior precisão na comparação
 
-  const handleChange = (html: string) => {
-    setEditorHtml(html);
-    onChange(html);
-  };
+  // Efeito para configurar o editor Quill após a montagem inicial e definir 'isInitialized'.
+  // Roda apenas uma vez ou se 'onSelectionChange' mudar (o que é raro).
+  useEffect(() => {
+    if (quillRef.current && !isInitialized) {
+      const editor = quillRef.current.getEditor();
+      
+      if (onSelectionChange) {
+        editor.on('selection-change', (range) => {
+          if (range) {
+            onSelectionChange({ from: range.index, to: range.index + range.length });
+          }
+        });
+      }
+      // Marca o editor como inicializado após a configuração.
+      setIsInitialized(true);
+    }
+  }, [onSelectionChange, isInitialized]); // isInitialized na dependência previne re-execução desnecessária após true.
 
+  const handleChange = useCallback((html: string, delta: any, source: string) => {
+    if (maxLength && quillRef.current) {
+      const editor = quillRef.current.getEditor();
+      const textLength = editor.getText().trim().length; // Usar trim() para contar caracteres significativos
+      
+      if (textLength > maxLength && source === 'user') {
+        // Impede a alteração se exceder o limite, removendo o texto excedente.
+        // Esta é uma forma de controle, mas pode ser ajustada para melhor UX.
+        editor.deleteText(maxLength, textLength); 
+        // Re-obtém o HTML após a deleção para garantir consistência
+        const currentContentAfterDelete = editor.root.innerHTML;
+        setEditorHtml(currentContentAfterDelete);
+        onChange(currentContentAfterDelete);
+        return;
+      }
+    }
+    
+    setEditorHtml(html); // Atualiza o estado interno
+    onChange(html); // Notifica o componente pai
+  }, [onChange, maxLength]);
+
+  // Expõe métodos do editor para o componente pai via ref.
   useImperativeHandle(ref, () => ({
     getContent: () => {
       return quillRef.current?.getEditor().root.innerHTML || '';
@@ -53,66 +106,131 @@ const ReactQuillEditor = forwardRef<EditorRef, ReactQuillEditorProps>(({
     setContent: (newContent: string, source: string = 'api') => {
       if (quillRef.current) {
         const editor = quillRef.current.getEditor();
-        if (editor.root.innerHTML !== newContent) {
-            // Para evitar re-renderização desnecessária e perda de cursor,
-            // verifique se o conteúdo realmente mudou.
-            // O 'source' pode ser usado para distinguir updates programáticos de updates do usuário.
-            editor.clipboard.dangerouslyPasteHTML(0, newContent, source as any); 
-            // Ou, para limpar e definir: editor.setText(''); editor.clipboard.dangerouslyPasteHTML(0, newContent);
-            setEditorHtml(newContent); // Sincroniza estado interno
+        const currentDOMContent = editor.root.innerHTML;
+        
+        // Apenas atualiza se o novo conteúdo for realmente diferente do que está no DOM do Quill.
+        // Isso previne re-renderizações e perda de foco/cursor desnecessárias.
+        if (currentDOMContent !== newContent) {
+          const selection = editor.getSelection();
+          // Substitui todo o conteúdo. 'source' pode ser 'user', 'api', 'silent'.
+          editor.clipboard.dangerouslyPasteHTML(0, newContent, source as any); 
+          
+          // Tenta restaurar a seleção do cursor, útil quando o conteúdo é alterado programaticamente.
+          // O setTimeout(..., 0) ajuda a garantir que a seleção seja aplicada após o DOM ser atualizado.
+          if (selection && source === 'api') { 
+            setTimeout(() => {
+              editor.setSelection(selection.index, selection.length); // Restaurar com índice e tamanho
+            }, 0);
+          }
+          
+          // Sincroniza o estado React 'editorHtml' com o novo conteúdo.
+          // Isso é importante para que a prop 'value' do ReactQuill seja atualizada.
+          setEditorHtml(newContent);
         }
       }
     },
     focus: () => {
       quillRef.current?.focus();
     },
+    insertText: (text: string) => {
+      if (quillRef.current) {
+        const editor = quillRef.current.getEditor();
+        const selection = editor.getSelection() || { index: editor.getLength(), length: 0 }; // Insere no final se não houver seleção
+        editor.insertText(selection.index, text);
+      }
+    },
+    getText: () => {
+      // Retorna o texto puro, sem formatação HTML.
+      return quillRef.current?.getEditor().getText() || '';
+    },
+    getLength: () => {
+      // Retorna o comprimento do conteúdo do editor (incluindo nova linha final, geralmente).
+      return quillRef.current?.getEditor().getLength() || 0;
+    },
   }));
 
-  // Configuração da barra de ferramentas (módulos e formatos)
-  // Consulte a documentação do React Quill para todas as opções
-  const modules = showToolbar ? {
-    toolbar: [
-      [{ 'header': [1, 2, 3, false] }],
-      [{ 'font': [] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ 'color': [] }, { 'background': [] }], // Cor de texto e de fundo
-      [{ 'align': [] }],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      [{ 'indent': '-1'}, { 'indent': '+1' }], // Recuo
-      ['blockquote', 'code-block'],
-      ['link', 'image', 'video'], // Vídeo é um exemplo, pode não precisar
-      ['table'], // Módulo de tabela (pode precisar de configuração adicional ou extensão)
-      ['clean'] // Remover formatação
-    ],
-    // Adicionar outros módulos como manipulação de imagem, etc.
-    // imageResize: { parchment: Quill.import('parchment') }, // Exemplo, se usar extensão de redimensionamento
-  } : { toolbar: false };
+  // Configuração dos módulos da toolbar.
+  // A toolbar é exibida condicionalmente com base na prop 'showToolbar'.
+  const toolbarModules = showToolbar ? {
+    toolbar: {
+      container: [ // Configuração padrão da toolbar "snow"
+        [{ 'header': [1, 2, 3, false] }],
+        [{ 'font': [] }],
+        [{ 'size': ['small', false, 'large', 'huge'] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ 'color': [] }, { 'background': [] }],
+        [{ 'script': 'sub'}, { 'script': 'super' }],
+        [{ 'align': [] }],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        [{ 'indent': '-1'}, { 'indent': '+1' }],
+        ['blockquote', 'code-block'],
+        ['link', 'image', 'video'],
+        ['clean']
+      ],
+      handlers: { // Handlers customizados para funcionalidades específicas da toolbar
+        image: function() { // Handler para o botão de imagem
+          const url = prompt('Insira a URL da imagem:');
+          if (url) {
+            const editor = quillRef.current?.getEditor();
+            const range = editor?.getSelection(true); // Pega a seleção atual ou o cursor
+            if (editor && range) {
+              editor.insertEmbed(range.index, 'image', url, Quill.sources.USER);
+            }
+          }
+        }
+        // Outros handlers podem ser adicionados aqui.
+      }
+    },
+    // blotFormatter: {} // Exemplo de módulo para redimensionar imagens, se registrado.
+  } : { toolbar: false }; // Se showToolbar for false, nenhuma toolbar padrão é configurada.
 
+  // Lista de formatos permitidos pelo editor.
   const formats = [
-    'header', 'font',
+    'header', 'font', 'size',
     'bold', 'italic', 'underline', 'strike',
     'color', 'background',
+    'script',
     'align',
     'list', 'bullet', 'indent',
     'blockquote', 'code-block',
-    'link', 'image', 'video', 'table'
+    'link', 'image', 'video'
   ];
+
+  // Calcula o comprimento do texto para o contador de caracteres.
+  // Usa getText().trim().length para uma contagem mais precisa de caracteres visíveis.
+  const textLength = quillRef.current?.getEditor().getText().trim().length || 0;
 
   return (
     <div className={className}>
       <ReactQuill
         ref={quillRef}
-        theme={showToolbar ? "snow" : "bubble"} // "snow" é o tema com toolbar, "bubble" é flutuante
-        value={editorHtml}
+        // O tema é 'snow' se a toolbar for exibida, caso contrário 'bubble'.
+        // O tema 'bubble' geralmente tem uma toolbar flutuante que aparece ao selecionar texto.
+        theme={showToolbar ? theme : "bubble"} 
+        value={editorHtml} // O conteúdo do editor é controlado pelo estado 'editorHtml'.
         onChange={handleChange}
-        modules={modules}
+        modules={toolbarModules}
         formats={formats}
-        readOnly={!editable}
+        readOnly={!editable} // Define se o editor é apenas para leitura.
         placeholder={placeholder}
-        // A classe do editor interno é .ql-editor, você pode estilizá-la globalmente
-        // ou tentar passar um estilo para o container do ReactQuill.
-        // A prop `className` aqui se aplica ao div wrapper do ReactQuill.
+        style={{
+          minHeight: showToolbar ? '400px' : '300px', // Altura mínima dinâmica.
+        }}
       />
+      
+      {/* Contador de caracteres, exibido se 'maxLength' for fornecido. */}
+      {maxLength && (
+        <div className="flex justify-between items-center px-3 py-2 border-t border-gray-200 bg-gray-50 text-xs text-gray-500">
+          <span>
+            {textLength}/{maxLength} caracteres
+          </span>
+          {textLength > maxLength * 0.9 && ( // Feedback visual quando próximo do limite.
+            <span className={textLength >= maxLength ? 'text-red-600 font-semibold' : 'text-yellow-600'}>
+              {textLength >= maxLength ? 'Limite atingido!' : 'Próximo do limite'}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 });
