@@ -1,4 +1,4 @@
-// src/pages/DocumentEditPage.tsx - MIGRADO PARA REACT QUILL E CORRIGIDO
+// src/pages/DocumentEditPage.tsx - VERSÃO CORRIGIDA
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -102,7 +102,6 @@ const DocumentForm: React.FC<{
           disabled={disabled}
         >
           <option value="">Selecione um orientador</option>
-          {/* A prop 'advisors' agora é garantida como array (pode ser vazia) */}
           {advisors.map((advisor) => ( 
             <option key={advisor.id} value={advisor.id}>
               {advisor.name}
@@ -194,8 +193,8 @@ const UnsavedChangesIndicator: React.FC<{ hasChanges: boolean }> = ({ hasChanges
 const DocumentEditPage: React.FC = () => {
   const { id } = useParams<{ id?: string }>(); 
   const navigate = useNavigate();
-  const { user } = useAuthStore(); //
-  const { confirm, confirmDeletion } = useConfirmDialog(); //
+  const { user } = useAuthStore(); 
+  const { confirm, confirmDeletion } = useConfirmDialog(); 
   const editorRef = useRef<EditorRef>(null);
   
   const [latestVersion, setLatestVersion] = useState<Version | null>(null);
@@ -203,15 +202,15 @@ const DocumentEditPage: React.FC = () => {
   const [commitMessage, setCommitMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [editorInitialized, setEditorInitialized] = useState(false);
 
   const isEditing = Boolean(id); 
 
-  // MODIFICAÇÃO: Renomear 'advisors' desestruturado para 'advisorsDataFromHook' para evitar conflito e usar no fallback.
-  const { data: advisorsDataFromHook, loading: advisorsLoading } = useApiData<Advisor[]>( //
+  const { data: advisorsDataFromHook, loading: advisorsLoading } = useApiData<Advisor[]>( 
     '/users/advisors', [], { errorMessage: 'Erro ao carregar orientadores' }
   );
 
-  const { data: document, loading: documentLoading, refetch: refetchDocument } = useApiData<Document>( //
+  const { data: document, loading: documentLoading, refetch: refetchDocument } = useApiData<Document>( 
     isEditing && id ? `/documents/${id}` : null, 
     [id, isEditing],
     { errorMessage: 'Erro ao carregar documento', immediate: isEditing }
@@ -236,23 +235,40 @@ const DocumentEditPage: React.FC = () => {
     if (!id) return; 
     
     try {
-      const versions = await versionsApi.getByDocument(Number(id)); //
+      const versions = await versionsApi.getByDocument(Number(id)); 
       if (versions.length > 0) {
         const latest = versions[0];
         setLatestVersion(latest);
         setEditorContent(latest.content); 
         
-        setTimeout(() => {
-          editorRef.current?.setContent(latest.content, 'api');
-          setHasUnsavedChanges(false); 
-        }, 100);
+        // Aguardar um pouco para garantir que o editor está pronto
+        const setContentWithDelay = () => {
+          if (editorRef.current) {
+            try {
+              editorRef.current.setContent(latest.content, 'api');
+              setHasUnsavedChanges(false);
+              setEditorInitialized(true);
+            } catch (error) {
+              console.warn('Erro ao definir conteúdo do editor:', error);
+              // Tentar novamente após um pequeno delay
+              setTimeout(setContentWithDelay, 200);
+            }
+          } else {
+            // Tentar novamente se o editor não estiver pronto
+            setTimeout(setContentWithDelay, 100);
+          }
+        };
+        
+        setTimeout(setContentWithDelay, 150);
       } else {
         setEditorContent(''); 
         setLatestVersion(null);
         setHasUnsavedChanges(false);
+        setEditorInitialized(true);
       }
     } catch (error) {
       toast.error('Erro ao carregar versões do documento');
+      setEditorInitialized(true);
     }
   };
   
@@ -269,9 +285,19 @@ const DocumentEditPage: React.FC = () => {
       setEditorContent('');
       setLatestVersion(null);
       setHasUnsavedChanges(false);
-      setTimeout(() => editorRef.current?.setContent('', 'api'), 100); 
+      setEditorInitialized(true);
+      
+      // Limpar editor para novos documentos
+      setTimeout(() => {
+        if (editorRef.current) {
+          try {
+            editorRef.current.setContent('', 'api');
+          } catch (error) {
+            console.warn('Erro ao limpar editor:', error);
+          }
+        }
+      }, 100);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [document, isEditing, reset]); 
 
   useEffect(() => {
@@ -286,16 +312,26 @@ const DocumentEditPage: React.FC = () => {
   }, [hasUnsavedChanges]);
 
   const handleFormChange = () => setHasUnsavedChanges(true);
+  
   const handleEditorContentChange = (newContent: string) => {
+    if (!editorInitialized) return; // Não marcar como alterado até o editor estar inicializado
+    
     const baseContentToCompare = latestVersion?.content || (isEditing ? '' : editorContent); 
-    if(newContent !== baseContentToCompare) {
+    if (newContent !== baseContentToCompare) {
       setHasUnsavedChanges(true);
     }
   };
 
   const onSubmitDocument = async (data: FormData) => {
     setLoading(true);
-    const currentEditorHTML = editorRef.current?.getContent() || '';
+    
+    let currentEditorHTML = '';
+    try {
+      currentEditorHTML = editorRef.current?.getContent() || '';
+    } catch (error) {
+      console.warn('Erro ao obter conteúdo do editor:', error);
+      currentEditorHTML = editorContent; // Fallback
+    }
     
     try {
       let docIdToUse = document?.id;
@@ -307,7 +343,7 @@ const DocumentEditPage: React.FC = () => {
             title: data.title,
             description: data.description,
             advisorId: data.advisorId,
-          }); //
+          }); 
         }
 
         const editorContentActuallyChanged = currentEditorHTML !== (latestVersion?.content || '');
@@ -317,7 +353,7 @@ const DocumentEditPage: React.FC = () => {
               documentId: docIdToUse,
               content: currentEditorHTML,
               commitMessage: commitMessage.trim() || (editorContentActuallyChanged ? 'Atualização de conteúdo' : 'Alterações nos metadados'),
-            }); //
+            }); 
           }
         }
         toast.success('Documento atualizado com sucesso!');
@@ -328,7 +364,7 @@ const DocumentEditPage: React.FC = () => {
             studentId: user!.id, 
             advisorId: data.advisorId,
         };
-        const newDoc = await documentsApi.create(newDocPayload); //
+        const newDoc = await documentsApi.create(newDocPayload); 
         docIdToUse = newDoc.id; 
         
         if (currentEditorHTML.trim() !== "") {
@@ -336,7 +372,7 @@ const DocumentEditPage: React.FC = () => {
             documentId: docIdToUse,
             content: currentEditorHTML,
             commitMessage: commitMessage.trim() || 'Versão inicial',
-          }); //
+          }); 
         }
         toast.success('Documento criado com sucesso!');
         navigate(`/student/documents/${docIdToUse}/edit`, { replace: true });
@@ -361,11 +397,11 @@ const DocumentEditPage: React.FC = () => {
   const handleDelete = async () => {
     if (!document) return;
     
-    const confirmed = await confirmDeletion(`o documento "${document.title}"`); //
+    const confirmed = await confirmDeletion(`o documento "${document.title}"`); 
     if (!confirmed) return;
 
     try {
-      await documentsApi.delete(document.id); //
+      await documentsApi.delete(document.id); 
       toast.success('Documento excluído com sucesso');
       navigate('/student/documents');
     } catch (error: any) {
@@ -378,7 +414,7 @@ const DocumentEditPage: React.FC = () => {
       const confirmed = await confirm(
         'Você tem alterações não salvas. Deseja sair mesmo assim e descartar as alterações?',
         'Sair sem Salvar?'
-      ); //
+      ); 
       if (!confirmed) return;
     }
     navigate(-1); 
@@ -386,13 +422,12 @@ const DocumentEditPage: React.FC = () => {
 
   const isViewOnly = isEditing && document?.status !== 'DRAFT';
 
-  if ((documentLoading || advisorsLoading) && isEditing) { //
-    return <LoadingSpinner size="lg" message="Carregando documento..." fullScreen />; //
+  if ((documentLoading || advisorsLoading) && isEditing) { 
+    return <LoadingSpinner size="lg" message="Carregando documento..." fullScreen />; 
   }
    if (advisorsLoading && !isEditing) { 
-    return <LoadingSpinner size="lg" message="Carregando dados..." fullScreen />; //
+    return <LoadingSpinner size="lg" message="Carregando dados..." fullScreen />; 
   }
-
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-10">
@@ -400,12 +435,10 @@ const DocumentEditPage: React.FC = () => {
         title={isEditing ? `Editando: ${document?.title || 'Documento'}` : 'Novo Documento'}
         subtitle={
           isEditing && document && (
-            // A prop subtitle agora espera um ReactNode, então o <p> está correto aqui.
-            // A correção do aninhamento foi feita em PageHeader.tsx
             <p className="text-sm text-gray-500 mt-1">
               Última atualização: {formatDateTime(document.updatedAt)} {isViewOnly ? `(Status: ${document.status} - Somente Leitura)` : ''}
             </p>
-          ) //
+          ) 
         }
         actions={
           <div className="flex items-center space-x-2">
@@ -443,13 +476,13 @@ const DocumentEditPage: React.FC = () => {
             )}
           </div>
         }
-      /> {/* */}
+      /> 
 
       <form onSubmit={handleSubmit(onSubmitDocument)} className="space-y-6">
         <DocumentForm
           register={register}
           errors={errors}
-          advisors={advisorsDataFromHook || []} // CORREÇÃO APLICADA AQUI
+          advisors={advisorsDataFromHook || []} 
           onFieldChange={handleFormChange}
           disabled={isViewOnly || loading || advisorsLoading} 
         />
