@@ -1,71 +1,48 @@
-// vite.config.ts - Versão que funciona com dependências atuais
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import { splitVendorChunkPlugin } from 'vite';
-import path from 'path';
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
 
+// https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [
-    react({
-      // React Fast Refresh
-      fastRefresh: true,
-    }),
-    splitVendorChunkPlugin(),
-  ],
-  
+  plugins: [react()],
+  server: {
+    port: 3000,
+    host: true,
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
   },
-  
   build: {
-    // Otimizações básicas
-    target: 'es2020',
-    cssCodeSplit: true,
-    sourcemap: false,
-    minify: 'terser',
-    
     rollupOptions: {
       output: {
-        // Chunking strategy otimizada
-        manualChunks: {
-          // Vendor libraries principais
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui-vendor': ['@headlessui/react', '@heroicons/react'],
-          'form-vendor': ['react-hook-form', '@hookform/resolvers', 'yup'],
-          'query-vendor': ['@tanstack/react-query'],
-          
-          // Editor separado por ser grande
-          'editor-vendor': ['@tiptap/react', '@tiptap/starter-kit'],
-        }
-      }
+        manualChunks: (id) => {
+          // Vendor chunks
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'react-vendor'
+            }
+            if (id.includes('@tiptap')) {
+              return 'editor-vendor'
+            }
+            if (id.includes('@tanstack')) {
+              return 'query-vendor'
+            }
+            if (id.includes('axios')) {
+              return 'http-vendor'
+            }
+            return 'vendor'
+          }
+        },
+      },
     },
-    
-    // Terser options para produção
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-      }
-    }
+    chunkSizeWarningLimit: 1000,
   },
-  
-  optimizeDeps: {
-    include: [
-      'react',
-      'react-dom', 
-      'react-router-dom',
-      '@tanstack/react-query'
-    ]
+  css: {
+    postcss: './postcss.config.js',
   },
-  
-  server: {
-    host: true,
-    port: 3000,
-    // HMR otimizado
-    hmr: {
-      overlay: true
-    }
-  }
-});
+  define: {
+    global: 'globalThis',
+  },
+})

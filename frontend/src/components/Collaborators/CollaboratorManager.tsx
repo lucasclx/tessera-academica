@@ -44,10 +44,25 @@ const CollaboratorInfo: React.FC<{
       }`} />
       <div className="flex-1">
         <div className="flex items-center space-x-2">
-          <span className="text-lg font-semibold text-gray-900">{collaborator.userName}          </span>
+          <span className="text-lg font-semibold text-gray-900">{collaborator.userName}</span>
+          {collaborator.isPrimary && (
+            <StarIcon className="h-5 w-5 text-yellow-500" title="Principal" />
+          )}
+          {collaborator.userId === useAuthStore.getState().user?.id && (
+            <span className="text-xs text-gray-500">(Você)</span>
+          )}
           <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${permissionInfo.color}`}>
             <ShieldCheckIcon className="h-3.5 w-3.5 mr-1.5 -ml-0.5" />
             {permissionInfo.label}
+          </span>
+        </div>
+        
+        <p className="text-sm text-gray-600">{collaborator.userEmail}</p>
+        
+        <div className="mt-2 flex flex-wrap gap-2 items-center">
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${roleInfo.color}`}>
+            <RoleIcon className="h-3.5 w-3.5 mr-1.5 -ml-0.5" />
+            {roleInfo.label}
           </span>
         </div>
         
@@ -484,16 +499,3 @@ const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({
 };
 
 export default CollaboratorManager;
-          {collaborator.isPrimary && (
-            <StarIcon className="h-5 w-5 text-yellow-500" title="Principal" />
-          )}
-          {collaborator.userId === useAuthStore.getState().user?.id && (
-            <span className="text-xs text-gray-500">(Você)</span>
-          )}
-        </div>
-        <p className="text-sm text-gray-600">{collaborator.userEmail}</p>
-        
-        <div className="mt-2 flex flex-wrap gap-2 items-center">
-          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${roleInfo.color}`}>
-            <RoleIcon className="h-3.5 w-3.5 mr-1.5 -ml-0.5" />
-            {roleInfo.label}
