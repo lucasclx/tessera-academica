@@ -1,18 +1,9 @@
 // src/components/Collaborators/AddCollaboratorModal.tsx
-import React, { useState, useEffect } from 'react';
-import { XMarkIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import { api } from '../../lib/api';
+import React, { useState, useEffect, Fragment } from 'react';
+import { Dialog, Transition } from '@headlessui/react';
+import { XMarkIcon, MagnifyingGlassIcon, UserPlusIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { usersApi, collaboratorsApi, UserSelection, AddCollaboratorPayload } from '../../lib/api';
 import { toast } from 'react-hot-toast';
-
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-  department?: string;
-  institution?: string;
-  isActive: boolean;
-}
 
 interface AddCollaboratorModalProps {
   documentId: number;
@@ -26,312 +17,303 @@ const AddCollaboratorModal: React.FC<AddCollaboratorModalProps> = ({
   onCollaboratorAdded,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedRole, setSelectedRole] = useState('');
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [collaboratorRole, setCollaboratorRole] = useState('');
-  const [permission, setPermission] = useState('READ_COMMENT');
+  const [filterRole, setFilterRole] = useState(''); // Para filtrar busca: STUDENT, ADVISOR
+  const [users, setUsers] = useState<UserSelection[]>([]);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  
+  const [selectedUser, setSelectedUser] = useState<UserSelection | null>(null);
+  const [collaboratorRole, setCollaboratorRole] = useState(''); // Papel no documento
+  const [permission, setPermission] = useState('READ_COMMENT'); // Permissão no documento
   const [message, setMessage] = useState('');
   const [step, setStep] = useState<'search' | 'configure'>('search');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
 
   useEffect(() => {
-    if (searchTerm.length >= 2) {
-      searchUsers();
-    } else {
-      setUsers([]);
-    }
-  }, [searchTerm, selectedRole]);
+    // Debounce search
+    const handler = setTimeout(() => {
+      if (searchTerm.length >= 2 && step === 'search') {
+        searchUsers();
+      } else if (step === 'search') {
+        setUsers([]);
+      }
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchTerm, filterRole, step]);
 
   const searchUsers = async () => {
+    setLoadingSearch(true);
     try {
-      setLoading(true);
-      const data = await api.get<User[]>(`/users/search/collaborators?search=${searchTerm}&role=${selectedRole}&excludeDocumentId=${documentId}`);
+      const data = await usersApi.searchPotentialCollaborators(searchTerm, filterRole || undefined, documentId);
       setUsers(data);
     } catch (error) {
-      toast.error('Erro ao buscar usuários');
+      toast.error('Erro ao buscar usuários.');
     } finally {
-      setLoading(false);
+      setLoadingSearch(false);
     }
   };
 
-  const handleSelectUser = (user: User) => {
+  const handleSelectUser = (user: UserSelection) => {
     setSelectedUser(user);
-    setStep('configure');
-    
-    // Set default role based on user type
-    if (user.role === 'STUDENT') {
-      setCollaboratorRole('SECONDARY_STUDENT');
-    } else if (user.role === 'ADVISOR') {
-      setCollaboratorRole('SECONDARY_ADVISOR');
+    // Sugestão de papel baseada no papel do sistema do usuário
+    if (user.role?.includes('STUDENT')) {
+      setCollaboratorRole('SECONDARY_STUDENT'); // Default para estudantes
+    } else if (user.role?.includes('ADVISOR')) {
+      setCollaboratorRole('SECONDARY_ADVISOR'); // Default para orientadores
+    } else {
+      setCollaboratorRole('OBSERVER'); // Default para outros
     }
+    setPermission('READ_COMMENT'); // Default permission
+    setStep('configure');
   };
 
   const handleAddCollaborator = async () => {
     if (!selectedUser || !collaboratorRole || !permission) {
-      toast.error('Preencha todos os campos obrigatórios');
+      toast.error('Preencha todos os campos obrigatórios.');
       return;
     }
-
+    setIsSubmitting(true);
     try {
-      const requestData = {
-        userEmail: selectedUser.email,
+      const payload: AddCollaboratorPayload = {
+        userEmail: selectedUser.email!,
         role: collaboratorRole,
         permission: permission,
         message: message,
       };
-
-      await api.post(`/documents/${documentId}/collaborators`, requestData);
-      toast.success(`${selectedUser.name} foi adicionado como colaborador`);
-      onCollaboratorAdded();
+      await collaboratorsApi.addCollaborator(documentId, payload);
+      toast.success(`${selectedUser.name} foi adicionado como colaborador!`);
+      onCollaboratorAdded(); // Fecha o modal e recarrega a lista no manager
     } catch (error) {
-      toast.error('Erro ao adicionar colaborador');
+      // Erro já tratado pelo api.tsx
+    } finally {
+      setIsSubmitting(false);
     }
   };
+  
+  const documentRoles = [ // Baseado em CollaboratorRole.java
+    { value: 'PRIMARY_STUDENT', label: 'Estudante Principal', type: 'STUDENT' },
+    { value: 'SECONDARY_STUDENT', label: 'Estudante Colaborador', type: 'STUDENT' },
+    { value: 'CO_STUDENT', label: 'Co-autor', type: 'STUDENT' },
+    { value: 'PRIMARY_ADVISOR', label: 'Orientador Principal', type: 'ADVISOR' },
+    { value: 'SECONDARY_ADVISOR', label: 'Orientador Colaborador', type: 'ADVISOR' },
+    { value: 'CO_ADVISOR', label: 'Co-orientador', type: 'ADVISOR' },
+    { value: 'EXTERNAL_ADVISOR', label: 'Orientador Externo', type: 'ADVISOR' },
+    { value: 'EXAMINER', label: 'Banca Examinadora', type: 'OTHER' },
+    { value: 'REVIEWER', label: 'Revisor', type: 'OTHER' },
+    { value: 'OBSERVER', label: 'Observador', type: 'OTHER' },
+  ];
+  
+  const getPermissionDescription = (permValue: string) => {
+     const permissionsMap: Record<string, string> = {
+        READ_ONLY: 'Pode visualizar o documento e comentários.',
+        READ_COMMENT: 'Pode visualizar e adicionar comentários.',
+        READ_WRITE: 'Pode editar o conteúdo do documento.',
+        FULL_ACCESS: 'Pode gerenciar colaboradores e configurações do documento.',
+     };
+     return permissionsMap[permValue] || '';
+  }
 
-  const roles = {
-    student: [
-      { value: 'SECONDARY_STUDENT', label: 'Estudante Colaborador' },
-      { value: 'CO_STUDENT', label: 'Co-autor' },
-    ],
-    advisor: [
-      { value: 'SECONDARY_ADVISOR', label: 'Orientador Colaborador' },
-      { value: 'CO_ADVISOR', label: 'Co-orientador' },
-      { value: 'EXTERNAL_ADVISOR', label: 'Orientador Externo' },
-    ],
-    other: [
-      { value: 'EXAMINER', label: 'Banca Examinadora' },
-      { value: 'REVIEWER', label: 'Revisor' },
-      { value: 'OBSERVER', label: 'Observador' },
-    ],
-  };
-
-  const permissions = [
-    { value: 'READ_ONLY', label: 'Apenas Leitura', description: 'Pode visualizar o documento' },
-    { value: 'READ_COMMENT', label: 'Leitura e Comentários', description: 'Pode visualizar e comentar' },
-    { value: 'READ_WRITE', label: 'Leitura e Escrita', description: 'Pode editar o documento' },
-    { value: 'FULL_ACCESS', label: 'Acesso Completo', description: 'Pode gerenciar colaboradores' },
+  const availablePermissions = [ // Baseado em CollaboratorPermission.java
+    { value: 'READ_ONLY', label: 'Apenas Leitura' },
+    { value: 'READ_COMMENT', label: 'Leitura e Comentários' },
+    { value: 'READ_WRITE', label: 'Leitura e Escrita' },
+    { value: 'FULL_ACCESS', label: 'Acesso Completo (Gerenciar)' },
   ];
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">
-            {step === 'search' ? 'Buscar Colaborador' : 'Configurar Colaborador'}
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            <XMarkIcon className="h-6 w-6" />
-          </button>
-        </div>
+    <Transition.Root show={true} as={Fragment}>
+      <Dialog as="div" className="relative z-40" onClose={onClose}> {/* z-40 para ficar abaixo do NotificationCenter (z-50) */}
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-200"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+        </Transition.Child>
 
-        <div className="mt-4">
-          {step === 'search' ? (
-            /* Search Step */
-            <div className="space-y-4">
-              {/* Search Input */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Buscar por nome ou email
-                </label>
-                <div className="relative">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Digite o nome ou email do colaborador..."
-                    className="input-field pl-10"
-                  />
-                </div>
-              </div>
-
-              {/* Role Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Filtrar por tipo
-                </label>
-                <select
-                  value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value)}
-                  className="input-field"
-                >
-                  <option value="">Todos os tipos</option>
-                  <option value="STUDENT">Estudantes</option>
-                  <option value="ADVISOR">Orientadores</option>
-                </select>
-              </div>
-
-              {/* Search Results */}
-              <div className="border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
-                {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4 text-center sm:items-center sm:p-0">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              enterTo="opacity-100 translate-y-0 sm:scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+              leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            >
+              <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl">
+                <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                  <div className="flex items-center justify-between">
+                    <Dialog.Title as="h3" className="text-lg font-semibold leading-6 text-gray-900 flex items-center">
+                      {step === 'search' ? (
+                        <>
+                          <MagnifyingGlassIcon className="h-6 w-6 mr-2 text-primary-600" />
+                          Buscar Colaborador
+                        </>
+                      ) : (
+                        <>
+                          <UserPlusIcon className="h-6 w-6 mr-2 text-primary-600" />
+                          Configurar Colaborador
+                        </>
+                      )}
+                    </Dialog.Title>
+                    <button type="button" className="text-gray-400 hover:text-gray-500" onClick={onClose}>
+                      <XMarkIcon className="h-6 w-6" />
+                    </button>
                   </div>
-                ) : users.length === 0 ? (
-                  <div className="p-4 text-center text-gray-500">
-                    {searchTerm.length < 2 
-                      ? 'Digite pelo menos 2 caracteres para buscar'
-                      : 'Nenhum usuário encontrado'
-                    }
-                  </div>
-                ) : (
-                  <div className="divide-y divide-gray-200">
-                    {users.map((user) => (
-                      <div
-                        key={user.id}
-                        onClick={() => handleSelectUser(user)}
-                        className="p-4 hover:bg-gray-50 cursor-pointer"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-gray-900">{user.name}</div>
-                            <div className="text-sm text-gray-500">{user.email}</div>
-                            {user.department && (
-                              <div className="text-xs text-gray-400">
-                                {user.department} - {user.institution}
-                              </div>
-                            )}
-                          </div>
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            user.role === 'STUDENT' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
-                          }`}>
-                            {user.role === 'STUDENT' ? 'Estudante' : 'Orientador'}
-                          </span>
+
+                  <div className="mt-5">
+                    {step === 'search' ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label htmlFor="searchTerm" className="block text-sm font-medium text-gray-700">Buscar por nome ou email</label>
+                                <input
+                                type="text"
+                                name="searchTerm"
+                                id="searchTerm"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                placeholder="Digite para buscar..."
+                                className="input-field mt-1"
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="filterRole" className="block text-sm font-medium text-gray-700">Filtrar por tipo de usuário</label>
+                                <select 
+                                    id="filterRole" 
+                                    name="filterRole"
+                                    value={filterRole}
+                                    onChange={(e) => {setFilterRole(e.target.value); setSearchTerm(''); setUsers([]);}}
+                                    className="input-field mt-1"
+                                >
+                                <option value="">Todos os Tipos</option>
+                                <option value="STUDENT">Estudante</option>
+                                <option value="ADVISOR">Orientador</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div className="mt-4 border border-gray-200 rounded-lg max-h-60 overflow-y-auto">
+                          {loadingSearch ? (
+                            <div className="p-6 text-center text-gray-500">Buscando...</div>
+                          ) : users.length === 0 ? (
+                            <div className="p-6 text-center text-gray-500">
+                              {searchTerm.length < 2 ? 'Digite ao menos 2 caracteres para buscar.' : 'Nenhum usuário encontrado.'}
+                            </div>
+                          ) : (
+                            <ul className="divide-y divide-gray-200">
+                              {users.map((user) => (
+                                <li key={user.id} onClick={() => handleSelectUser(user)} className="p-3 hover:bg-gray-50 cursor-pointer flex justify-between items-center">
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                                    <p className="text-xs text-gray-500">{user.email}</p>
+                                  </div>
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-primary-100 text-primary-700">{user.role?.replace('ROLE_', '') || 'Usuário'}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </div>
                       </div>
-                    ))}
+                    ) : ( // Step 'configure'
+                      selectedUser && (
+                        <div className="space-y-6">
+                          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <p className="text-sm font-medium text-gray-900">Adicionando: {selectedUser.name}</p>
+                            <p className="text-xs text-gray-500">{selectedUser.email}</p>
+                          </div>
+                          <div>
+                            <label htmlFor="collaboratorRole" className="block text-sm font-medium text-gray-700">Papel no Documento *</label>
+                            <select 
+                                id="collaboratorRole" 
+                                value={collaboratorRole} 
+                                onChange={(e) => setCollaboratorRole(e.target.value)} 
+                                className="input-field mt-1"
+                                required
+                            >
+                              <option value="">Selecione um papel...</option>
+                              {documentRoles.map(role => (
+                                <option key={role.value} value={role.value}>
+                                  {role.label} {role.type !== 'OTHER' ? `(${role.type})` : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label htmlFor="permission" className="block text-sm font-medium text-gray-700">Nível de Permissão *</label>
+                             <select 
+                                id="permission" 
+                                value={permission} 
+                                onChange={(e) => setPermission(e.target.value)} 
+                                className="input-field mt-1"
+                                required
+                            >
+                              <option value="">Selecione uma permissão...</option>
+                              {availablePermissions.map(perm => (
+                                <option key={perm.value} value={perm.value}>
+                                  {perm.label}
+                                </option>
+                              ))}
+                            </select>
+                            <p className="text-xs text-gray-500 mt-1">{getPermissionDescription(permission)}</p>
+                          </div>
+                          <div>
+                            <label htmlFor="message" className="block text-sm font-medium text-gray-700">Mensagem de Convite (opcional)</label>
+                            <textarea
+                              id="message"
+                              rows={3}
+                              value={message}
+                              onChange={(e) => setMessage(e.target.value)}
+                              placeholder="Ex: Olá, gostaria de te convidar para colaborar neste documento..."
+                              className="input-field mt-1"
+                            />
+                          </div>
+                        </div>
+                      )
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            /* Configure Step */
-            <div className="space-y-6">
-              {/* Selected User Info */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900">Colaborador Selecionado</h4>
-                <div className="mt-2">
-                  <div className="font-medium">{selectedUser?.name}</div>
-                  <div className="text-sm text-gray-500">{selectedUser?.email}</div>
                 </div>
-              </div>
-
-              {/* Role Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Papel do Colaborador *
-                </label>
-                <select
-                  value={collaboratorRole}
-                  onChange={(e) => setCollaboratorRole(e.target.value)}
-                  className="input-field"
-                  required
-                >
-                  <option value="">Selecione um papel</option>
-                  
-                  {selectedUser?.role === 'STUDENT' && (
-                    <optgroup label="Papéis de Estudante">
-                      {roles.student.map((role) => (
-                        <option key={role.value} value={role.value}>
-                          {role.label}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  
-                  {selectedUser?.role === 'ADVISOR' && (
-                    <optgroup label="Papéis de Orientador">
-                      {roles.advisor.map((role) => (
-                        <option key={role.value} value={role.value}>
-                          {role.label}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  
-                  <optgroup label="Outros Papéis">
-                    {roles.other.map((role) => (
-                      <option key={role.value} value={role.value}>
-                        {role.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
-              </div>
-
-              {/* Permission Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nível de Permissão *
-                </label>
-                <div className="space-y-2">
-                  {permissions.map((perm) => (
-                    <label key={perm.value} className="flex items-start">
-                      <input
-                        type="radio"
-                        name="permission"
-                        value={perm.value}
-                        checked={permission === perm.value}
-                        onChange={(e) => setPermission(e.target.value)}
-                        className="mt-1 mr-3"
-                      />
-                      <div>
-                        <div className="font-medium text-gray-900">{perm.label}</div>
-                        <div className="text-sm text-gray-500">{perm.description}</div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Message */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Mensagem (opcional)
-                </label>
-                <textarea
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Mensagem opcional para o convite..."
-                  className="input-field"
-                  rows={3}
-                />
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                <button
-                  onClick={() => setStep('search')}
-                  className="btn btn-secondary"
-                >
-                  Voltar
-                </button>
-                <div className="space-x-2">
+                <div className="bg-gray-50 px-4 py-3 sm:flex sm:items-center sm:px-6">
+                    {step === 'configure' && (
+                         <button
+                            type="button"
+                            className="btn btn-secondary sm:mr-auto inline-flex items-center"
+                            onClick={() => {setStep('search'); setSelectedUser(null);}}
+                          >
+                           <ArrowLeftIcon className="h-4 w-4 mr-1.5"/> Voltar para Busca
+                          </button>
+                    )}
+                  <div className="sm:flex-auto"/> {/* Spacer */}
                   <button
+                    type="button"
+                    className="btn btn-secondary mt-3 sm:mt-0 w-full sm:w-auto"
                     onClick={onClose}
-                    className="btn btn-secondary"
                   >
                     Cancelar
                   </button>
-                  <button
-                    onClick={handleAddCollaborator}
-                    className="btn btn-primary"
-                    disabled={!collaboratorRole || !permission}
-                  >
-                    Adicionar Colaborador
-                  </button>
+                  {step === 'configure' && (
+                    <button
+                      type="button"
+                      className="btn btn-primary ml-3 w-full sm:w-auto"
+                      onClick={handleAddCollaborator}
+                      disabled={isSubmitting || !selectedUser || !collaboratorRole || !permission}
+                    >
+                      {isSubmitting ? 'Adicionando...' : 'Adicionar Colaborador'}
+                    </button>
+                  )}
                 </div>
-              </div>
-            </div>
-          )}
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
         </div>
-      </div>
-    </div>
+      </Dialog>
+    </Transition.Root>
   );
 };
 

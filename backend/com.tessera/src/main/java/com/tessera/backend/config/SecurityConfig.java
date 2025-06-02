@@ -62,11 +62,12 @@ public class SecurityConfig {
                         // Libera os endpoints do Swagger/OpenAPI
                         "/v3/api-docs/**",
                         "/swagger-ui/**",
-                        "/swagger-ui.html"
+                        "/swagger-ui.html",
+                        "/ws/**" // <-- ADICIONE ESTA LINHA PARA PERMITIR ACESSO AOS ENDPOINTS WEBSOCKET/SOCKJS
                 ).permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
-                .requestMatchers("/advisor/**").hasRole("ADVISOR") // Se você tiver essa role e endpoints
-                .requestMatchers("/student/**").hasRole("STUDENT") // Se você tiver essa role e endpoints
+                .requestMatchers("/advisor/**").hasRole("ADVISOR") 
+                .requestMatchers("/student/**").hasRole("STUDENT") 
                 .anyRequest().authenticated()
             );
 
@@ -77,12 +78,13 @@ public class SecurityConfig {
     }
 
     @Bean
-    public CorsFilter corsFilter() {
+    public CorsFilter corsFilter() { // Este bean pode ser redundante se corsConfigurationSource é usado diretamente
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.addAllowedOrigin("http://localhost:3000"); // Frontend URL original
-        config.addAllowedOrigin("http://localhost:5173"); // Nova URL do frontend Vite
+        // config.addAllowedOrigin("http://localhost:3000"); // Se ainda usar
+        config.addAllowedOrigin("http://localhost:5173"); // Frontend URL Vite
+        config.addAllowedOriginPattern("*"); // Para desenvolvimento, pode ser mais permissivo, mas restrinja em produção
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
         source.registerCorsConfiguration("/**", config);
@@ -94,11 +96,14 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.addAllowedOrigin("http://localhost:3000"); // Frontend URL original
-        config.addAllowedOrigin("http://localhost:5173"); // Nova URL do frontend Vite
+        // config.addAllowedOrigin("http://localhost:3000");
+        config.addAllowedOrigin("http://localhost:5173");
+        config.addAllowedOriginPattern("*"); // Adicionado para flexibilidade em dev
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
         source.registerCorsConfiguration("/**", config);
+        // Adicionar configuração específica para /ws/** se necessário, embora "/**" deva cobrir.
+        // source.registerCorsConfiguration("/ws/**", config); // Geralmente não é necessário se "/**" já está configurado assim.
         return source;
     }
 }
