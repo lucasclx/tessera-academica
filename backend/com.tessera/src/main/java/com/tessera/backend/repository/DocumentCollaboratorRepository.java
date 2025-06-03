@@ -22,6 +22,7 @@ public interface DocumentCollaboratorRepository extends JpaRepository<DocumentCo
     List<DocumentCollaborator> findByDocumentAndActiveTrue(Document document);
     List<DocumentCollaborator> findByUserAndActiveTrue(User user);
     Optional<DocumentCollaborator> findByDocumentAndUserAndActiveTrue(Document document, User user);
+    Optional<DocumentCollaborator> findByDocumentAndUser(Document document, User user);
     
     // Buscar por papel específico
     List<DocumentCollaborator> findByDocumentAndRoleAndActiveTrue(Document document, CollaboratorRole role);

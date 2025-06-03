@@ -60,11 +60,30 @@ public class DocumentCollaboratorService {
         User newCollaborator = userRepository.findByEmail(request.getUserEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado: " + request.getUserEmail()));
         
-        // Verificar se já é colaborador
-        if (document.hasCollaborator(newCollaborator)) {
-            throw new RuntimeException("Este usuário já é colaborador do documento");
+        // Verificar se já existe registro (ativo ou inativo)
+        Optional<DocumentCollaborator> existingOpt =
+                collaboratorRepository.findByDocumentAndUser(document, newCollaborator);
+        if (existingOpt.isPresent()) {
+            DocumentCollaborator existing = existingOpt.get();
+            if (existing.isActive()) {
+                throw new RuntimeException("Este usuário já é colaborador do documento");
+            }
+
+            // Reativar colaborador inativo
+            validateCollaboratorAddition(document, request.getRole(), newCollaborator);
+            existing.setRole(request.getRole());
+            existing.setPermission(request.getPermission());
+            existing.setAddedBy(currentUser);
+            existing.setInvitationMessage(request.getMessage());
+            existing.setRemovalReason(null);
+            existing.setActive(true);
+            existing.setAddedAt(LocalDateTime.now());
+
+            existing = collaboratorRepository.save(existing);
+            notificationEventService.onCollaboratorAdded(document, newCollaborator, currentUser, request.getRole());
+            return mapToDTO(existing);
         }
-        
+
         // Validar regras de negócio
         validateCollaboratorAddition(document, request.getRole(), newCollaborator);
         
