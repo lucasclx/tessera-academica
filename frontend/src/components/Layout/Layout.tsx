@@ -4,14 +4,20 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import NotificationCenter from '../Notifications/NotificationCenter'; // Importar o NotificationCenter
+import SettingsModal from './SettingsModal';
 import { WebSocketProvider } from '../providers/WebSocketProvider'; // Importar o WebSocketProvider
 
 const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false); // Estado para a Central de Notificações
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   const toggleNotificationCenter = () => {
     setIsNotificationCenterOpen(!isNotificationCenterOpen);
+  };
+
+  const openSettingsModal = () => {
+    setIsSettingsModalOpen(true);
   };
 
   return (
@@ -23,9 +29,10 @@ const Layout: React.FC = () => {
         {/* Main content */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
-          <Header 
-            onMenuClick={() => setSidebarOpen(true)} 
+          <Header
+            onMenuClick={() => setSidebarOpen(true)}
             onNotificationBellClick={toggleNotificationCenter} // Passar a função para o Header
+            onSettingsClick={openSettingsModal}
           />
 
           {/* Main content area */}
@@ -37,9 +44,13 @@ const Layout: React.FC = () => {
         </div>
 
         {/* Notification Center */}
-        <NotificationCenter 
-          isOpen={isNotificationCenterOpen} 
-          onClose={() => setIsNotificationCenterOpen(false)} 
+        <NotificationCenter
+          isOpen={isNotificationCenterOpen}
+          onClose={() => setIsNotificationCenterOpen(false)}
+        />
+        <SettingsModal
+          isOpen={isSettingsModalOpen}
+          onClose={() => setIsSettingsModalOpen(false)}
         />
       </div>
     </WebSocketProvider>
