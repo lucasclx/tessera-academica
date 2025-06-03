@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.*;
 
@@ -177,5 +178,35 @@ class DocumentCollaboratorServiceTest {
         assertEquals(CollaboratorRole.CO_STUDENT, inactive.getRole());
         verify(collaboratorRepository).save(inactive);
         assertEquals(inactive.getId(), dto.getId());
+    }
+
+    @Test
+    void testAddCollaboratorDuplicateDuringSave() {
+        User newUser = createUser(7L, "Dup", "dup@test.com", "STUDENT");
+        AddCollaboratorRequestDTO req = new AddCollaboratorRequestDTO(
+                newUser.getEmail(),
+                CollaboratorRole.SECONDARY_STUDENT,
+                CollaboratorPermission.READ_WRITE,
+                null
+        );
+
+        DocumentCollaborator existing = new DocumentCollaborator();
+        existing.setId(60L);
+        existing.setDocument(document);
+        existing.setUser(newUser);
+        existing.setRole(CollaboratorRole.SECONDARY_STUDENT);
+        existing.setPermission(CollaboratorPermission.READ_WRITE);
+
+        when(documentRepository.findById(100L)).thenReturn(Optional.of(document));
+        when(userRepository.findByEmail(newUser.getEmail())).thenReturn(Optional.of(newUser));
+        when(collaboratorRepository.findByDocumentAndUser(document, newUser))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(existing));
+        when(collaboratorRepository.save(any())).thenThrow(new DataIntegrityViolationException("dup"));
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> service.addCollaborator(100L, req, manager));
+
+        assertEquals("Este usuário já é colaborador do documento", ex.getMessage());
     }
 }

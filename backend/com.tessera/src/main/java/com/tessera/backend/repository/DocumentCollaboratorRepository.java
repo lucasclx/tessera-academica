@@ -9,9 +9,11 @@ import com.tessera.backend.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import jakarta.persistence.LockModeType;
 
 import java.util.List;
 import java.util.Optional;
@@ -22,6 +24,7 @@ public interface DocumentCollaboratorRepository extends JpaRepository<DocumentCo
     List<DocumentCollaborator> findByDocumentAndActiveTrue(Document document);
     List<DocumentCollaborator> findByUserAndActiveTrue(User user);
     Optional<DocumentCollaborator> findByDocumentAndUserAndActiveTrue(Document document, User user);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<DocumentCollaborator> findByDocumentAndUser(Document document, User user);
     
     // Buscar por papel específico
