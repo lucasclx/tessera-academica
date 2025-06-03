@@ -354,6 +354,7 @@ public class DocumentCollaboratorService {
         dto.setUserEmail(collaborator.getUser().getEmail());
         dto.setRole(collaborator.getRole());
         dto.setPermission(collaborator.getPermission());
+        dto.recalculatePermissions();
         dto.setAddedAt(collaborator.getAddedAt());
         dto.setAddedByName(collaborator.getAddedBy() != null ? collaborator.getAddedBy().getName() : null);
         dto.setActive(collaborator.isActive());
