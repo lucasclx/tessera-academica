@@ -31,10 +31,7 @@ public class DocumentCollaboratorService {
     
     @Autowired
     private NotificationEventService notificationEventService;
-    
-    @Autowired
-    private AuthorizationService authorizationService;
-    
+
     /**
      * Lista todos os colaboradores de um documento
      */
