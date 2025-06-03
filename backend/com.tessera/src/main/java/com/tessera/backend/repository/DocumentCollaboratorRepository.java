@@ -4,6 +4,7 @@ package com.tessera.backend.repository;
 import com.tessera.backend.entity.Document;
 import com.tessera.backend.entity.DocumentCollaborator;
 import com.tessera.backend.entity.CollaboratorRole;
+import com.tessera.backend.entity.CollaboratorPermission;
 import com.tessera.backend.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -48,8 +49,8 @@ public interface DocumentCollaboratorRepository extends JpaRepository<DocumentCo
     @Query("SELECT c FROM DocumentCollaborator c " +
            "WHERE c.document = :document AND c.active = true " +
            "AND c.permission = :permission")
-    List<DocumentCollaborator> findByDocumentAndPermissionAndActiveTrue(@Param("document") Document document, 
-                                                                       @Param("permission") String permission);
+    List<DocumentCollaborator> findByDocumentAndPermissionAndActiveTrue(@Param("document") Document document,
+                                                                       @Param("permission") CollaboratorPermission permission);
     
     // Histórico de colaboradores (incluindo inativos)
     List<DocumentCollaborator> findByDocumentOrderByAddedAtDesc(Document document);
