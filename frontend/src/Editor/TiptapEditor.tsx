@@ -1,5 +1,4 @@
-// Arquivo: srcs/src (cópia)/Editor/TiptapEditor.tsx
-import React, { useCallback, useEffect, useImperativeHandle, forwardRef, useMemo, useState } from 'react';
+import React, { useEffect, useImperativeHandle, forwardRef, useMemo, useState } from 'react';
 import { useEditor, EditorContent, Editor, BubbleMenu, EditorEvents } from '@tiptap/react';
 import { PluginKey } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
@@ -246,11 +245,11 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
             appendTo: () => document.body,
           }}
           className="bubble-menu bg-gray-800 text-white px-3 py-1.5 rounded-lg shadow-xl flex items-center space-x-1 border border-gray-700 z-50"
-          shouldShow={({ editor: currentEditor, view, state, from, to }) => {
+          shouldShow={({ editor: currentEditor, view: _view, state, from, to }) => {
             if (!currentEditor || currentEditor.isDestroyed || !isEditorReallyReady) return false;
             const { selection } = state;
             const { empty } = selection;
-            // const hasFocus = view.hasFocus(); // Removido hasFocus daqui, pois pode ser problemático
+            // const hasFocus = _view.hasFocus(); // Removido hasFocus daqui, pois pode ser problemático
             if (empty) return false; // Só mostra se a seleção não estiver vazia
             return state.doc.textBetween(from, to, ' ').trim().length > 0;
           }}
