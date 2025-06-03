@@ -86,6 +86,17 @@ public class DocumentCollaboratorService {
         
         return mapToDTO(collaborator);
     }
+
+    /**
+     * Adiciona múltiplos colaboradores ao documento reutilizando a validação existente
+     */
+    public List<DocumentCollaboratorDTO> addCollaborators(Long documentId,
+                                                         List<AddCollaboratorRequestDTO> requests,
+                                                         User currentUser) {
+        return requests.stream()
+                .map(r -> addCollaborator(documentId, r, currentUser))
+                .collect(Collectors.toList());
+    }
     
     /**
      * Remove um colaborador do documento

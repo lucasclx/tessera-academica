@@ -2,6 +2,7 @@ package com.tessera.backend.controller;
 
 import com.tessera.backend.dto.DocumentCollaboratorDTO;
 import com.tessera.backend.dto.AddCollaboratorRequestDTO;
+import com.tessera.backend.dto.AddCollaboratorsRequestDTO;
 import com.tessera.backend.entity.CollaboratorPermission;
 import com.tessera.backend.entity.CollaboratorRole;
 import com.tessera.backend.entity.User;
@@ -60,7 +61,7 @@ public class DocumentCollaboratorController {
         @ApiResponse(responseCode = "403", description = "Sem permissão para gerenciar colaboradores")
     })
     public ResponseEntity<DocumentCollaboratorDTO> addCollaborator(
-            @Parameter(description = "ID do documento") 
+            @Parameter(description = "ID do documento")
             @PathVariable Long documentId,
             @Parameter(description = "Dados do colaborador a ser adicionado")
             @Valid @RequestBody AddCollaboratorRequestDTO request,
@@ -68,6 +69,25 @@ public class DocumentCollaboratorController {
         User currentUser = getCurrentUser(authentication);
         DocumentCollaboratorDTO collaborator = collaboratorService.addCollaborator(documentId, request, currentUser);
         return new ResponseEntity<>(collaborator, HttpStatus.CREATED);
+    }
+
+    @PostMapping("/bulk")
+    @Operation(summary = "Adicionar colaboradores em lote", description = "Adiciona múltiplos colaboradores ao documento")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Colaboradores adicionados com sucesso"),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos ou regras de negócio violadas"),
+        @ApiResponse(responseCode = "404", description = "Documento ou usuário não encontrado"),
+        @ApiResponse(responseCode = "403", description = "Sem permissão para gerenciar colaboradores")
+    })
+    public ResponseEntity<List<DocumentCollaboratorDTO>> addCollaborators(
+            @Parameter(description = "ID do documento")
+            @PathVariable Long documentId,
+            @Parameter(description = "Lista de colaboradores a serem adicionados")
+            @Valid @RequestBody AddCollaboratorsRequestDTO request,
+            Authentication authentication) {
+        User currentUser = getCurrentUser(authentication);
+        List<DocumentCollaboratorDTO> collaborators = collaboratorService.addCollaborators(documentId, request.getCollaborators(), currentUser);
+        return new ResponseEntity<>(collaborators, HttpStatus.CREATED);
     }
     
     @DeleteMapping("/{collaboratorId}")
