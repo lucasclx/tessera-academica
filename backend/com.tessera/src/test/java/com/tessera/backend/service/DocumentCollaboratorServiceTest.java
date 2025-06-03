@@ -145,4 +145,37 @@ class DocumentCollaboratorServiceTest {
         assertEquals(CollaboratorRole.PRIMARY_STUDENT, dto.getRole());
         assertEquals(student.getId(), dto.getUserId());
     }
+
+    @Test
+    void testReAddInactiveCollaborator() {
+        User user = createUser(6L, "Old", "old@test.com", "STUDENT");
+        DocumentCollaborator inactive = new DocumentCollaborator();
+        inactive.setId(50L);
+        inactive.setDocument(document);
+        inactive.setUser(user);
+        inactive.setRole(CollaboratorRole.SECONDARY_STUDENT);
+        inactive.setPermission(CollaboratorPermission.READ_WRITE);
+        inactive.setActive(false);
+
+        document.getCollaborators().add(inactive);
+
+        AddCollaboratorRequestDTO req = new AddCollaboratorRequestDTO(
+                user.getEmail(),
+                CollaboratorRole.CO_STUDENT,
+                CollaboratorPermission.READ_WRITE,
+                null
+        );
+
+        when(documentRepository.findById(100L)).thenReturn(Optional.of(document));
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        when(collaboratorRepository.findByDocumentAndUser(document, user)).thenReturn(Optional.of(inactive));
+        when(collaboratorRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        DocumentCollaboratorDTO dto = service.addCollaborator(100L, req, manager);
+
+        assertTrue(inactive.isActive());
+        assertEquals(CollaboratorRole.CO_STUDENT, inactive.getRole());
+        verify(collaboratorRepository).save(inactive);
+        assertEquals(inactive.getId(), dto.getId());
+    }
 }
