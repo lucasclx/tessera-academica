@@ -60,9 +60,25 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
            "JOIN d.collaborators c " +
            "WHERE c.user = :user AND c.active = true")
     long countByCollaborator(@Param("user") User user);
-    
+
     @Query("SELECT COUNT(DISTINCT d) FROM Document d " +
            "JOIN d.collaborators c " +
            "WHERE c.user = :user AND c.active = true AND d.status = :status")
     long countByCollaboratorAndStatus(@Param("user") User user, @Param("status") DocumentStatus status);
+
+    // ----------------------------------------------------------------------
+    // Consultas para listagem geral de documentos (para admins ou páginas de
+    // listagem genérica) com filtros de busca e status
+    // ----------------------------------------------------------------------
+
+    @Query("SELECT d FROM Document d WHERE (:status IS NULL OR d.status = :status)")
+    Page<Document> findAllByStatus(@Param("status") DocumentStatus status, Pageable pageable);
+
+    @Query("SELECT d FROM Document d " +
+           "WHERE (:status IS NULL OR d.status = :status) " +
+           "AND ( :searchTerm IS NULL OR LOWER(d.title) LIKE LOWER(CONCAT('%', :searchTerm, '%')) " +
+           "      OR LOWER(d.description) LIKE LOWER(CONCAT('%', :searchTerm, '%')) )")
+    Page<Document> findAllWithFilters(@Param("searchTerm") String searchTerm,
+                                      @Param("status") DocumentStatus status,
+                                      Pageable pageable);
 }
