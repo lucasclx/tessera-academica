@@ -23,8 +23,8 @@ public class AuthController {
     
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@Valid @RequestBody UserRegistrationDTO registrationDTO) {
-        User user = authService.registerUser(registrationDTO);
-        return new ResponseEntity<>("Cadastro realizado com sucesso. Aguardando aprovação do administrador.", 
+        authService.registerUser(registrationDTO);
+        return new ResponseEntity<>("Cadastro realizado com sucesso. Aguardando aprovação do administrador.",
                 HttpStatus.CREATED);
     }
     
