@@ -118,10 +118,10 @@ const MyCommentsPage: React.FC = () => {
                 </span>
                 {/* Link para o documento/versão - precisa de mais info ou lógica de rota */}
                 <Link 
-                    to={`#`} // TODO: Construir link para /documents/{docId}/version/{versionId} ou similar
-                    className="text-primary-600 hover:text-primary-700 hover:underline flex items-center"
-                    title="Ir para o comentário no documento (funcionalidade de link a ser implementada)"
-                >
+  to={`/student/documents/${comment.documentId || '#'}#version-${comment.versionId}`}
+  className="text-primary-600 hover:text-primary-700 hover:underline flex items-center"
+  title="Ir para o comentário no documento"
+>
                     <DocumentTextIcon className="h-4 w-4 mr-1"/>
                     Ver no Documento (Versão ID: {comment.versionId}) 
                 </Link>

@@ -1,3 +1,4 @@
+import { analytics } from '../utils/analytics';
 import { QueryClient, QueryCache, MutationCache } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 

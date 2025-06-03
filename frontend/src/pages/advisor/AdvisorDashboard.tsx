@@ -12,7 +12,8 @@ import {
   MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../../store/authStore';
-import { documentsApi, usersApi, Document, UserSelection, ApiPage } from '../../lib/api';
+// LINHA CORRIGIDA:
+import { documentsApi, usersApi, Document, UserSelection, Page } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 
 // Componente de Paginação (pode ser reutilizado do AdminDashboard ou definido separadamente)

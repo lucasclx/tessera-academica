@@ -343,7 +343,8 @@ class ApiClient {
           const message = data?.message || error.message || `Erro ${status}`;
           const toastId = `api-error-${status}-${requestKey}`;
 
-          if (!toast.isActive(toastId)) {
+          if (!toastManager.isActive(toastId)) {
+              toastManager.add(toastId);
             if (status === 401) {
               localStorage.removeItem('token');
               localStorage.removeItem('user');
