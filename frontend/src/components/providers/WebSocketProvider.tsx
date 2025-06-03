@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 import { Notification } from '../../lib/api';
 import { useNotificationSummaryStore } from '../../store/notificationStore';
 import { toastManager } from '../../utils/toastManager';
+import { debugLog } from '../../utils/logger';
 
 interface WebSocketContextType {
   isConnected: boolean;
@@ -124,8 +125,8 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     // Cancelar assinaturas existentes com tratamento de erro
     subscriptionsRef.current.forEach((sub, destination) => {
       try { 
-        sub.unsubscribe(); 
-        console.log(`WebSocket: Inscrição cancelada para ${destination}`); 
+        sub.unsubscribe();
+        debugLog(`WebSocket: Inscrição cancelada para ${destination}`);
       } catch (e) { 
         console.error(`WebSocket: Erro ao cancelar inscrição de ${destination}`, e); 
       }
@@ -146,7 +147,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
         }
       });
       subscriptionsRef.current.set(notificationDestination, notificationSubscription);
-      console.log(`WebSocket: Inscrito em: ${notificationDestination}`);
+      debugLog(`WebSocket: Inscrito em: ${notificationDestination}`);
 
       // Inscrição para resumo de notificações
       const summaryDestination = `/user/${userEmail}/topic/notification-summary`;
@@ -155,14 +156,14 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
         
         try { 
           const summary = JSON.parse(message.body);
-          setGlobalSummary(summary); 
-          console.log('WebSocket: Resumo de notificações atualizado:', summary); 
+          setGlobalSummary(summary);
+          debugLog('WebSocket: Resumo de notificações atualizado:', summary);
         } catch (e) { 
           console.error("WebSocket: Erro ao processar mensagem de resumo de notificação:", e, message.body); 
         }
       });
       subscriptionsRef.current.set(summaryDestination, summarySubscription);
-      console.log(`WebSocket: Inscrito em: ${summaryDestination}`);
+      debugLog(`WebSocket: Inscrito em: ${summaryDestination}`);
     } catch (error) { 
       console.error('WebSocket: Erro ao inscrever-se nos tópicos:', error); 
     }
@@ -170,16 +171,16 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
 
   const connect = useCallback(() => {
     if (!isComponentMounted) return;
-    if (clientRef.current?.active) { 
-      console.log('WebSocket: Já conectado ou conectando.'); 
-      return; 
+    if (clientRef.current?.active) {
+      debugLog('WebSocket: Já conectado ou conectando.');
+      return;
     }
     if (!isAuthenticatedRef.current || !tokenRef.current || !userRef.current) { 
-      console.log('WebSocket: Não autenticado ou dados do usuário/token ausentes. Conexão não será iniciada.'); 
-      return; 
+      debugLog('WebSocket: Não autenticado ou dados do usuário/token ausentes. Conexão não será iniciada.');
+      return;
     }
 
-    console.log('WebSocket: Tentando conectar...');
+    debugLog('WebSocket: Tentando conectar...');
     try {
       const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
       const socketUrl = `${baseUrl}/ws`;
@@ -196,10 +197,10 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
           Authorization: `Bearer ${tokenRef.current}`,
           'Accept-Version': '1.2',
         },
-        debug: (str) => { 
-          if (import.meta.env.DEV && (str.includes('CONNECT') || str.includes('DISCONNECT') || str.includes('ERROR') || str.includes('>>>'))) { 
-            console.log('WebSocket Debug:', str); 
-          } 
+        debug: (str) => {
+          if (import.meta.env.DEV && (str.includes('CONNECT') || str.includes('DISCONNECT') || str.includes('ERROR') || str.includes('>>>'))) {
+            debugLog('WebSocket Debug:', str);
+          }
         },
         reconnectDelay: Math.min(5000 * Math.pow(2, reconnectAttempts), 30000), // Backoff exponencial
         heartbeatIncoming: 30000,
@@ -208,7 +209,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
         onConnect: () => {
           if (!isComponentMounted) return;
           
-          console.log('WebSocket: Conectado com sucesso.');
+          debugLog('WebSocket: Conectado com sucesso.');
           setIsConnected(true); 
           setReconnectAttempts(0);
           
@@ -225,7 +226,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
         },
         
         onDisconnect: () => { 
-          console.log('WebSocket: Desconectado.'); 
+          debugLog('WebSocket: Desconectado.');
           if (isComponentMounted) {
             setIsConnected(false); 
           }
@@ -250,10 +251,10 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
           console.error("WebSocket: Erro na camada WebSocket:", event); 
         },
         
-        onWebSocketClose: (event) => { 
-          console.log("WebSocket: Conexão fechada.", event.code, event.reason); 
+        onWebSocketClose: (event) => {
+          debugLog("WebSocket: Conexão fechada.", event.code, event.reason);
           if (isComponentMounted) {
-            setIsConnected(false); 
+            setIsConnected(false);
           }
         }
       });
@@ -268,7 +269,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       
       if (reconnectAttempts < maxReconnectAttempts) {
         const delay = Math.min(5000 * Math.pow(2, reconnectAttempts), 30000);
-        console.log(`WebSocket: Tentando reconectar em ${delay / 1000}s (tentativa ${reconnectAttempts + 1}/${maxReconnectAttempts})`);
+        debugLog(`WebSocket: Tentando reconectar em ${delay / 1000}s (tentativa ${reconnectAttempts + 1}/${maxReconnectAttempts})`);
         
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
@@ -290,7 +291,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   }, [subscribeToTopics, reconnectAttempts, maxReconnectAttempts, isComponentMounted]);
 
   const disconnect = useCallback(() => {
-    console.log('WebSocket: Iniciando desconexão...');
+    debugLog('WebSocket: Iniciando desconexão...');
     
     if (reconnectTimeoutRef.current) { 
       clearTimeout(reconnectTimeoutRef.current); 
@@ -299,8 +300,8 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     
     subscriptionsRef.current.forEach((sub, destination) => {
       try { 
-        sub.unsubscribe(); 
-        console.log(`WebSocket: Inscrição cancelada para ${destination}`); 
+        sub.unsubscribe();
+        debugLog(`WebSocket: Inscrição cancelada para ${destination}`);
       } catch (e) { 
         console.error(`WebSocket: Erro ao cancelar inscrição de ${destination}`, e); 
       }
@@ -309,7 +310,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     
     if (clientRef.current?.active) {
       clientRef.current.deactivate()
-        .then(() => console.log('WebSocket: Cliente STOMP desativado.'))
+        .then(() => debugLog('WebSocket: Cliente STOMP desativado.'))
         .catch(e => console.error('WebSocket: Erro ao desativar cliente STOMP.', e));
     }
     
@@ -375,15 +376,15 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
         });
         
         subscriptionsRef.current.set(destination, subscription);
-        console.log(`WebSocket: Inscrito em tópico customizado: ${destination}`);
+        debugLog(`WebSocket: Inscrito em tópico customizado: ${destination}`);
         
         return () => {
           if (!isComponentMounted) return;
           
           try { 
-            subscription.unsubscribe(); 
-            subscriptionsRef.current.delete(destination); 
-            console.log(`WebSocket: Inscrição cancelada para ${destination}`); 
+            subscription.unsubscribe();
+            subscriptionsRef.current.delete(destination);
+            debugLog(`WebSocket: Inscrição cancelada para ${destination}`);
           } catch (e) { 
             console.error(`WebSocket: Erro ao cancelar inscrição de ${destination}`, e); 
           }
