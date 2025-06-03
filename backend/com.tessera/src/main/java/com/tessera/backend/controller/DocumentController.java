@@ -1,6 +1,7 @@
 package com.tessera.backend.controller;
 
 import com.tessera.backend.dto.DocumentDTO;
+import com.tessera.backend.dto.DocumentDetailDTO;
 import com.tessera.backend.entity.DocumentStatus;
 import com.tessera.backend.entity.User;
 import com.tessera.backend.repository.UserRepository;
@@ -67,10 +68,12 @@ public class DocumentController {
         @ApiResponse(responseCode = "403", description = "Acesso negado ao documento"),
         @ApiResponse(responseCode = "404", description = "Documento não encontrado")
     })
-    public ResponseEntity<DocumentDTO> getDocumentById( // Renomeado para evitar conflito com get() do Spring Data
-            @Parameter(description = "ID do documento") 
-            @PathVariable Long id) {
-        return ResponseEntity.ok(documentService.getDocument(id));
+    public ResponseEntity<DocumentDetailDTO> getDocumentById( // Renomeado para evitar conflito com get() do Spring Data
+            @Parameter(description = "ID do documento")
+            @PathVariable Long id,
+            Authentication authentication) {
+        User currentUser = getCurrentUser(authentication);
+        return ResponseEntity.ok(documentService.getDocumentDetail(id, currentUser));
     }
     
     @GetMapping("/student")
