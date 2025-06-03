@@ -1,3 +1,4 @@
+// src/utils/statusUtils.ts - CORRIGIDO
 import { 
   DocumentTextIcon, 
   ClockIcon, 

@@ -1,3 +1,4 @@
+// src/components/providers/AppProviders.tsx - CORRIGIDO
 import React from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';

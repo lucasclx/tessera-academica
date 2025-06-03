@@ -1,5 +1,5 @@
+// src/components/common/DataTable.tsx - CORRIGIDO
 import React from 'react';
-
 
 interface Column<T> {
   key: string;

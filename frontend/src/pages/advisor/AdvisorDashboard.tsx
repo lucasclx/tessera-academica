@@ -1,4 +1,4 @@
-// src/pages/advisor/AdvisorDashboard.tsx
+// src/pages/advisor/AdvisorDashboard.tsx - CORRIGIDO
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -111,7 +111,7 @@ const AdvisorDashboard: React.FC = () => {
   };
 
 
-  const getStatusInfo = (status: string) => { /* ... (mesma função getStatusInfo de antes) ... */ 
+  const getStatusInfo = (status: string) => {
     switch (status) {
       case 'DRAFT': return { label: 'Rascunho', color: 'status-draft', icon: DocumentTextIcon };
       case 'SUBMITTED': return { label: 'Aguardando Revisão', color: 'status-submitted', icon: ClockIcon };
@@ -121,11 +121,13 @@ const AdvisorDashboard: React.FC = () => {
       default: return { label: status, color: 'status-draft', icon: DocumentTextIcon };
     }
   };
-  const formatDate = (dateString?: string) => { /* ... (mesma função formatDate de antes) ... */ 
+  
+  const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
-  const getPriorityLevel = (document: Document) => { /* ... (mesma função getPriorityLevel de antes) ... */ 
+  
+  const getPriorityLevel = (document: Document) => {
     if (document.status === 'SUBMITTED') {
       const daysSinceSubmission = Math.floor(
         (Date.now() - new Date(document.submittedAt || document.updatedAt).getTime()) / 
@@ -161,7 +163,6 @@ const AdvisorDashboard: React.FC = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        {/* ... (cards de estatísticas como antes, usando o estado `stats`) ... */}
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center"><div className="flex-shrink-0 bg-blue-100 p-3 rounded-full"><UserGroupIcon className="h-6 w-6 text-blue-500" /></div><div className="ml-4"><div className="text-sm font-medium text-gray-500">Estudantes</div><div className="text-2xl font-bold text-blue-600">{stats.students}</div></div></div>
         </div>
@@ -181,7 +182,6 @@ const AdvisorDashboard: React.FC = () => {
 
       {/* Documents Requiring Attention */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        {/* ... (mesma lógica para documentos necessitando atenção) ... */}
         <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
             <h2 className="text-lg font-medium text-gray-900">Documentos Necessitando Atenção</h2>
             <Link to="/advisor/documents?status=SUBMITTED" className="text-sm font-medium text-primary-600 hover:text-primary-500">Ver todos pendentes</Link>
@@ -195,7 +195,6 @@ const AdvisorDashboard: React.FC = () => {
               const priorityColors: {[key: string]: string} = { high: 'border-l-red-500 bg-red-50', medium: 'border-l-yellow-500 bg-yellow-50', low: 'border-l-blue-500 bg-blue-50' };
               return (
                 <div key={document.id} className={`p-6 border-l-4 ${priorityColors[priority]}`}>
-                  {/* ... (renderização do item do documento) ... */}
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0"><div className="flex items-start"><ClockIcon className="h-5 w-5 text-orange-500 mr-3 mt-0.5" /><div><Link to={`/advisor/documents/${document.id}`} className="text-sm font-medium text-gray-900 hover:text-primary-600">{document.title}</Link><p className="text-sm text-gray-500 mt-1">{document.description}</p><div className="flex items-center space-x-4 mt-2 text-xs text-gray-500"><span>Estudante: {document.studentName}</span><span>Submetido: {formatDate(document.submittedAt || document.updatedAt)}</span><span>{document.versionCount} versão(ões)</span>{priority === 'high' && (<span className="text-red-600 font-medium">• Urgente</span>)}</div></div></div></div>
                     <div className="flex items-center space-x-2"><Link to={`/advisor/documents/${document.id}`} className="btn btn-secondary btn-sm"><EyeIcon className="h-4 w-4 mr-1" />Revisar</Link></div>
@@ -241,7 +240,6 @@ const AdvisorDashboard: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.email}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <Link to={`/advisor/documents?studentId=${student.id}`} className="btn btn-secondary btn-sm">Ver Documentos</Link>
-                      {/* Link para perfil do estudante ou outras ações */}
                     </td>
                   </tr>
                 ))}
@@ -251,10 +249,6 @@ const AdvisorDashboard: React.FC = () => {
           </div>
         )}
       </div>
-
-
-      {/* Quick Actions / Recently Reviewed (como antes) */}
-      {/* ... */}
     </div>
   );
 };

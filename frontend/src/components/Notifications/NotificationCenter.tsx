@@ -1,6 +1,6 @@
-// src/components/Notifications/NotificationCenter.tsx
+// src/components/Notifications/NotificationCenter.tsx - CORRIGIDO
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // Importar useNavigate
+import { useNavigate } from 'react-router-dom';
 import {
   BellIcon,
   CheckIcon,
@@ -12,7 +12,8 @@ import { useAuthStore } from '../../store/authStore';
 import { notificationsApi, Notification } from '../../lib/api';
 import { toast } from 'react-hot-toast';
 import NotificationSettings from './NotificationSettings';
-import { useNotificationSummaryStore } from '../../store/notificationStore'; // Para decrementar a contagem ao ler
+import { useNotificationSummaryStore } from '../../store/notificationStore';
+import { toastManager } from '../../utils/toastManager';
 
 interface NotificationCenterProps {
   isOpen: boolean;
@@ -23,20 +24,17 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
   const { user } = useAuthStore();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
-  const { summary, setSummary: setGlobalSummary, decrementUnreadCount } = useNotificationSummaryStore(); // Usar o summary da store e decrementUnreadCount
+  const { summary, setSummary: setGlobalSummary, decrementUnreadCount } = useNotificationSummaryStore();
   const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'settings'>('unread');
   const [currentPage, setCurrentPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const navigate = useNavigate(); // Hook para navegação
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (isOpen) {
       loadNotifications();
-      // O resumo agora vem da store e é atualizado via WebSocket,
-      // mas uma carga inicial aqui pode ser útil se a store não estiver sincronizada ainda.
-      // loadSummary(); // Pode ser removido se a store for confiável
     }
-  }, [isOpen, activeTab]); // Dependência em activeTab para recarregar ao mudar de aba
+  }, [isOpen, activeTab]);
 
   const loadNotifications = async (page = 0, append = false) => {
     try {
@@ -47,7 +45,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
 
       if (activeTab === 'unread') {
         data = await notificationsApi.getUnread();
-        responseMeta = { totalPages: 1 }; // Unread é sempre uma única chamada, sem paginação real
+        responseMeta = { totalPages: 1 };
         setHasMore(false);
       } else {
         const response = await notificationsApi.getAll(page, 20);
@@ -69,17 +67,6 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
     }
   };
 
-  // loadSummary pode ser removido se a store for a única fonte da verdade para o resumo
-  // const loadSummary = async () => {
-  //   try {
-  //     const summaryData = await notificationsApi.getSummary();
-  //     setGlobalSummary(summaryData); // Atualiza a store global
-  //   } catch (error) {
-  //     // Falha silenciosa para resumo, pois já temos a store
-  //     console.error("Erro ao carregar resumo inicial:", error);
-  //   }
-  // };
-
   const handleMarkAsRead = async (notificationId: number, wasUnread: boolean) => {
     try {
       await notificationsApi.markAsRead(notificationId);
@@ -91,9 +78,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
         )
       );
       if (wasUnread) {
-        decrementUnreadCount(); // Decrementa da store global
+        decrementUnreadCount();
       }
-      // loadSummary(); // Recarregar o resumo através da API não é mais necessário, a store é decrementada
     } catch (error) {
       toast.error('Erro ao marcar notificação como lida');
     }
@@ -102,7 +88,6 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
   const handleMarkAllAsRead = async () => {
     try {
       await notificationsApi.markAllAsRead();
-      const unreadCountBefore = summary?.unreadCount || 0;
       setNotifications(prev => 
         prev.map(notification => ({
           ...notification,
@@ -110,7 +95,6 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
           readAt: new Date().toISOString()
         }))
       );
-      // Atualiza a store para refletir que todas foram lidas
       if (summary) {
         setGlobalSummary({ ...summary, unreadCount: 0 });
       }
@@ -125,10 +109,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
       await notificationsApi.delete(notificationId);
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
       if (wasUnread && summary && summary.unreadCount > 0) {
-        decrementUnreadCount(); // Decrementa da store global se a notificação excluída não estava lida
+        decrementUnreadCount();
       } else if (summary) {
-        // Se não estava não lida, apenas atualiza a contagem total no resumo (se necessário)
-        // Esta lógica pode ser mais complexa se a contagem total na store for importante
         setGlobalSummary({ ...summary, totalCount: Math.max(0, summary.totalCount - 1) });
       }
       toast.success('Notificação excluída');
@@ -138,18 +120,15 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
   };
 
   const handleNotificationClick = (notification: Notification) => {
-    // Marcar como lida ao clicar, se não estiver lida
     if (!notification.isRead) {
       handleMarkAsRead(notification.id, true);
     }
 
-    // Navegar se houver actionUrl
     if (notification.actionUrl) {
       navigate(notification.actionUrl);
     }
-    onClose(); // Fechar a central de notificações após o clique
+    onClose();
   };
-
 
   const handleLoadMore = () => {
     if (hasMore && !loading && activeTab === 'all') {
@@ -158,7 +137,6 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
   };
 
   const getNotificationIcon = (type: string) => {
-    // ... (código getNotificationIcon existente, sem alterações)
     const icons = {
       DOCUMENT_CREATED: '📄',
       DOCUMENT_SUBMITTED: '📤',
@@ -185,7 +163,6 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
   };
 
   const getPriorityColor = (priority: string) => {
-    // ... (código getPriorityColor existente, sem alterações)
     switch (priority) {
       case 'URGENT': return 'border-l-red-500 bg-red-50';
       case 'HIGH': return 'border-l-orange-500 bg-orange-50';
@@ -196,7 +173,6 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
   };
 
   const formatTimeAgo = (dateString: string) => {
-    // ... (código formatTimeAgo existente, sem alterações)
     const date = new Date(dateString);
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
@@ -330,8 +306,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                       key={notification.id}
                       className={`p-4 border-l-4 ${getPriorityColor(notification.priority)} ${
                         !notification.isRead ? 'bg-blue-50' : 'bg-white'
-                      } hover:bg-gray-50 cursor-pointer`} // Adicionado cursor-pointer
-                      onClick={() => handleNotificationClick(notification)} // Adicionado onClick
+                      } hover:bg-gray-50 cursor-pointer`}
+                      onClick={() => handleNotificationClick(notification)}
                     >
                       <div className="flex items-start space-x-3">
                         <div className="flex-shrink-0 text-lg pt-0.5">
@@ -356,12 +332,11 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                                 )}
                               </div>
                             </div>
-                            {/* Mover botões para dentro do div clicável principal ou remover daqui se o clique principal for suficiente */}
                             <div className="flex items-center space-x-1 ml-2 flex-shrink-0">
                               {!notification.isRead && (
                                 <button
                                   onClick={(e) => {
-                                    e.stopPropagation(); // Evita que o handleNotificationClick seja chamado duas vezes
+                                    e.stopPropagation();
                                     handleMarkAsRead(notification.id, true);
                                   }}
                                   className="p-1 text-gray-400 hover:text-green-600 rounded-full hover:bg-green-100"
@@ -372,7 +347,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ isOpen, onClose
                               )}
                               <button
                                 onClick={(e) => {
-                                  e.stopPropagation(); // Evita que o handleNotificationClick seja chamado
+                                  e.stopPropagation();
                                   handleDelete(notification.id, !notification.isRead);
                                 }}
                                 className="p-1 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-100"

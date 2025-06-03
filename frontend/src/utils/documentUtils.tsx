@@ -1,3 +1,4 @@
+// src/utils/documentUtils.ts - CORRIGIDO
 export const getPriorityLevel = (document: any): 'high' | 'medium' | 'low' => {
   if (document.status === 'SUBMITTED') {
     const daysSinceSubmission = Math.floor(
@@ -20,7 +21,7 @@ export const getPriorityColors = (priority: 'high' | 'medium' | 'low'): string =
 };
 
 export const canEditDocument = (document: any, isStudent: boolean): boolean => {
-  return isStudent && document.status === 'DRAFT';
+  return isStudent && (document.status === 'DRAFT' || document.status === 'REVISION');
 };
 
 export const canSubmitDocument = (document: any, isStudent: boolean): boolean => {

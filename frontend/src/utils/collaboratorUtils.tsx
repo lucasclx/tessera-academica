@@ -1,4 +1,4 @@
-// src/utils/collaboratorUtils.tsx
+// src/utils/collaboratorUtils.ts - CORRIGIDO
 import {
   StarIcon,
   UserIcon,
