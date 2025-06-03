@@ -1,6 +1,8 @@
+// src/hooks/useApiData.tsx - VERSÃO MELHORADA
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
-import { api } from '../lib/api'; // Ajuste o caminho se 'api.tsx' estiver em outro local
+import { api } from '../lib/api';
+import { toastManager } from '../utils/toastManager';
 
 interface UseApiDataResult<T> {
   data: T | null;
@@ -39,20 +41,23 @@ export function useApiData<T>(
       const errorMessage = err.response?.data?.message || options?.errorMessage || 'Erro ao carregar dados da API.';
       setError(errorMessage);
 
-      if (options?.showToastOnError !== false && !toast.isActive(`useApiData-${endpoint}`)) {
-        toast.error(errorMessage, { id: `useApiData-${endpoint}` });
+      const toastId = `useApiData-${endpoint}-error`;
+      
+      if (options?.showToastOnError !== false && !toastManager.isActive(toastId)) {
+        toastManager.add(toastId);
+        toast.error(errorMessage, { id: toastId });
       }
     } finally {
       setLoading(false);
     }
-  }, [endpoint, ...(options?.errorMessage ? [options.errorMessage] : []), ...(options?.showToastOnError !== undefined ? [options.showToastOnError] : [])]); // Inclui options mutáveis nas dependências do useCallback
+  }, [endpoint, options?.errorMessage, options?.showToastOnError]);
 
   useEffect(() => {
     if (options?.immediate !== false && endpoint) {
       fetchData();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchData, endpoint, options?.immediate, ...dependencies]); // Adiciona fetchData e endpoint como dependências do efeito principal
+  }, [fetchData, endpoint, options?.immediate, ...dependencies]);
 
   return {
     data,

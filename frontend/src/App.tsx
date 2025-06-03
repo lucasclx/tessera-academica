@@ -1,4 +1,4 @@
-// src/App.tsx
+// src/App.tsx - CORRIGIDO
 import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
@@ -129,7 +129,7 @@ const App: React.FC = () => {
       </Router>
 
       {/* React Query DevTools (apenas em desenvolvimento) */}
-      {import.meta.env.DEV && (
+      {import.meta.env?.DEV && (
         <ReactQueryDevtools initialIsOpen={false} />
       )}
     </QueryClientProvider>

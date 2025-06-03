@@ -1,4 +1,4 @@
-// src/components/providers/WebSocketProvider.tsx - VERSÃO MELHORADA
+// src/components/providers/WebSocketProvider.tsx - VERSÃO CORRIGIDA
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Client, IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -6,6 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 import { toast } from 'react-hot-toast';
 import { Notification } from '../../lib/api';
 import { useNotificationSummaryStore } from '../../store/notificationStore';
+import { toastManager } from '../../utils/toastManager';
 
 interface WebSocketContextType {
   isConnected: boolean;
@@ -92,7 +93,9 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     const toastId = `notification-${notification.id || Date.now()}`;
     
     // Verificar se o toast já está ativo para evitar duplicatas
-    if (toast.isActive && toast.isActive(toastId)) return;
+    if (toastManager.isActive(toastId)) return;
+
+    toastManager.add(toastId);
 
     const toastContent = (
       <div onClick={() => toast.dismiss(toastId)} style={{ cursor: 'pointer', width: '100%' }}>

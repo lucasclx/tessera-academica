@@ -1,6 +1,7 @@
 // Arquivo: srcs/src (cópia)/lib/api.tsx
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { toast } from 'react-hot-toast';
+import { toastManager } from '../utils/toastManager';
 
 // Interfaces Base
 export interface ApiResponse<T = any> {
@@ -132,6 +133,7 @@ export interface Comment {
   userName: string;
   createdAt: string;
   updatedAt: string;
+  documentId?: number; // Adicionado este campo para poder criar links
 }
 
 export interface Notification {
@@ -316,7 +318,8 @@ class ApiClient {
         if (!this.rateLimiter.canMakeRequest(requestKey)) {
           const remainingTime = this.rateLimiter.getRemainingTime(requestKey);
           const message = `Limite de requisições excedido. Tente novamente em ${Math.ceil(remainingTime / 1000)} segundos.`;
-          if (!toast.isActive('rate-limit-error')) {
+          if (!toastManager.isActive('rate-limit-error')) {
+            toastManager.add('rate-limit-error');
             toast.error(message, { id: 'rate-limit-error' });
           }
           return Promise.reject(new Error(message));
@@ -370,17 +373,19 @@ class ApiClient {
             this.retryCount.set(requestKey, currentRetries + 1);
             const delay = Math.pow(2, currentRetries) * 1500; // Aumentar um pouco o delay
             console.warn(`Retry ${requestKey} (tentativa ${currentRetries + 1}/${this.maxRetries}) em ${delay}ms`);
-            if (currentRetries === 0 && !toast.isActive(networkToastId)) { // Toast apenas na primeira tentativa de erro de rede
+            if (currentRetries === 0 && !toastManager.isActive(networkToastId)) { // Toast apenas na primeira tentativa de erro de rede
+                 toastManager.add(networkToastId);
                  toast.loading('Problema de conexão. Tentando reconectar...', { id: networkToastId, duration: delay - 200 });
                  toastDisplayed = true;
             }
             return new Promise(resolve => setTimeout(() => {
                  // Remove o toast de loading antes de tentar novamente
-                 if(toast.isActive(networkToastId)) toast.dismiss(networkToastId);
+                 if(toastManager.isActive(networkToastId)) toast.dismiss(networkToastId);
                  this.client.request(config).then(resolve).catch(e => resolve(Promise.reject(e)));
             }, delay));
           } else {
-            if (!toast.isActive(networkToastId)) {
+            if (!toastManager.isActive(networkToastId)) {
+                 toastManager.add(networkToastId);
                  toast.error('Erro de conexão. Não foi possível comunicar com o servidor após várias tentativas.', { id: networkToastId });
                  toastDisplayed = true;
             }
@@ -389,7 +394,8 @@ class ApiClient {
         }
         
         // Se nenhum toast específico foi mostrado e ainda há uma mensagem de erro genérica
-        if (!toastDisplayed && error.message && !toast.isActive('generic-api-error')) {
+        if (!toastDisplayed && error.message && !toastManager.isActive('generic-api-error')) {
+          toastManager.add('generic-api-error');
           toast.error(`Erro: ${error.message}`, {id: 'generic-api-error'});
         }
 
