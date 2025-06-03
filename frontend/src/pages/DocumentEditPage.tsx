@@ -394,7 +394,9 @@ const DocumentEditPage: React.FC = () => {
         if (infoUpdated || versionCreated) {
             toast.success('Documento atualizado com sucesso!');
         } else {
-            toast.info('Nenhuma alteração detectada para salvar.');
+            // react-hot-toast doesn't provide a dedicated `info` helper.
+            // Use the default toast function to display informational messages.
+            toast('Nenhuma alteração detectada para salvar.');
         }
 
       } else {
