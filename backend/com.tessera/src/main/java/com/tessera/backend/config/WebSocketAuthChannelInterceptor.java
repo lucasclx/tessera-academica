@@ -8,10 +8,10 @@ import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.lang.NonNull;
 import com.tessera.backend.security.JwtTokenProvider;
 
 @Component
@@ -21,8 +21,11 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
     private JwtTokenProvider tokenProvider;
 
     @Override
-    public Message<?> preSend(Message<?> message, MessageChannel channel) {
+    public Message<?> preSend(@NonNull Message<?> message, @NonNull MessageChannel channel) {
         StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+        if (accessor == null) {
+            return message;
+        }
         
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
             List<String> authorization = accessor.getNativeHeader("Authorization");
