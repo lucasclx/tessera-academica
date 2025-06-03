@@ -16,9 +16,10 @@ import { toast } from 'react-hot-toast';
 interface HeaderProps {
   onMenuClick: () => void;
   onNotificationBellClick: () => void; // Nova prop para lidar com o clique no sino
+  onSettingsClick: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onMenuClick, onNotificationBellClick }) => {
+const Header: React.FC<HeaderProps> = ({ onMenuClick, onNotificationBellClick, onSettingsClick }) => {
   const { user, clearAuth } = useAuthStore();
   const { summary: notificationSummary } = useNotificationSummaryStore(); // Obter o resumo da store
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -156,8 +157,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onNotificationBellClick })
                     <button
                       onClick={() => {
                         setUserMenuOpen(false);
-                        toast.error('Modal de configurações ainda não implementado.');
-                        // TODO: Abrir modal de configurações
+                        onSettingsClick();
                       }}
                       className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
