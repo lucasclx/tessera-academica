@@ -52,12 +52,24 @@ public class DocumentController {
         @ApiResponse(responseCode = "404", description = "Estudante ou orientador não encontrado")
     })
     public ResponseEntity<DocumentDTO> createDocument(
-            @Parameter(description = "Dados do documento a ser criado") 
+            @Parameter(description = "Dados do documento a ser criado")
             @Valid @RequestBody DocumentDTO documentDTO,
             Authentication authentication) {
         User currentUser = getCurrentUser(authentication);
         DocumentDTO createdDocument = documentService.createDocument(documentDTO, currentUser);
         return new ResponseEntity<>(createdDocument, HttpStatus.CREATED);
+    }
+
+    @GetMapping
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Listar documentos",
+               description = "Retorna uma lista paginada de documentos com filtros de busca e status."
+    )
+    public ResponseEntity<Page<DocumentDTO>> getAllDocuments(
+            @RequestParam(required = false) String searchTerm,
+            @RequestParam(required = false, defaultValue = "ALL") String status,
+            @PageableDefault(sort = "updatedAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(documentService.getAllDocuments(searchTerm, status, pageable));
     }
     
     @GetMapping("/{id}")

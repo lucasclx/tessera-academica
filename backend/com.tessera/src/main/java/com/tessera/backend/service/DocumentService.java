@@ -165,6 +165,24 @@ public class DocumentService {
         return documentsPage.map(this::mapToDTO);
     }
 
+    @Transactional(readOnly = true)
+    public Page<DocumentDTO> getAllDocuments(String searchTerm, String statusFilter, Pageable pageable) {
+        logger.debug("Listando todos os documentos, searchTerm: '{}', statusFilter: '{}', pageable: {}", searchTerm, statusFilter, pageable);
+        DocumentStatus status = parseStatus(statusFilter);
+        String trimmedSearchTerm = StringUtils.hasText(searchTerm) ? searchTerm.trim().toLowerCase() : null;
+
+        Page<Document> documentsPage;
+        if (trimmedSearchTerm != null) {
+            documentsPage = documentRepository.findAllWithFilters(trimmedSearchTerm, status, pageable);
+        } else if (status != null) {
+            documentsPage = documentRepository.findAllByStatus(status, pageable);
+        } else {
+            documentsPage = documentRepository.findAll(pageable);
+        }
+        logger.info("Encontrados {} documentos na página {}", documentsPage.getNumberOfElements(), pageable.getPageNumber());
+        return documentsPage.map(this::mapToDTO);
+    }
+
     @Transactional
     public DocumentDTO updateDocument(Long id, DocumentDTO documentDTO, final User currentUser) {
         logger.info("Tentativa de atualização do documento ID {} por {}", id, currentUser.getEmail());
