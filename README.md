@@ -30,7 +30,7 @@ Os arquivos de produção ficam em `dist/`.
 
 1. **Backend**
 
-   Configure variáveis de ambiente (banco de dados, JWT, etc.) em um arquivo `.env` e execute:
+   Copie `backend/com.tessera/.env.example` para `.env`, ajuste as variáveis (banco de dados, JWT, etc.) e execute:
 
    ```bash
    cd backend/com.tessera
