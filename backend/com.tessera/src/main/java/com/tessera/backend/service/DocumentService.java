@@ -1,6 +1,9 @@
 package com.tessera.backend.service;
 
 import com.tessera.backend.dto.DocumentDTO;
+import com.tessera.backend.dto.DocumentDetailDTO;
+import com.tessera.backend.dto.DocumentCollaboratorDTO;
+import com.tessera.backend.dto.UserSelectionDTO;
 import com.tessera.backend.entity.*;
 import com.tessera.backend.exception.ResourceNotFoundException;
 import com.tessera.backend.exception.UnauthorizedOperationException;
@@ -130,6 +133,14 @@ public class DocumentService {
                     return new ResourceNotFoundException("Documento não encontrado com ID: " + id);
                 });
         return mapToDTO(document);
+    }
+
+    @Transactional(readOnly = true)
+    public DocumentDetailDTO getDocumentDetail(Long id, User currentUser) {
+        logger.debug("Buscando detalhes do documento com ID: {}", id);
+        Document document = documentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Documento não encontrado com ID: " + id));
+        return mapToDetailDTO(document, currentUser);
     }
 
     @Transactional(readOnly = true) // <-- ADICIONAR ANOTAÇÃO AQUI
@@ -403,6 +414,63 @@ public class DocumentService {
         // Acesso à coleção LAZY de versions. Isso precisa estar dentro de uma transação.
         dto.setVersionCount(document.getVersions() != null ? document.getVersions().size() : 0);
 
+        return dto;
+    }
+
+    private DocumentDetailDTO mapToDetailDTO(Document document, User currentUser) {
+        DocumentDetailDTO dto = new DocumentDetailDTO(mapToDTO(document));
+
+        // Map collaborators
+        dto.setCollaborators(document.getCollaborators().stream()
+                .filter(DocumentCollaborator::isActive)
+                .map(this::mapCollaboratorToDTO)
+                .collect(Collectors.toList()));
+
+        // Lists of students and advisors
+        dto.setStudents(document.getAllStudents().stream()
+                .map(u -> new UserSelectionDTO(u.getId(), u.getName(), u.getEmail()))
+                .collect(Collectors.toList()));
+        dto.setAdvisors(document.getAllAdvisors().stream()
+                .map(u -> new UserSelectionDTO(u.getId(), u.getName(), u.getEmail()))
+                .collect(Collectors.toList()));
+
+        // Permission flags for current user
+        dto.setCanEdit(document.canUserEdit(currentUser));
+        dto.setCanManageCollaborators(document.canUserManageCollaborators(currentUser));
+        dto.setCanSubmitDocument(document.canUserSubmitDocument(currentUser));
+        dto.setCanApproveDocument(document.canUserApproveDocument(currentUser));
+
+        dto.setCanAddMoreStudents(document.canAddMoreStudents());
+        dto.setCanAddMoreAdvisors(document.canAddMoreAdvisors());
+        dto.setActiveStudentCount(document.getActiveStudentCount());
+        dto.setActiveAdvisorCount(document.getActiveAdvisorCount());
+        dto.setMaxStudents(document.getMaxStudents());
+        dto.setMaxAdvisors(document.getMaxAdvisors());
+        dto.setAllowMultipleStudents(document.isAllowMultipleStudents());
+        dto.setAllowMultipleAdvisors(document.isAllowMultipleAdvisors());
+
+        User primaryStudent = document.getPrimaryStudent();
+        dto.setPrimaryStudentName(primaryStudent != null ? primaryStudent.getName() : null);
+        User primaryAdvisor = document.getPrimaryAdvisor();
+        dto.setPrimaryAdvisorName(primaryAdvisor != null ? primaryAdvisor.getName() : null);
+        dto.setAllStudentNames(document.getAllStudentNames());
+        dto.setAllAdvisorNames(document.getAllAdvisorNames());
+
+        return dto;
+    }
+
+    private DocumentCollaboratorDTO mapCollaboratorToDTO(DocumentCollaborator collaborator) {
+        DocumentCollaboratorDTO dto = new DocumentCollaboratorDTO();
+        dto.setId(collaborator.getId());
+        dto.setDocumentId(collaborator.getDocument().getId());
+        dto.setUserId(collaborator.getUser().getId());
+        dto.setUserName(collaborator.getUser().getName());
+        dto.setUserEmail(collaborator.getUser().getEmail());
+        dto.setRole(collaborator.getRole());
+        dto.setPermission(collaborator.getPermission());
+        dto.setAddedAt(collaborator.getAddedAt());
+        dto.setAddedByName(collaborator.getAddedBy() != null ? collaborator.getAddedBy().getName() : null);
+        dto.setActive(collaborator.isActive());
         return dto;
     }
 }
