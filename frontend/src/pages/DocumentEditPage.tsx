@@ -14,6 +14,7 @@ import {
 import { useAuthStore } from '../store/authStore';
 import { documentsApi, versionsApi, usersApi, DocumentDetailDTO, Version, UserSelection } from '../lib/api';
 import { toast } from 'react-hot-toast';
+import { debugLog } from '../utils/logger';
 // MODIFICAÇÃO: Importar TiptapEditor e sua EditorRef
 import TiptapEditor, { EditorRef } from '../Editor/TiptapEditor'; // Ajuste o caminho se necessário
 import PageHeader from '../components/common/PageHeader';
@@ -236,15 +237,15 @@ const DocumentEditPage: React.FC = () => {
 
   const loadLatestVersion = useCallback(async (docId: number) => {
     try {
-      console.log('DocumentEditPage: 📥 Carregando versões do documento', docId);
+      debugLog('DocumentEditPage: 📥 Carregando versões do documento', docId);
       const versions = await versionsApi.getByDocument(docId);
       if (versions.length > 0) {
         const latest = versions[0];
-        console.log('DocumentEditPage: 📝 Última versão encontrada:', latest.versionNumber);
+        debugLog('DocumentEditPage: 📝 Última versão encontrada:', latest.versionNumber);
         setLatestVersion(latest);
         setEditorInitialContent(latest.content);
       } else {
-        console.log('DocumentEditPage: 📝 Nenhuma versão encontrada para doc existente, editor vazio.');
+        debugLog('DocumentEditPage: 📝 Nenhuma versão encontrada para doc existente, editor vazio.');
         setLatestVersion(null);
         setEditorInitialContent('');
       }
@@ -262,7 +263,7 @@ const DocumentEditPage: React.FC = () => {
     if (!currentOverallLoading) {
       if (isEditing) {
         if (documentData) {
-          console.log('DocumentEditPage: 🔄 Sincronizando dados do documento existente com formulário', documentData);
+          debugLog('DocumentEditPage: 🔄 Sincronizando dados do documento existente com formulário', documentData);
           reset({
             title: documentData.title,
             description: documentData.description || '',
@@ -273,7 +274,7 @@ const DocumentEditPage: React.FC = () => {
             toast.error("Falha ao carregar dados do documento para edição.");
         }
       } else {
-        console.log('DocumentEditPage: 🆕 Novo documento - resetando formulário e definindo editorInitialContent');
+        debugLog('DocumentEditPage: 🆕 Novo documento - resetando formulário e definindo editorInitialContent');
         reset({ title: '', description: '', advisorId: undefined });
         setLatestVersion(null);
         setEditorInitialContent(''); // Tiptap receberá string vazia como prop 'content'
@@ -291,12 +292,12 @@ const DocumentEditPage: React.FC = () => {
 
 
   const handleFormChange = useCallback(() => {
-    console.log('DocumentEditPage: 📝 Formulário alterado');
+    debugLog('DocumentEditPage: 📝 Formulário alterado');
     setHasUnsavedChanges(true);
   }, []);
 
   const handleEditorContentChange = useCallback((newContent: string) => {
-    console.log('DocumentEditPage: ✏️ Conteúdo do editor (Tiptap) alterado.');
+    debugLog('DocumentEditPage: ✏️ Conteúdo do editor (Tiptap) alterado.');
     // Para Tiptap, uma string vazia pode ser representada como '<p></p>' ou similar.
     // A comparação precisa ser mais inteligente ou simplesmente assumir que qualquer `onChange` do editor é uma mudança.
     // Ou, o TiptapEditor pode internamente comparar antes de chamar onChange.
@@ -320,7 +321,7 @@ const DocumentEditPage: React.FC = () => {
 
 
   const onSubmitDocument = async (data: FormData) => {
-    console.log('DocumentEditPage: 💾 Tentando salvar documento (com Tiptap):', data);
+    debugLog('DocumentEditPage: 💾 Tentando salvar documento (com Tiptap):', data);
     if (!data.advisorId) {
         toast.error("Por favor, selecione um orientador.");
         return;
@@ -359,7 +360,7 @@ const DocumentEditPage: React.FC = () => {
       let docIdToUse = isEditing ? Number(id) : undefined;
 
       if (isEditing && docIdToUse && documentData) {
-        console.log('DocumentEditPage: ✏️ Atualizando documento existente (Tiptap):', docIdToUse);
+        debugLog('DocumentEditPage: ✏️ Atualizando documento existente (Tiptap):', docIdToUse);
         const formMetaChanged = data.title !== documentData.title ||
                                 data.description !== (documentData.description || '') ||
                                 Number(data.advisorId) !== documentData.advisorId;
@@ -400,7 +401,7 @@ const DocumentEditPage: React.FC = () => {
         }
 
       } else {
-        console.log('DocumentEditPage: 🆕 Criando novo documento (Tiptap)');
+        debugLog('DocumentEditPage: 🆕 Criando novo documento (Tiptap)');
         if (!user?.id) { /* ... */ return; } // Autenticação
         const newDocPayload = {
             title: data.title,

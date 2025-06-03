@@ -1,5 +1,6 @@
 // src/App.tsx - CORRIGIDO
 import React, { Suspense } from 'react';
+import { debugLog } from './utils/logger';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -49,7 +50,7 @@ const queryClient = new QueryClient({
 const App: React.FC = () => {
   const { isAuthenticated } = useAuthStore();
 
-  console.log('🚀 App renderizando', { isAuthenticated });
+  debugLog('🚀 App renderizando', { isAuthenticated });
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -185,7 +186,7 @@ const AdminRoutes: React.FC = () => (
 const RoleBasedDashboard: React.FC = () => {
   const { isStudent, isAdvisor, isAdmin } = useAuthStore();
   
-  console.log('🎯 RoleBasedDashboard', { 
+  debugLog('🎯 RoleBasedDashboard', {
     isStudent: isStudent(), 
     isAdvisor: isAdvisor(), 
     isAdmin: isAdmin() 
