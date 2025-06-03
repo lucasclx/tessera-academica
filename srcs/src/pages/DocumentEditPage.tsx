@@ -1,0 +1,572 @@
+// Arquivo: srcs/src (cópia)/pages/DocumentEditPage.tsx
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
+import { useApiData } from '../hooks/useApiData';
+import {
+  ArrowLeftIcon,
+  DocumentArrowUpIcon as SaveIcon,
+  ClockIcon,
+  TrashIcon,
+} from '@heroicons/react/24/outline';
+import { useAuthStore } from '../store/authStore';
+import { documentsApi, versionsApi, usersApi, DocumentDetailDTO, Version, UserSelection } from '../lib/api';
+import { toast } from 'react-hot-toast';
+// MODIFICAÇÃO: Importar TiptapEditor e sua EditorRef
+import TiptapEditor, { EditorRef } from '../Editor/TiptapEditor'; // Ajuste o caminho se necessário
+import PageHeader from '../components/common/PageHeader';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
+import { formatDateTime } from '../utils/dateUtils';
+
+const schema = yup.object({
+  title: yup
+    .string()
+    .min(5, 'Título deve ter pelo menos 5 caracteres')
+    .max(200, 'Título deve ter no máximo 200 caracteres')
+    .required('Título é obrigatório'),
+  description: yup
+    .string()
+    .max(500, 'Descrição deve ter no máximo 500 caracteres')
+    .nullable(),
+  advisorId: yup
+    .number()
+    .typeError('Selecione um orientador válido')
+    .positive('Selecione um orientador')
+    .required('Orientador é obrigatório'),
+});
+
+interface FormData {
+  title: string;
+  description?: string | null;
+  advisorId: number | undefined;
+}
+
+// Componente do Formulário de Documento (sem alterações)
+const DocumentForm: React.FC<{
+  register: any;
+  errors: any;
+  advisors: UserSelection[];
+  onFieldChange: () => void;
+  disabled?: boolean;
+}> = ({ register, errors, advisors, onFieldChange, disabled = false }) => {
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <h2 className="text-lg font-medium text-gray-900 mb-6">Informações do Documento</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="lg:col-span-2">
+          <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+            Título *
+          </label>
+          <input
+            {...register('title')}
+            type="text"
+            id="title"
+            placeholder="Digite o título do documento"
+            className={`input-field ${errors.title ? 'input-error' : ''}`}
+            onChange={onFieldChange}
+            disabled={disabled}
+          />
+          {errors.title && (
+            <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
+          )}
+        </div>
+        <div className="lg:col-span-2">
+          <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+            Descrição
+          </label>
+          <textarea
+            {...register('description')}
+            id="description"
+            rows={3}
+            placeholder="Breve descrição do documento (opcional)"
+            className={`input-field ${errors.description ? 'input-error' : ''}`}
+            onChange={onFieldChange}
+            disabled={disabled}
+          />
+          {errors.description && (
+            <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
+          )}
+        </div>
+        <div>
+          <label htmlFor="advisorId" className="block text-sm font-medium text-gray-700 mb-2">
+            Orientador Principal *
+          </label>
+          <select
+            {...register('advisorId')}
+            id="advisorId"
+            className={`input-field ${errors.advisorId ? 'input-error' : ''}`}
+            onChange={onFieldChange}
+            disabled={disabled || !advisors || advisors.length === 0}
+          >
+            <option value="">Selecione um orientador</option>
+            {(advisors || []).map((advisor) => (
+              <option key={advisor.id} value={advisor.id}>
+                {advisor.name}
+              </option>
+            ))}
+          </select>
+          {errors.advisorId && (
+            <p className="mt-1 text-sm text-red-600">{errors.advisorId.message}</p>
+          )}
+           {(!advisors || advisors.length === 0) && !disabled && (
+             <p className="mt-1 text-sm text-yellow-600">Carregando orientadores ou nenhum disponível. Verifique o cadastro de orientadores ou o backend se o erro persistir.</p>
+           )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Componente do Editor de Documento - MODIFICADO para usar TiptapEditor
+const DocumentEditor: React.FC<{
+  editorRef: React.RefObject<EditorRef>; // EditorRef agora é do Tiptap
+  initialContent: string; // Será passado como 'content' para TiptapEditor
+  commitMessage: string;
+  setCommitMessage: (message: string) => void;
+  onContentChange: (newContent: string) => void; // Será o 'onChange' do Tiptap
+  isEditingDoc: boolean; // Renomeado para clareza, para diferenciar do 'editable' do Tiptap
+  latestVersion?: Version | null;
+  disabled?: boolean; // Para desabilitar campos e editor
+}> = ({
+  editorRef,
+  initialContent,
+  commitMessage,
+  setCommitMessage,
+  onContentChange,
+  isEditingDoc,
+  latestVersion,
+  disabled = false,
+}) => {
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="px-6 py-4 border-b border-gray-200">
+        <h2 className="text-lg font-medium text-gray-900">Conteúdo do Documento</h2>
+        <p className="text-sm text-gray-500 mt-1">
+          Use o editor abaixo para escrever o conteúdo do seu documento.
+        </p>
+      </div>
+      <div className="p-6 space-y-4">
+        <div>
+          <label htmlFor="commitMessage" className="block text-sm font-medium text-gray-700 mb-2">
+            Mensagem da Versão (Salvar alterações no conteúdo)
+          </label>
+          <input
+            type="text"
+            id="commitMessage"
+            value={commitMessage}
+            onChange={(e) => setCommitMessage(e.target.value)}
+            placeholder={
+              isEditingDoc && latestVersion
+                ? "Descreva as alterações desta versão (ex: 'Capítulo 1 revisado')"
+                : "Mensagem para a primeira versão (ex: 'Versão inicial')"
+            }
+            className="input-field"
+            disabled={disabled}
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Opcional, mas recomendado ao salvar alterações no conteúdo.
+          </p>
+        </div>
+        {/* MODIFICAÇÃO: Usando TiptapEditor */}
+        <TiptapEditor
+          ref={editorRef}
+          content={initialContent} // Passa o conteúdo inicial
+          onChange={onContentChange} // Callback para mudanças
+          placeholder="Comece a escrever seu documento aqui..."
+          className="border border-gray-300 rounded-lg shadow-sm overflow-hidden" // Estilo para o wrapper do Tiptap
+          editorClassName="min-h-[400px] p-4" // Estilo para a área de edição do Tiptap
+          showToolbar={true}
+          editable={!disabled} // Tiptap usa 'editable'
+        />
+      </div>
+    </div>
+  );
+};
+
+// Componente de Indicador de Alterações Não Salvas (sem alterações)
+const UnsavedChangesIndicator: React.FC<{ hasChanges: boolean }> = ({ hasChanges }) => {
+  if (!hasChanges) return null;
+  return (
+    <span className="text-sm text-orange-600 mr-4 flex items-center">
+      <ClockIcon className="h-4 w-4 mr-1 animate-pulse" />
+      Alterações não salvas
+    </span>
+  );
+};
+
+// Componente Principal
+const DocumentEditPage: React.FC = () => {
+  const { id } = useParams<{ id?: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const { confirmDeletion } = useConfirmDialog();
+  const editorRef = useRef<EditorRef>(null); // Agora será a ref para TiptapEditor
+
+  const [latestVersion, setLatestVersion] = useState<Version | null>(null);
+  const [editorInitialContent, setEditorInitialContent] = useState('');
+  const [commitMessage, setCommitMessage] = useState('');
+  const [pageLoading, setPageLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  const isEditing = Boolean(id);
+
+  const { data: advisorsData, loading: advisorsLoading, error: advisorsError } = useApiData<UserSelection[]>(
+    '/users/advisors', [], { errorMessage: 'Erro ao carregar orientadores. Verifique o backend.' }
+  );
+
+  const { data: documentData, loading: documentLoading, refetch: refetchDocument, error: documentError } = useApiData<DocumentDetailDTO>(
+    isEditing && id ? `/documents/${id}` : null,
+    [id, isEditing],
+    { errorMessage: 'Erro ao carregar documento.', immediate: isEditing }
+  );
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, dirtyFields },
+  } = useForm<FormData>({
+    resolver: yupResolver(schema),
+    defaultValues: { title: '', description: '', advisorId: undefined }
+  });
+
+  const loadLatestVersion = useCallback(async (docId: number) => {
+    try {
+      console.log('DocumentEditPage: 📥 Carregando versões do documento', docId);
+      const versions = await versionsApi.getByDocument(docId);
+      if (versions.length > 0) {
+        const latest = versions[0];
+        console.log('DocumentEditPage: 📝 Última versão encontrada:', latest.versionNumber);
+        setLatestVersion(latest);
+        setEditorInitialContent(latest.content);
+      } else {
+        console.log('DocumentEditPage: 📝 Nenhuma versão encontrada para doc existente, editor vazio.');
+        setLatestVersion(null);
+        setEditorInitialContent('');
+      }
+    } catch (error) {
+      console.error('DocumentEditPage: ❌ Erro ao carregar versões:', error);
+      toast.error('Erro ao carregar o conteúdo da última versão do documento');
+      setEditorInitialContent('');
+    }
+  }, []);
+
+  useEffect(() => {
+    const currentOverallLoading = advisorsLoading || (isEditing && documentLoading);
+    setPageLoading(currentOverallLoading);
+
+    if (!currentOverallLoading) {
+      if (isEditing) {
+        if (documentData) {
+          console.log('DocumentEditPage: 🔄 Sincronizando dados do documento existente com formulário', documentData);
+          reset({
+            title: documentData.title,
+            description: documentData.description || '',
+            advisorId: documentData.advisorId,
+          });
+          loadLatestVersion(Number(id));
+        } else if (documentError) {
+            toast.error("Falha ao carregar dados do documento para edição.");
+        }
+      } else {
+        console.log('DocumentEditPage: 🆕 Novo documento - resetando formulário e definindo editorInitialContent');
+        reset({ title: '', description: '', advisorId: undefined });
+        setLatestVersion(null);
+        setEditorInitialContent(''); // Tiptap receberá string vazia como prop 'content'
+        setHasUnsavedChanges(false);
+      }
+    }
+    if(advisorsError && !advisorsLoading) {
+        toast.error("Erro ao carregar lista de orientadores. Funcionalidades podem ser limitadas.");
+    }
+  }, [
+    isEditing, id, reset, loadLatestVersion,
+    documentData, documentLoading, documentError,
+    advisorsData, advisorsLoading, advisorsError
+  ]);
+
+
+  const handleFormChange = useCallback(() => {
+    console.log('DocumentEditPage: 📝 Formulário alterado');
+    setHasUnsavedChanges(true);
+  }, []);
+
+  const handleEditorContentChange = useCallback((newContent: string) => {
+    console.log('DocumentEditPage: ✏️ Conteúdo do editor (Tiptap) alterado.');
+    // Para Tiptap, uma string vazia pode ser representada como '<p></p>' ou similar.
+    // A comparação precisa ser mais inteligente ou simplesmente assumir que qualquer `onChange` do editor é uma mudança.
+    // Ou, o TiptapEditor pode internamente comparar antes de chamar onChange.
+    // Por segurança, marcamos como alterado se o editor chamar.
+    setHasUnsavedChanges(true);
+    // Não precisamos definir editorInitialContent aqui, pois onContentChange é para mudanças do usuário.
+    // editorInitialContent é para o conteúdo que *vem* dos dados.
+  }, []);
+
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+
+  const onSubmitDocument = async (data: FormData) => {
+    console.log('DocumentEditPage: 💾 Tentando salvar documento (com Tiptap):', data);
+    if (!data.advisorId) {
+        toast.error("Por favor, selecione um orientador.");
+        return;
+    }
+    // Garante que temos `advisorsData` antes de prosseguir com a criação.
+    if (!isEditing && (!advisorsData || advisorsData.length === 0)) {
+        toast.error("Não há orientadores disponíveis para selecionar. Verifique o cadastro ou o backend.");
+        if (advisorsError) { // Se houve erro ao carregar, reforça a mensagem
+            toast.error("Falha ao carregar orientadores. Não é possível criar o documento.");
+        }
+        return;
+    }
+
+
+    setActionLoading(true);
+
+    let currentEditorHTML = '';
+    if (editorRef.current) {
+      try {
+        currentEditorHTML = editorRef.current.getContent();
+      } catch (editorError) {
+        console.warn('DocumentEditPage: ⚠️ Erro ao obter conteúdo do editor Tiptap ao salvar:', editorError);
+        toast.error("Não foi possível obter o conteúdo do editor. Tente novamente.");
+        setActionLoading(false);
+        return;
+      }
+    } else {
+        console.warn("DocumentEditPage: ⚠️ editorRef.current (Tiptap) é nulo ao tentar salvar.");
+        toast.error("Referência do editor não encontrada. Tente recarregar a página.");
+        setActionLoading(false);
+        return;
+    }
+
+
+    try {
+      let docIdToUse = isEditing ? Number(id) : undefined;
+
+      if (isEditing && docIdToUse && documentData) {
+        console.log('DocumentEditPage: ✏️ Atualizando documento existente (Tiptap):', docIdToUse);
+        const formMetaChanged = data.title !== documentData.title ||
+                                data.description !== (documentData.description || '') ||
+                                Number(data.advisorId) !== documentData.advisorId;
+        let infoUpdated = false;
+
+        if (formMetaChanged) {
+          await documentsApi.update(docIdToUse, {
+            title: data.title,
+            description: data.description,
+            advisorId: data.advisorId,
+          });
+          infoUpdated = true;
+        }
+
+        // Tiptap pode retornar <p></p> para conteúdo vazio.
+        const currentEditorIsEmpty = currentEditorHTML === '<p></p>' || currentEditorHTML === '';
+        const latestVersionContent = latestVersion?.content || '';
+        const latestVersionIsEmpty = latestVersionContent === '<p></p>' || latestVersionContent === '';
+
+        const editorContentActuallyChanged = !(currentEditorIsEmpty && latestVersionIsEmpty) && currentEditorHTML !== latestVersionContent;
+
+        let versionCreated = false;
+        if (editorContentActuallyChanged || (commitMessage.trim() !== '' && (!currentEditorIsEmpty || latestVersion))) {
+            await versionsApi.create({
+              documentId: docIdToUse,
+              content: currentEditorHTML, // Salva o HTML do Tiptap
+              commitMessage: commitMessage.trim() || (editorContentActuallyChanged ? 'Atualização de conteúdo' : 'Alterações nos metadados com mensagem de versão'),
+            });
+            versionCreated = true;
+        }
+
+        if (infoUpdated || versionCreated) {
+            toast.success('Documento atualizado com sucesso!');
+        } else {
+            toast.info('Nenhuma alteração detectada para salvar.');
+        }
+
+      } else {
+        console.log('DocumentEditPage: 🆕 Criando novo documento (Tiptap)');
+        if (!user?.id) { /* ... */ return; } // Autenticação
+        const newDocPayload = {
+            title: data.title,
+            description: data.description,
+            studentId: user.id,
+            advisorId: Number(data.advisorId),
+        };
+        const newDoc = await documentsApi.create(newDocPayload);
+        docIdToUse = newDoc.id;
+
+        // Salva a primeira versão se houver conteúdo no Tiptap
+        if (currentEditorHTML.trim() !== '' && currentEditorHTML !== '<p></p>') {
+          await versionsApi.create({
+            documentId: docIdToUse,
+            content: currentEditorHTML,
+            commitMessage: commitMessage.trim() || 'Versão inicial',
+          });
+        }
+        toast.success('Documento criado com sucesso!');
+        navigate(`/student/documents/${docIdToUse}/edit`, { replace: true });
+        setActionLoading(false);
+        return;
+      }
+
+      setHasUnsavedChanges(false);
+      setCommitMessage('');
+      if (docIdToUse) {
+        await refetchDocument();
+        await loadLatestVersion(docIdToUse); // Isso definirá editorInitialContent para o Tiptap
+      }
+      reset(data);
+
+    } catch (error: any) {
+      console.error('DocumentEditPage: ❌ Erro ao salvar documento (Tiptap):', error);
+      const errorMsg = error.response?.data?.message || (isEditing ? 'Erro ao atualizar documento' : 'Erro ao criar documento');
+      toast.error(errorMsg);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteDocument = async () => { /* ... (sem alterações) ... */
+    if (!documentData) return;
+    const confirmed = await confirmDeletion(documentData.title);
+    if (!confirmed) return;
+
+    setActionLoading(true);
+    try {
+      await documentsApi.delete(documentData.id);
+      toast.success('Documento excluído com sucesso!');
+      navigate('/student/documents', { replace: true });
+    } catch (error: any) {
+      console.error('DocumentEditPage: ❌ Erro ao excluir documento:', error);
+      toast.error(error.response?.data?.message || 'Erro ao excluir documento');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  if (pageLoading) {
+    return <LoadingSpinner size="lg" message="Carregando dados da página..." fullScreen />;
+  }
+
+  if (advisorsError && (!advisorsData || advisorsData.length === 0)) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-600">Erro crítico: Não foi possível carregar a lista de orientadores.</p>
+        <p className="text-sm text-gray-600">Isto é necessário para {(isEditing && documentData) ? "editar o orientador" : "criar novos documentos"}. Verifique o backend ou contate o suporte.</p>
+        <button onClick={() => navigate(-1)} className="btn btn-secondary mt-4">Voltar</button>
+      </div>
+    );
+  }
+   if (isEditing && documentError && !documentData) {
+    return (
+      <div className="text-center py-12 text-red-600">
+        <p>Erro crítico: Não foi possível carregar os dados deste documento.</p>
+        <button onClick={() => navigate(-1)} className="btn btn-secondary mt-4">Voltar</button>
+      </div>
+    );
+  }
+
+  const pageTitle = isEditing
+    ? `Editando: ${documentData?.title || 'Carregando...'}`
+    : 'Novo Documento';
+
+  const canModifyDocument = !isEditing || (documentData?.status === 'DRAFT' || documentData?.status === 'REVISION');
+
+  return (
+    <div className="max-w-6xl mx-auto space-y-6 pb-10">
+      <PageHeader
+        title={pageTitle}
+        subtitle={isEditing && documentData ? (
+          <div className="space-y-1 text-sm text-gray-600">
+            <p>ID: {documentData.id} | Status: {documentData.status} | Versões: {documentData.versionCount}</p>
+            <p>Criado: {formatDateTime(documentData.createdAt)} | Atualizado: {formatDateTime(documentData.updatedAt)}</p>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-600">Crie um novo documento acadêmico</p>
+        )}
+        actions={
+          <div className="flex items-center space-x-3">
+            <UnsavedChangesIndicator hasChanges={hasUnsavedChanges} />
+            <button
+              onClick={() => navigate(isEditing ? `/student/documents/${id}` : '/student/documents')}
+              className="btn btn-secondary"
+              disabled={actionLoading}
+            >
+              <ArrowLeftIcon className="h-5 w-5 mr-2" />
+              {isEditing ? 'Ver Documento' : 'Voltar'}
+            </button>
+            {isEditing && documentData && documentData.status === 'DRAFT' && (
+              <button
+                onClick={handleDeleteDocument}
+                className="btn btn-danger"
+                disabled={actionLoading}
+                title="Excluir Documento"
+              >
+                <TrashIcon className="h-5 w-5 mr-2" />
+                Excluir
+              </button>
+            )}
+            {canModifyDocument && (
+                <button
+                onClick={handleSubmit(onSubmitDocument)}
+                className="btn btn-primary"
+                disabled={actionLoading || advisorsLoading || (!isEditing && (!advisorsData || advisorsData.length === 0))}
+                title={((!advisorsData || advisorsData.length === 0) && !isEditing) ? "Não há orientadores disponíveis." : (isEditing ? "Salvar Alterações" : "Criar Documento")}
+                >
+                {actionLoading ? (
+                    <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>{isEditing ? 'Salvando...' : 'Criando...'}</>
+                ) : (
+                    <><SaveIcon className="h-5 w-5 mr-2" />{isEditing ? 'Salvar Alterações' : 'Criar Documento'}</>
+                )}
+                </button>
+            )}
+          </div>
+        }
+      />
+
+    {!canModifyDocument && isEditing && documentData && (
+        <div className="p-4 bg-yellow-50 border border-yellow-300 text-yellow-700 rounded-md text-sm">
+            Este documento está no status "{documentData.status}" e não pode mais ser editado diretamente aqui.
+            Para fazer alterações, o status precisa ser "Rascunho" (DRAFT) ou "Em Revisão" (REVISION).
+        </div>
+    )}
+
+      <form onSubmit={handleSubmit(onSubmitDocument)} className="space-y-6">
+        <DocumentForm
+          register={register}
+          errors={errors}
+          advisors={advisorsData || []}
+          onFieldChange={handleFormChange}
+          disabled={actionLoading || !canModifyDocument || advisorsLoading}
+        />
+        {/* Componente DocumentEditor agora usa Tiptap internamente */}
+        <DocumentEditor
+          editorRef={editorRef}
+          initialContent={editorInitialContent}
+          commitMessage={commitMessage}
+          setCommitMessage={setCommitMessage}
+          onContentChange={handleEditorContentChange}
+          isEditingDoc={isEditing}
+          latestVersion={latestVersion}
+          disabled={actionLoading || !canModifyDocument}
+        />
+      </form>
+    </div>
+  );
+};
+
+export default DocumentEditPage;
