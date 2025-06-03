@@ -10,6 +10,7 @@ import com.tessera.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -95,7 +96,17 @@ public class DocumentCollaboratorService {
         collaborator.setAddedBy(currentUser);
         collaborator.setInvitationMessage(request.getMessage());
         
-        collaborator = collaboratorRepository.save(collaborator);
+        try {
+            collaborator = collaboratorRepository.save(collaborator);
+        } catch (DataIntegrityViolationException e) {
+            // Possível colisão de chave única devido a concorrência
+            Optional<DocumentCollaborator> dup =
+                    collaboratorRepository.findByDocumentAndUser(document, newCollaborator);
+            if (dup.isPresent()) {
+                throw new RuntimeException("Este usuário já é colaborador do documento");
+            }
+            throw e;
+        }
         
         // Notificar o novo colaborador
         notificationEventService.onCollaboratorAdded(document, newCollaborator, currentUser, request.getRole());
