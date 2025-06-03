@@ -48,8 +48,8 @@ public interface DocumentCollaboratorRepository extends JpaRepository<DocumentCo
     @Query("SELECT c FROM DocumentCollaborator c " +
            "WHERE c.document = :document AND c.active = true " +
            "AND c.permission = :permission")
-    List<DocumentCollaborator> findByDocumentAndPermissionAndActiveTrue(@Param("document") Document document, 
-                                                                       @Param("permission") String permission);
+    List<DocumentCollaborator> findByDocumentAndPermissionAndActiveTrue(@Param("document") Document document,
+                                                                       @Param("permission") CollaboratorPermission permission);
     
     // Histórico de colaboradores (incluindo inativos)
     List<DocumentCollaborator> findByDocumentOrderByAddedAtDesc(Document document);
