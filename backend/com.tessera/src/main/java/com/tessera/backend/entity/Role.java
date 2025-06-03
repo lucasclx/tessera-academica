@@ -1,11 +1,9 @@
-// Arquivo: scrs/src/main/java/com/tessera/backend/entity/Role.java
 package com.tessera.backend.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.util.Set; // <-- IMPORTAÇÃO ADICIONADA
 
 @Entity
 @Table(name = "roles")
