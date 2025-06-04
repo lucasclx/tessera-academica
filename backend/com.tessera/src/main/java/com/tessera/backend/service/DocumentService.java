@@ -8,6 +8,7 @@ import com.tessera.backend.entity.*;
 import com.tessera.backend.exception.ResourceNotFoundException;
 import com.tessera.backend.exception.PermissionDeniedException;
 import com.tessera.backend.repository.DocumentCollaboratorRepository;
+import com.tessera.backend.exception.BusinessRuleException;
 import com.tessera.backend.repository.DocumentRepository;
 import com.tessera.backend.repository.UserRepository;
 import org.slf4j.Logger;
@@ -41,6 +42,8 @@ public class DocumentService {
     @Autowired
     private NotificationEventService notificationEventService;
 
+    @Autowired
+    private EditingSessionService editingSessionService;
     // Método auxiliar para verificar papéis de forma segura para lambdas
     private boolean userHasRole(final User user, final String roleName) {
         if (user == null || user.getRoles() == null || roleName == null) {
@@ -191,6 +194,9 @@ public class DocumentService {
         if (!document.canUserEdit(currentUser)) {
              logger.warn("Permissão negada: Usuário {} tentou editar documento ID {} sem permissão de edição de info.", currentUser.getEmail(), id);
              throw new PermissionDeniedException("Você não tem permissão para editar as informações deste documento.");
+        }
+        if (editingSessionService.hasOtherEditors(id, currentUser.getId())) {
+            throw new BusinessRuleException("Outro usuário está editando este documento.");
         }
 
         boolean updated = false;
