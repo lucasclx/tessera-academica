@@ -22,6 +22,7 @@ import com.tessera.backend.dto.CommentDTO;
 import com.tessera.backend.entity.User;
 import com.tessera.backend.repository.UserRepository;
 import com.tessera.backend.service.CommentService;
+import com.tessera.backend.exception.ResourceNotFoundException;
 
 import jakarta.validation.Valid;
 
@@ -40,7 +41,7 @@ public class CommentController {
             @Valid @RequestBody CommentDTO commentDTO,
             Authentication authentication) {
         User currentUser = userRepository.findByEmail(authentication.getName())
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
         
         CommentDTO createdComment = commentService.createComment(commentDTO, currentUser);
         return new ResponseEntity<>(createdComment, HttpStatus.CREATED);
@@ -68,7 +69,7 @@ public class CommentController {
             Authentication authentication,
             Pageable pageable) {
         User currentUser = userRepository.findByEmail(authentication.getName())
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
         
         return ResponseEntity.ok(commentService.getCommentsByUser(currentUser, pageable));
     }
@@ -87,7 +88,7 @@ public class CommentController {
             @Valid @RequestBody CommentDTO commentDTO,
             Authentication authentication) {
         User currentUser = userRepository.findByEmail(authentication.getName())
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
         
         return ResponseEntity.ok(commentService.updateComment(id, commentDTO, currentUser));
     }
@@ -97,7 +98,7 @@ public class CommentController {
             @PathVariable Long id,
             Authentication authentication) {
         User currentUser = userRepository.findByEmail(authentication.getName())
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
         
         return ResponseEntity.ok(commentService.resolveComment(id, currentUser));
     }
@@ -107,7 +108,7 @@ public class CommentController {
             @PathVariable Long id,
             Authentication authentication) {
         User currentUser = userRepository.findByEmail(authentication.getName())
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
         
         commentService.deleteComment(id, currentUser);
         return ResponseEntity.noContent().build();

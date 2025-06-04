@@ -5,6 +5,7 @@ import com.tessera.backend.entity.User;
 import com.tessera.backend.entity.UserStatus;
 import com.tessera.backend.repository.RoleRepository;
 import com.tessera.backend.repository.UserRepository;
+import com.tessera.backend.exception.RoleNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -49,7 +50,7 @@ public class DataInitializer implements CommandLineRunner {
             adminUser.setApprovalDate(LocalDateTime.now());
             
             Role adminRole = roleRepository.findByName("ADMIN")
-                    .orElseThrow(() -> new RuntimeException("Role ADMIN não encontrada"));
+                    .orElseThrow(() -> new RoleNotFoundException("Role ADMIN não encontrada"));
             
             Set<Role> roles = new HashSet<>();
             roles.add(adminRole);
