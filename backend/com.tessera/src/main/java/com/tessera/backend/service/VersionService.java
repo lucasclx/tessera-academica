@@ -19,6 +19,7 @@ import com.tessera.backend.exception.BusinessRuleException;
 import com.tessera.backend.repository.DocumentRepository;
 import com.tessera.backend.repository.VersionRepository;
 import com.tessera.backend.util.DiffUtils;
+import com.tessera.backend.service.EditingSessionService;
 
 @Service
 public class VersionService {
@@ -34,6 +35,8 @@ public class VersionService {
     
     @Autowired
     private NotificationEventService notificationEventService;
+    @Autowired
+    private EditingSessionService editingSessionService;
 
     @Transactional
     public VersionDTO updateVersion(Long id, VersionDTO versionDTO, User currentUser) {
@@ -67,6 +70,9 @@ public class VersionService {
         // Verificar permissões - apenas colaboradores com permissão de edição podem criar versões
         if (!document.canUserEdit(currentUser)) {
             throw new PermissionDeniedException("Você não tem permissão para criar uma nova versão");
+        }
+        if (editingSessionService.hasOtherEditors(document.getId(), currentUser.getId())) {
+            throw new BusinessRuleException("Outro usuário está editando este documento.");
         }
         
         // Verificar se o documento está em status que permite novas versões

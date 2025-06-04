@@ -19,6 +19,7 @@ import PageHeader from '../components/common/PageHeader';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import { formatDateTime } from '../utils/dateUtils';
+import { useWebSocket } from '../components/providers/WebSocketProvider';
 
 const schema = yup.object({
   title: yup
@@ -206,6 +207,9 @@ const DocumentEditPage: React.FC = () => {
   const [pageLoading, setPageLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [activeEditors, setActiveEditors] = useState<{ id: number; name: string }[]>([]);
+
+  const { sendMessage, subscribe } = useWebSocket();
 
   const isEditing = Boolean(id);
 
@@ -312,6 +316,20 @@ const DocumentEditPage: React.FC = () => {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    if (!isEditing || !id || !user) return;
+    const docId = Number(id);
+    const payload = { documentId: docId, userId: user.id, userName: user.name };
+    sendMessage('/app/editing/join', payload);
+    const unsubscribe = subscribe(`/topic/documents/${docId}/editors`, (editors: any) => {
+      setActiveEditors(Array.isArray(editors) ? editors : []);
+    });
+    return () => {
+      sendMessage('/app/editing/leave', payload);
+      if (unsubscribe) unsubscribe();
+    };
+  }, [isEditing, id, user, sendMessage, subscribe]);
 
 
   const onSubmitDocument = async (data: FormData) => {
@@ -491,6 +509,9 @@ const DocumentEditPage: React.FC = () => {
           <div className="space-y-1 text-sm text-gray-600">
             <p>ID: {documentData.id} | Status: {documentData.status} | Versões: {documentData.versionCount}</p>
             <p>Criado: {formatDateTime(documentData.createdAt)} | Atualizado: {formatDateTime(documentData.updatedAt)}</p>
+              {activeEditors.length > 0 && (
+                <p>Editando agora: {activeEditors.map(e => e.name).join(", ")}</p>
+              )}
           </div>
         ) : (
           <p className="text-sm text-gray-600">Crie um novo documento acadêmico</p>
