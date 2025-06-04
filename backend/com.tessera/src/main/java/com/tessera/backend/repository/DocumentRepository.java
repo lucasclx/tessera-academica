@@ -81,4 +81,7 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
                                       @Param("status") DocumentStatus status,
                                       Pageable pageable);
 
+    @Query(value = "SELECT id, student_id, advisor_id FROM documents", nativeQuery = true)
+    List<Object[]> findLegacyCollaboratorIds();
+
 }
