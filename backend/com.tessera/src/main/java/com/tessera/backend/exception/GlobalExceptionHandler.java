@@ -10,6 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
+import com.tessera.backend.exception.RoleNotFoundException;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -29,6 +30,15 @@ public class GlobalExceptionHandler {
     
     @ExceptionHandler(EmailAlreadyExistsException.class)
     public ResponseEntity<?> emailAlreadyExistsException(EmailAlreadyExistsException ex, WebRequest request) {
+        ErrorDetails errorDetails = new ErrorDetails(
+                new Date(),
+                ex.getMessage(),
+                request.getDescription(false));
+        return new ResponseEntity<>(errorDetails, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(RoleNotFoundException.class)
+    public ResponseEntity<?> roleNotFoundException(RoleNotFoundException ex, WebRequest request) {
         ErrorDetails errorDetails = new ErrorDetails(
                 new Date(),
                 ex.getMessage(),
