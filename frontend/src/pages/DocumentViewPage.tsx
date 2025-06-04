@@ -12,8 +12,6 @@ import {
   ChatBubbleLeftEllipsisIcon,
   UserGroupIcon,
   ArrowsRightLeftIcon,
-  InformationCircleIcon,
-  Cog6ToothIcon,
   AcademicCapIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../store/authStore';
@@ -31,8 +29,11 @@ import { canEditDocument, canSubmitDocument, canPerformAdvisorActions } from '..
 
 // Lazy load dos componentes das abas
 const CommentThread = React.lazy(() => import('../components/Comments/CommentThread'));
-const CollaboratorManager = React.lazy(() => import('../components/Collaborators/CollaboratorManager'));
+const CollaboratorManager = React.lazy(() => import('../components/DocumentView/CollaboratorManager'));
 const VersionDiff = React.lazy(() => import('../components/Versions/VersionDiff'));
+
+import DocumentInfo from '../components/DocumentView/DocumentInfo';
+import VersionList from '../components/DocumentView/VersionList';
 
 interface DocumentDetail extends ApiDocumentDetailDTO {}
 
@@ -67,87 +68,6 @@ const TabButton: React.FC<{
   </button>
 );
 
-// Componente de Informações do Documento otimizado
-const DocumentInfo: React.FC<{ document: DocumentDetail }> = ({ document }) => (
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-      <InfoSection 
-        title="Informações Gerais" 
-        icon={InformationCircleIcon}
-        items={[
-          { label: 'Título', value: document.title },
-          { label: 'Descrição', value: document.description || 'N/A' },
-          { label: 'Status', value: <StatusBadge status={document.status} showIcon /> },
-          { label: 'Total de Versões', value: document.versionCount },
-        ]}
-      />
-      
-      <InfoSection 
-        title="Histórico" 
-        icon={ClockIcon}
-        items={[
-          { label: 'Criado em', value: formatDateTime(document.createdAt) },
-          { label: 'Última atualização', value: formatDateTime(document.updatedAt) },
-          { label: 'Submetido em', value: document.submittedAt ? formatDateTime(document.submittedAt) : 'N/A' },
-          { label: 'Aprovado em', value: document.approvedAt ? formatDateTime(document.approvedAt) : 'N/A' },
-        ]}
-      />
-
-      <InfoSection 
-        title="Equipe de Colaboração" 
-        icon={UserGroupIcon}
-        items={[
-          { label: 'Estudante(s)', value: document.allStudentNames || 'N/A' },
-          { label: 'Orientador(es)', value: document.allAdvisorNames || 'N/A' },
-          { label: 'Total de Estudantes Ativos', value: document.activeStudentCount || 0 },
-          { label: 'Total de Orientadores Ativos', value: document.activeAdvisorCount || 0 },
-        ]}
-      />
-
-      <InfoSection 
-        title="Configurações de Colaboração" 
-        icon={Cog6ToothIcon}
-        items={[
-          { label: 'Permite múltiplos estudantes?', value: document.allowMultipleStudents ? 'Sim' : 'Não' },
-          { label: 'Máximo de Estudantes', value: document.maxStudents || 'N/A' },
-          { label: 'Permite múltiplos orientadores?', value: document.allowMultipleAdvisors ? 'Sim' : 'Não' },
-          { label: 'Máximo de Orientadores', value: document.maxAdvisors || 'N/A' },
-        ]}
-      />
-    </div>
-
-    {document.rejectionReason && (
-      <div className="mt-6 pt-6 border-t border-gray-200">
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <h4 className="text-sm font-medium text-yellow-800 mb-2">Motivo da Solicitação de Revisão:</h4>
-          <p className="text-sm text-yellow-700 whitespace-pre-wrap">{document.rejectionReason}</p>
-        </div>
-      </div>
-    )}
-  </div>
-);
-
-// Componente de Seção de Informações
-const InfoSection: React.FC<{
-  title: string;
-  icon: React.ElementType;
-  items: { label: string; value: any }[];
-}> = ({ title, icon: Icon, items }) => (
-  <div className="space-y-3">
-    <h3 className="text-lg font-medium text-gray-900 mb-3 flex items-center">
-      <Icon className="h-5 w-5 mr-2 text-primary-600" />
-      {title}
-    </h3>
-    <dl className="space-y-2 text-sm">
-      {items.map((item, index) => (
-        <div key={index}>
-          <dt className="font-medium text-gray-500">{item.label}</dt>
-          <dd className="text-gray-900">{item.value}</dd>
-        </div>
-      ))}
-    </dl>
-  </div>
-);
 
 // Componente de Actions otimizado
 const DocumentActions: React.FC<{
@@ -362,57 +282,14 @@ const DocumentViewPage: React.FC = () => {
             )}
             
             {activeTab === 'versions' && (
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-6">Histórico de Versões</h3>
-                {versions.length === 0 ? (
-                  <div className="text-center py-12">
-                    <StatusIcon className="mx-auto h-12 w-12 text-gray-400" />
-                    <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhuma versão encontrada</h3>
-                    <p className="mt-1 text-sm text-gray-500">Este documento ainda não possui versões.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {versions.map((version, index) => (
-                      <div 
-                        key={version.id} 
-                        className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-                          selectedVersion?.id === version.id 
-                            ? 'border-primary-300 bg-primary-50 shadow-sm' 
-                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                        }`}
-                        onClick={() => { setSelectedVersion(version); setActiveTab('content'); }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="flex items-center">
-                              <h4 className="text-sm font-medium text-gray-900">Versão {version.versionNumber}</h4>
-                              {index === 0 && <StatusBadge status="CURRENT" />}
-                            </div>
-                            {version.commitMessage && (
-                              <p className="text-sm text-gray-600 mt-1 italic">"{version.commitMessage}"</p>
-                            )}
-                            <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                              <span>Por {version.createdByName}</span>
-                              <span>{formatDate(version.createdAt)}</span>
-                              <span>{version.commentCount || 0} comentário(s)</span>
-                            </div>
-                          </div>
-                          <button 
-                            onClick={(e) => { 
-                              e.stopPropagation(); 
-                              setSelectedVersion(version); 
-                              setActiveTab('content');
-                            }} 
-                            className="btn btn-secondary btn-sm"
-                          >
-                            Ver Conteúdo
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <VersionList
+                versions={versions}
+                selected={selectedVersion}
+                onSelect={(v) => {
+                  setSelectedVersion(v);
+                  setActiveTab('content');
+                }}
+              />
             )}
             
             {activeTab === 'diff' && versions.length >= 1 && documentIdNum && (
