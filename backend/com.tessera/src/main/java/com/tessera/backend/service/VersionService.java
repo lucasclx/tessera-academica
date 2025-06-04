@@ -34,6 +34,30 @@ public class VersionService {
     
     @Autowired
     private NotificationEventService notificationEventService;
+
+    @Transactional
+    public VersionDTO updateVersion(Long id, VersionDTO versionDTO, User currentUser) {
+        Version version = versionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Versão não encontrada"));
+
+        Document document = version.getDocument();
+        if (!document.canUserEdit(currentUser)) {
+            throw new PermissionDeniedException("Você não tem permissão para editar esta versão");
+        }
+
+        if (versionDTO.getCommitMessage() != null) {
+            version.setCommitMessage(versionDTO.getCommitMessage());
+        }
+
+        if (versionDTO.getContent() != null) {
+            String diff = diffUtils.generateDiff(version.getContent(), versionDTO.getContent());
+            version.setContent(versionDTO.getContent());
+            version.setDiffFromPrevious(diff);
+        }
+
+        version = versionRepository.save(version);
+        return mapToDTO(version);
+    }
     
     @Transactional
     public VersionDTO createVersion(VersionDTO versionDTO, User currentUser) {
