@@ -64,7 +64,7 @@ const AdvisorDashboard: React.FC = () => {
       const response = await documentsApi.getAdvisorDocuments(0, 10); // Carrega primeiros 10 para o resumo
       setDocuments(response.content);
       
-      const uniqueStudents = new Set(response.content.map(doc => doc.studentId));
+      const uniqueStudents = new Set(response.content.map(doc => doc.studentName));
       const newStats = response.content.reduce(
         (acc, doc) => {
           acc.total++;

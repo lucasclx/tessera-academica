@@ -189,46 +189,6 @@ public class DocumentCollaboratorService {
         return mapToDTO(collaborator);
     }
 
-    /**
-     * Popula colaboradores principais em documentos existentes baseados nos campos legados
-     * student_id e advisor_id.
-     */
-    @Transactional
-    public void migrateExistingDocuments() {
-        List<Object[]> rows = documentRepository.findLegacyCollaboratorIds();
-        for (Object[] r : rows) {
-            Long docId = ((Number) r[0]).longValue();
-            Long studentId = r[1] != null ? ((Number) r[1]).longValue() : null;
-            Long advisorId = r[2] != null ? ((Number) r[2]).longValue() : null;
-
-            Document document = documentRepository.findById(docId).orElse(null);
-            if (document == null) {
-                continue;
-            }
-
-            if (studentId != null && !document.hasPrimaryStudent()) {
-                userRepository.findById(studentId).ifPresent(student -> {
-                    DocumentCollaborator dc = new DocumentCollaborator();
-                    dc.setDocument(document);
-                    dc.setUser(student);
-                    dc.setRole(CollaboratorRole.PRIMARY_STUDENT);
-                    dc.setPermission(CollaboratorPermission.FULL_ACCESS);
-                    collaboratorRepository.save(dc);
-                });
-            }
-
-            if (advisorId != null && !document.hasPrimaryAdvisor()) {
-                userRepository.findById(advisorId).ifPresent(advisor -> {
-                    DocumentCollaborator dc = new DocumentCollaborator();
-                    dc.setDocument(document);
-                    dc.setUser(advisor);
-                    dc.setRole(CollaboratorRole.PRIMARY_ADVISOR);
-                    dc.setPermission(CollaboratorPermission.FULL_ACCESS);
-                    collaboratorRepository.save(dc);
-                });
-            }
-        }
-    }
     
     /**
      * Atualiza o papel de um colaborador
