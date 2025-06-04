@@ -31,16 +31,27 @@ public class VersionController {
     
     @Autowired
     private UserRepository userRepository;
-    
+
     @PostMapping
     public ResponseEntity<VersionDTO> createVersion(
             @Valid @RequestBody VersionDTO versionDTO,
             Authentication authentication) {
         User currentUser = userRepository.findByEmail(authentication.getName())
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
-        
+
         VersionDTO createdVersion = versionService.createVersion(versionDTO, currentUser);
         return new ResponseEntity<>(createdVersion, HttpStatus.CREATED);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<VersionDTO> updateVersion(
+            @PathVariable Long id,
+            @Valid @RequestBody VersionDTO versionDTO,
+            Authentication authentication) {
+        User currentUser = userRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+
+        return ResponseEntity.ok(versionService.updateVersion(id, versionDTO, currentUser));
     }
     
     @GetMapping("/{id}")

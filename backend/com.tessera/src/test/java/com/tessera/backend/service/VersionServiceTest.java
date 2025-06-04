@@ -89,4 +89,30 @@ class VersionServiceTest {
         verify(versionRepository).save(any(Version.class));
         verify(notificationEventService).onVersionCreated(any(Version.class), eq(coauthor));
     }
+
+    @Test
+    void testUpdateVersionByCoauthor() {
+        Version version = new Version();
+        version.setId(1L);
+        version.setDocument(document);
+        version.setVersionNumber("1.0");
+        version.setCommitMessage("old");
+        version.setContent("old");
+        version.setCreatedBy(coauthor);
+
+        VersionDTO dto = new VersionDTO();
+        dto.setCommitMessage("new msg");
+        dto.setContent("new content");
+
+        when(versionRepository.findById(1L)).thenReturn(Optional.of(version));
+        when(versionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(diffUtils.generateDiff("old", "new content")).thenReturn("diff");
+
+        VersionDTO result = service.updateVersion(1L, dto, coauthor);
+
+        assertEquals("new msg", result.getCommitMessage());
+        assertEquals("new content", result.getContent());
+        assertEquals("diff", result.getDiffFromPrevious());
+        verify(versionRepository).save(version);
+    }
 }
