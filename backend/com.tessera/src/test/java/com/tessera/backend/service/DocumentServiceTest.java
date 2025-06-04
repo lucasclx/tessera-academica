@@ -78,4 +78,91 @@ class DocumentServiceTest {
         assertTrue(finalDoc.getCollaborators().stream()
                 .anyMatch(c -> c.getUser() == advisor && c.getRole() == CollaboratorRole.PRIMARY_ADVISOR));
     }
+
+    @Test
+    void testUpdateDocumentChangesTitleDescriptionAndAdvisor() {
+        Document document = new Document();
+        document.setId(10L);
+        document.setTitle("Old");
+        document.setDescription("OldDesc");
+        document.setStatus(DocumentStatus.DRAFT);
+
+        DocumentCollaborator studCollab = new DocumentCollaborator();
+        studCollab.setId(1L);
+        studCollab.setDocument(document);
+        studCollab.setUser(student);
+        studCollab.setRole(CollaboratorRole.PRIMARY_STUDENT);
+        studCollab.setPermission(CollaboratorPermission.FULL_ACCESS);
+
+        DocumentCollaborator oldAdvisorCollab = new DocumentCollaborator();
+        oldAdvisorCollab.setId(2L);
+        oldAdvisorCollab.setDocument(document);
+        oldAdvisorCollab.setUser(advisor);
+        oldAdvisorCollab.setRole(CollaboratorRole.PRIMARY_ADVISOR);
+        oldAdvisorCollab.setPermission(CollaboratorPermission.FULL_ACCESS);
+
+        document.setCollaborators(new ArrayList<>(List.of(studCollab, oldAdvisorCollab)));
+
+        User newAdvisor = createUser(3L, "NewAdv", "new@test.com", "ADVISOR");
+
+        DocumentDTO dto = new DocumentDTO();
+        dto.setTitle("New");
+        dto.setDescription("NewDesc");
+        dto.setAdvisorId(newAdvisor.getId());
+
+        when(documentRepository.findById(document.getId())).thenReturn(Optional.of(document));
+        when(userRepository.findById(newAdvisor.getId())).thenReturn(Optional.of(newAdvisor));
+        when(collaboratorRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DocumentDTO result = service.updateDocument(document.getId(), dto, student);
+
+        assertEquals("New", result.getTitle());
+        assertEquals("NewDesc", result.getDescription());
+        verify(collaboratorRepository, times(2)).save(any(DocumentCollaborator.class));
+        assertEquals(CollaboratorRole.SECONDARY_ADVISOR, oldAdvisorCollab.getRole());
+    }
+
+    @Test
+    void testChangeStatusToSubmitted() {
+        Document document = new Document();
+        document.setId(20L);
+        document.setStatus(DocumentStatus.DRAFT);
+
+        DocumentCollaborator studCollab = new DocumentCollaborator();
+        studCollab.setDocument(document);
+        studCollab.setUser(student);
+        studCollab.setRole(CollaboratorRole.PRIMARY_STUDENT);
+        studCollab.setPermission(CollaboratorPermission.READ_WRITE);
+        document.setCollaborators(new ArrayList<>(List.of(studCollab)));
+
+        when(documentRepository.findById(document.getId())).thenReturn(Optional.of(document));
+        when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        DocumentDTO dto = service.changeStatus(document.getId(), DocumentStatus.SUBMITTED, student, null);
+
+        assertEquals(DocumentStatus.SUBMITTED, dto.getStatus());
+        assertNotNull(document.getSubmittedAt());
+        verify(notificationEventService).onDocumentStatusChanged(document, DocumentStatus.DRAFT, student);
+    }
+
+    @Test
+    void testDeleteDocumentByPrimaryStudent() {
+        Document document = new Document();
+        document.setId(30L);
+        document.setStatus(DocumentStatus.DRAFT);
+
+        DocumentCollaborator studCollab = new DocumentCollaborator();
+        studCollab.setDocument(document);
+        studCollab.setUser(student);
+        studCollab.setRole(CollaboratorRole.PRIMARY_STUDENT);
+        studCollab.setPermission(CollaboratorPermission.FULL_ACCESS);
+        document.setCollaborators(new ArrayList<>(List.of(studCollab)));
+
+        when(documentRepository.findById(document.getId())).thenReturn(Optional.of(document));
+
+        service.deleteDocument(document.getId(), student);
+
+        verify(documentRepository).delete(document);
+    }
 }
