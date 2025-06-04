@@ -1,5 +1,3 @@
-// Arquivo: scrs/src/main/java/com/tessera/backend/service/BackupService.java
-// src/main/java/com/tessera/backend/service/BackupService.java
 package com.tessera.backend.service;
 
 import org.springframework.beans.factory.annotation.Value;

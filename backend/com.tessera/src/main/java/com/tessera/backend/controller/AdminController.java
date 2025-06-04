@@ -1,10 +1,9 @@
-// Arquivo: scrs/src/main/java/com/tessera/backend/controller/AdminController.java
 package com.tessera.backend.controller;
 
 import com.tessera.backend.dto.DashboardStatsDTO;
 import com.tessera.backend.dto.RegistrationApprovalDTO;
 import com.tessera.backend.dto.RegistrationRejectionDTO;
-import com.tessera.backend.dto.UserStatusUpdateDTO; // <-- IMPORTAÇÃO CORRIGIDA
+import com.tessera.backend.dto.UserStatusUpdateDTO;
 import com.tessera.backend.entity.RegistrationRequest;
 import com.tessera.backend.entity.User;
 import com.tessera.backend.repository.UserRepository;

@@ -1,14 +1,13 @@
-// Arquivo: scrs/src (cópia)/main/java/com/tessera/backend/controller/UserController.java
 package com.tessera.backend.controller;
 
 import com.tessera.backend.dto.AdvisorDTO;
-import com.tessera.backend.dto.PasswordChangeDTO; // IMPORTAÇÃO ADICIONADA
+import com.tessera.backend.dto.PasswordChangeDTO;
 import com.tessera.backend.dto.UserSelectionDTO;
 import com.tessera.backend.entity.User;
 import com.tessera.backend.entity.UserStatus;
 import com.tessera.backend.repository.UserRepository;
 import com.tessera.backend.service.UserService;
-import jakarta.validation.Valid; // IMPORTAÇÃO ADICIONADA
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
