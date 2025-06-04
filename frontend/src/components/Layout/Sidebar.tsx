@@ -1,4 +1,3 @@
-// src/components/Layout/Sidebar.tsx
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
@@ -12,7 +11,7 @@ import {
   UserIcon,
   ClipboardDocumentListIcon,
   UsersIcon,
-  ChatBubbleLeftEllipsisIcon, // <-- Importar o ícone para comentários
+  ChatBubbleLeftEllipsisIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../../store/authStore';
 
@@ -71,7 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, setOpen }) => {
         {
           name: 'Meus Estudantes',
           href: '/advisor/students',
-          icon: AcademicCapIcon, // Poderia ser UserGroupIcon também
+          icon: AcademicCapIcon,
           current: location.pathname.startsWith('/advisor/students'),
         },
       ];
@@ -89,7 +88,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, setOpen }) => {
         {
           name: 'Novo Documento',
           href: '/student/documents/new',
-          icon: DocumentTextIcon, // Ou um ícone de "Plus" ou "Pencil"
+          icon: DocumentTextIcon,
           current: location.pathname === '/student/documents/new',
         },
       ];
@@ -105,7 +104,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, setOpen }) => {
       icon: BellIcon,
       current: location.pathname === '/notifications',
     },
-    { // NOVO ITEM ADICIONADO
+    {
       name: 'Meus Comentários',
       href: '/my-comments',
       icon: ChatBubbleLeftEllipsisIcon,

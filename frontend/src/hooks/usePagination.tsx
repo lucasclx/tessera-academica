@@ -1,4 +1,3 @@
-// Arquivo: srcs/src (cópia)/hooks/usePagination.tsx
 import { useState, useCallback, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 
