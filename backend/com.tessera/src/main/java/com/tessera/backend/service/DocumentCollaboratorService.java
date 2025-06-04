@@ -11,6 +11,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,6 +22,8 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class DocumentCollaboratorService {
+
+    private static final Logger logger = LoggerFactory.getLogger(DocumentCollaboratorService.class);
     
     @Autowired
     private DocumentCollaboratorRepository collaboratorRepository;
@@ -282,7 +286,7 @@ public class DocumentCollaboratorService {
             }
         }
         
-        System.out.println("Migração concluída: " + migrated + " documentos migrados");
+        logger.info("Migração concluída: {} documentos migrados", migrated);
     }
     
     // =============================================================================
