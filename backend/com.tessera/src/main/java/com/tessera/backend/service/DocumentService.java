@@ -117,11 +117,12 @@ public class DocumentService {
         collaboratorRepository.save(advisorCollaborator);
         logger.info("Colaborador Orientador Principal (ID: {}) adicionado ao Documento ID: {}", advisorUser.getId(), document.getId());
 
-        // Adicionar à lista de colaboradores do documento se a gestão for feita pela entidade Document
-        // document.getCollaborators().add(studentCollaborator);
-        // document.getCollaborators().add(advisorCollaborator);
-        // Se o DocumentRepository salva o Document e os Collaborators são salvos separadamente,
-        // o importante é que as referências estejam corretas.
+        // Adicionar à lista de colaboradores do documento para manter a relação bi-direcional
+        document.getCollaborators().add(studentCollaborator);
+        document.getCollaborators().add(advisorCollaborator);
+
+        // Persistir o documento atualizado para garantir que o relacionamento seja salvo
+        documentRepository.save(document);
     }
 
     @Transactional(readOnly = true) // Adicionar aqui também para consistência e garantir que o mapeamento está na transação
