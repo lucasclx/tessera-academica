@@ -26,6 +26,47 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onNotificationBellClick, o
   const navigate = useNavigate();
   const userMenuRef = useRef<HTMLDivElement>(null);
 
+  // Keyboard navigation and closing with Escape
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!userMenuOpen) return;
+
+      if (event.key === 'Escape') {
+        setUserMenuOpen(false);
+        return;
+      }
+
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const items = userMenuRef.current?.querySelectorAll<HTMLElement>('a, button:not([disabled])');
+        if (!items || items.length === 0) return;
+
+        const currentIndex = Array.from(items).indexOf(document.activeElement as HTMLElement);
+        let nextIndex = 0;
+
+        if (event.key === 'ArrowDown') {
+          nextIndex = currentIndex === -1 || currentIndex === items.length - 1 ? 0 : currentIndex + 1;
+        } else {
+          nextIndex = currentIndex <= 0 ? items.length - 1 : currentIndex - 1;
+        }
+
+        items[nextIndex].focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [userMenuOpen]);
+
+  useEffect(() => {
+    if (userMenuOpen) {
+      const firstItem = userMenuRef.current?.querySelector<HTMLElement>('a, button:not([disabled])');
+      firstItem?.focus();
+    }
+  }, [userMenuOpen]);
+
   // Close user menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -169,7 +210,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onNotificationBellClick, o
 
                     <button
                       onClick={handleLogout}
-                      className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                      className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700"
                     >
                       <ArrowRightOnRectangleIcon className="mr-3 h-5 w-5 text-red-400" />
                       Sair
