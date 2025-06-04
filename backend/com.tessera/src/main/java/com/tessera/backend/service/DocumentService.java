@@ -22,7 +22,9 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Set; 
+import java.util.Map;
+import java.util.Set;
+import java.util.HashMap;
 import java.util.stream.Collectors;
 
 @Service
@@ -163,8 +165,20 @@ public class DocumentService {
         }
         logger.info("Encontrados {} documentos para {} na página {}", documentsPage.getNumberOfElements(), user.getEmail(), pageable.getPageNumber());
         
-        // O mapeamento para DTO ocorrerá dentro da sessão transacional ativa
-        return documentsPage.map(this::mapToDTO);
+        // Pré-carregar contagem de versões para evitar N+1
+        List<Long> ids = documentsPage.getContent().stream()
+                .map(Document::getId)
+                .toList();
+        Map<Long, Integer> versionCounts = new HashMap<>();
+        if (!ids.isEmpty()) {
+            documentRepository.getVersionCounts(ids).forEach(obj -> {
+                Long id = (Long) obj[0];
+                Long count = (Long) obj[1];
+                versionCounts.put(id, count.intValue());
+            });
+        }
+
+        return documentsPage.map(d -> mapToDTO(d, versionCounts.get(d.getId())));
     }
 
     @Transactional(readOnly = true)
@@ -182,7 +196,20 @@ public class DocumentService {
             documentsPage = documentRepository.findAll(pageable);
         }
         logger.info("Encontrados {} documentos na página {}", documentsPage.getNumberOfElements(), pageable.getPageNumber());
-        return documentsPage.map(this::mapToDTO);
+
+        List<Long> ids = documentsPage.getContent().stream()
+                .map(Document::getId)
+                .toList();
+        Map<Long, Integer> versionCounts = new HashMap<>();
+        if (!ids.isEmpty()) {
+            documentRepository.getVersionCounts(ids).forEach(obj -> {
+                Long id = (Long) obj[0];
+                Long count = (Long) obj[1];
+                versionCounts.put(id, count.intValue());
+            });
+        }
+
+        return documentsPage.map(d -> mapToDTO(d, versionCounts.get(d.getId())));
     }
 
     @Transactional
@@ -405,6 +432,10 @@ public class DocumentService {
     }
 
     private DocumentDTO mapToDTO(Document document) {
+        return mapToDTO(document, null);
+    }
+
+    private DocumentDTO mapToDTO(Document document, Integer prefetchedVersionCount) {
         DocumentDTO dto = new DocumentDTO();
         dto.setId(document.getId());
         dto.setTitle(document.getTitle());
@@ -432,9 +463,13 @@ public class DocumentService {
         dto.setApprovedAt(document.getApprovedAt());
         dto.setRejectedAt(document.getRejectedAt());
         dto.setRejectionReason(document.getRejectionReason());
-        
-        // Acesso à coleção LAZY de versions. Isso precisa estar dentro de uma transação.
-        dto.setVersionCount(document.getVersions() != null ? document.getVersions().size() : 0);
+
+        if (prefetchedVersionCount != null) {
+            dto.setVersionCount(prefetchedVersionCount);
+        } else {
+            // Acesso à coleção LAZY de versions. Isso precisa estar dentro de uma transação.
+            dto.setVersionCount(document.getVersions() != null ? document.getVersions().size() : 0);
+        }
 
         return dto;
     }
