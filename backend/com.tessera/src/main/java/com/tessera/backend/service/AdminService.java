@@ -16,6 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 
@@ -35,6 +36,7 @@ public class AdminService {
     private NotificationEventService notificationEventService;
 
     @Transactional
+    @CacheEvict(value = "approvedAdvisors", allEntries = true)
     public void approveRegistration(Long requestId, User admin, RegistrationApprovalDTO approvalDTO) {
         RegistrationRequest request = registrationRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Solicitação de registro não encontrada"));
@@ -55,6 +57,7 @@ public class AdminService {
     }
 
     @Transactional
+    @CacheEvict(value = "approvedAdvisors", allEntries = true)
     public void rejectRegistration(Long requestId, User admin, RegistrationRejectionDTO rejectionDTO) {
         RegistrationRequest request = registrationRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Solicitação de registro não encontrada"));
@@ -74,6 +77,7 @@ public class AdminService {
     }
 
     @Transactional
+    @CacheEvict(value = "approvedAdvisors", allEntries = true)
     public void updateUserStatus(Long userId, User admin, UserStatusUpdateDTO statusUpdateDTO) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado com ID: " + userId));

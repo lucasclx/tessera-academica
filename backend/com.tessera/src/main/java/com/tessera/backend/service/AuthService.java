@@ -23,6 +23,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.CacheEvict;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -55,6 +56,7 @@ public class AuthService {
     private EmailService emailService;
     
     @Transactional
+    @CacheEvict(value = "approvedAdvisors", allEntries = true)
     public User registerUser(UserRegistrationDTO registrationDTO) {
         // Verifica se email já existe
         if (userRepository.existsByEmail(registrationDTO.getEmail())) {

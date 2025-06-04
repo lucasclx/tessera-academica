@@ -20,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
@@ -51,6 +52,7 @@ public class UserService {
         this.auditLogService = auditLogService;
     }
 
+    @Cacheable("approvedAdvisors")
     public List<AdvisorDTO> getApprovedAdvisors() {
         List<User> advisors = userRepository.findByRolesNameAndStatus("ADVISOR", UserStatus.APPROVED);
         return advisors.stream()
