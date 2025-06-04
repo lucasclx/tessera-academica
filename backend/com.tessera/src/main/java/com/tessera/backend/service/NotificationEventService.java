@@ -3,11 +3,15 @@ package com.tessera.backend.service;
 import com.tessera.backend.entity.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
 @Service
 public class NotificationEventService {
+
+    private static final Logger logger = LoggerFactory.getLogger(NotificationEventService.class);
     
     @Autowired(required = false)
     private NotificationService notificationService;
@@ -28,7 +32,7 @@ public class NotificationEventService {
             );
         }
         
-        System.out.println("Documento criado: " + document.getTitle() + " por " + creator.getName());
+        logger.info("Documento criado: {} por {}", document.getTitle(), creator.getName());
     }
 
     public void onDocumentSubmitted(Document document, User submitter) {
@@ -273,7 +277,7 @@ public class NotificationEventService {
     // =====================================================================
     
     public void onUserRegistered(User newUser) {
-        System.out.println("Novo usuário registrado: " + newUser.getEmail());
+        logger.info("Novo usuário registrado: {}", newUser.getEmail());
         // Implementar notificação para admins se necessário
     }
 
@@ -301,8 +305,7 @@ public class NotificationEventService {
     
     private void sendNotification(User user, String title, String message, String type) {
         // Log simples para debug
-        System.out.println(String.format("NOTIFICAÇÃO [%s] para %s: %s - %s", 
-                                        type, user.getEmail(), title, message));
+        logger.debug("NOTIFICAÇÃO [{}] para {}: {} - {}", type, user.getEmail(), title, message);
         
         // Se o NotificationService estiver disponível, usar ele
         if (notificationService != null) {
