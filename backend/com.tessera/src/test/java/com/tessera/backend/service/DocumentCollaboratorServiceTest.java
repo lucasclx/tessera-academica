@@ -6,6 +6,7 @@ import com.tessera.backend.entity.*;
 import com.tessera.backend.repository.DocumentCollaboratorRepository;
 import com.tessera.backend.repository.DocumentRepository;
 import com.tessera.backend.repository.UserRepository;
+import com.tessera.backend.exception.PermissionDeniedException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -108,7 +109,7 @@ class DocumentCollaboratorServiceTest {
 
         when(collaboratorRepository.findById(20L)).thenReturn(Optional.of(collaborator));
 
-        assertThrows(RuntimeException.class, () ->
+        assertThrows(PermissionDeniedException.class, () ->
                 service.updateCollaboratorPermissions(20L, CollaboratorPermission.READ_ONLY, manager));
     }
 
