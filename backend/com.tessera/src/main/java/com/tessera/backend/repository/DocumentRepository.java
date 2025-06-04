@@ -81,7 +81,4 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
                                       @Param("status") DocumentStatus status,
                                       Pageable pageable);
 
-    // Recupera IDs de estudante e orientador legados para migração
-    @Query(value = "SELECT id, student_id, advisor_id FROM documents", nativeQuery = true)
-    List<Object[]> findLegacyCollaboratorIds();
 }

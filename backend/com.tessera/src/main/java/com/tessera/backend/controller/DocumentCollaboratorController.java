@@ -173,23 +173,4 @@ public class DocumentCollaboratorController {
         return ResponseEntity.ok(promotedCollaborator);
     }
     
-    @PostMapping("/migrate")
-    @Operation(summary = "Migrar documentos existentes", 
-               description = "Migra documentos existentes para o novo sistema de colaboradores (apenas admin)")
-    @ApiResponse(responseCode = "200", description = "Migração executada com sucesso")
-    public ResponseEntity<String> migrateExistingDocuments(Authentication authentication) {
-        User currentUser = getCurrentUser(authentication);
-        
-        // Verificar se é admin
-        boolean isAdmin = currentUser.getRoles().stream()
-                .anyMatch(role -> role.getName().equals("ADMIN"));
-        
-        if (!isAdmin) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body("Apenas administradores podem executar a migração");
-        }
-        
-        collaboratorService.migrateExistingDocuments();
-        return ResponseEntity.ok("Migração executada com sucesso");
-    }
 }
