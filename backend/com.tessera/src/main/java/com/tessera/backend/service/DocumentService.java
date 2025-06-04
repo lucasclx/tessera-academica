@@ -6,7 +6,7 @@ import com.tessera.backend.dto.DocumentCollaboratorDTO;
 import com.tessera.backend.dto.UserSelectionDTO;
 import com.tessera.backend.entity.*;
 import com.tessera.backend.exception.ResourceNotFoundException;
-import com.tessera.backend.exception.UnauthorizedOperationException;
+import com.tessera.backend.exception.PermissionDeniedException;
 import com.tessera.backend.repository.DocumentCollaboratorRepository;
 import com.tessera.backend.repository.DocumentRepository;
 import com.tessera.backend.repository.UserRepository;
@@ -73,7 +73,7 @@ public class DocumentService {
         boolean isAdmin = userHasRole(currentUser, "ADMIN"); 
         if (!currentUser.getId().equals(student.getId()) && !isAdmin) {
             logger.warn("Permissão negada: Usuário {} tentou criar documento para estudante {}", currentUser.getEmail(), student.getEmail());
-            throw new UnauthorizedOperationException("Você não tem permissão para criar documentos para este estudante.");
+            throw new PermissionDeniedException("Você não tem permissão para criar documentos para este estudante.");
         }
 
         Document document = new Document();
@@ -191,7 +191,7 @@ public class DocumentService {
 
         if (!document.canUserEdit(currentUser)) {
              logger.warn("Permissão negada: Usuário {} tentou editar documento ID {} sem permissão de edição de info.", currentUser.getEmail(), id);
-             throw new UnauthorizedOperationException("Você não tem permissão para editar as informações deste documento.");
+             throw new PermissionDeniedException("Você não tem permissão para editar as informações deste documento.");
         }
 
         boolean updated = false;
@@ -278,7 +278,7 @@ public class DocumentService {
                 } else if (!(oldStatus == DocumentStatus.DRAFT || oldStatus == DocumentStatus.REVISION)) {
                     throw new IllegalStateException("Documento só pode ser submetido se estiver em Rascunho ou Revisão.");
                 } else {
-                    throw new UnauthorizedOperationException("Você não tem permissão para submeter este documento.");
+                    throw new PermissionDeniedException("Você não tem permissão para submeter este documento.");
                 }
                 break;
             case REVISION:
@@ -292,7 +292,7 @@ public class DocumentService {
                 } else if (oldStatus != DocumentStatus.SUBMITTED) {
                     throw new IllegalStateException("Documento só pode ser enviado para revisão se estiver Submetido.");
                 } else {
-                    throw new UnauthorizedOperationException("Você não tem permissão para solicitar revisão deste documento.");
+                    throw new PermissionDeniedException("Você não tem permissão para solicitar revisão deste documento.");
                 }
                 break;
             case APPROVED:
@@ -304,7 +304,7 @@ public class DocumentService {
                 } else if (!(oldStatus == DocumentStatus.SUBMITTED || oldStatus == DocumentStatus.REVISION)) {
                     throw new IllegalStateException("Documento só pode ser aprovado se estiver Submetido ou em Revisão.");
                 } else {
-                    throw new UnauthorizedOperationException("Você não tem permissão para aprovar este documento.");
+                    throw new PermissionDeniedException("Você não tem permissão para aprovar este documento.");
                 }
                 break;
             case FINALIZED:
@@ -315,7 +315,7 @@ public class DocumentService {
                 } else if (oldStatus != DocumentStatus.APPROVED) {
                     throw new IllegalStateException("O documento deve ser Aprovado antes de ser Finalizado.");
                 } else {
-                     throw new UnauthorizedOperationException("Você não tem permissão para finalizar este documento.");
+                     throw new PermissionDeniedException("Você não tem permissão para finalizar este documento.");
                 }
                 break;
             case DRAFT: 
@@ -323,7 +323,7 @@ public class DocumentService {
                 // ou o estudante principal se não estiver Finalizado e tiver permissão.
                 boolean isAdmin = userHasRole(currentUser, "ADMIN");
                 if (oldStatus == DocumentStatus.FINALIZED && !isAdmin) {
-                     throw new UnauthorizedOperationException("Apenas admins podem reverter um documento Finalizado para Rascunho.");
+                     throw new PermissionDeniedException("Apenas admins podem reverter um documento Finalizado para Rascunho.");
                 }
                 if (document.canUserEdit(currentUser) || isAdmin) { // Usuário com permissão de edição ou admin
                     canChange = true;
@@ -332,7 +332,7 @@ public class DocumentService {
                     document.setRejectedAt(null);
                     document.setRejectionReason(null);
                 } else {
-                     throw new UnauthorizedOperationException("Você não tem permissão para reverter este documento para rascunho.");
+                     throw new PermissionDeniedException("Você não tem permissão para reverter este documento para rascunho.");
                 }
                 break;
             default:
@@ -368,7 +368,7 @@ public class DocumentService {
 
         if (!isAdmin && !isPrimaryStudent) {
             logger.warn("Permissão negada: Usuário {} tentou excluir Documento ID {} sem ser admin ou estudante principal.", currentUser.getEmail(), id);
-            throw new UnauthorizedOperationException("Apenas o estudante principal ou administrador podem excluir documentos.");
+            throw new PermissionDeniedException("Apenas o estudante principal ou administrador podem excluir documentos.");
         }
 
         if (document.getStatus() != DocumentStatus.DRAFT && !isAdmin) { 

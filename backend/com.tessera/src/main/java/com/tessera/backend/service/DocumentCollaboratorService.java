@@ -4,6 +4,7 @@ import com.tessera.backend.dto.DocumentCollaboratorDTO;
 import com.tessera.backend.dto.AddCollaboratorRequestDTO;
 import com.tessera.backend.entity.*;
 import com.tessera.backend.exception.ResourceNotFoundException;
+import com.tessera.backend.exception.PermissionDeniedException;
 import com.tessera.backend.repository.DocumentCollaboratorRepository;
 import com.tessera.backend.repository.DocumentRepository;
 import com.tessera.backend.repository.UserRepository;
@@ -55,7 +56,7 @@ public class DocumentCollaboratorService {
         
         // Verificar permissões
         if (!document.canUserManageCollaborators(currentUser)) {
-            throw new RuntimeException("Você não tem permissão para gerenciar colaboradores deste documento");
+            throw new PermissionDeniedException("Você não tem permissão para gerenciar colaboradores deste documento");
         }
         
         User newCollaborator = userRepository.findByEmail(request.getUserEmail())
@@ -137,7 +138,7 @@ public class DocumentCollaboratorService {
         
         // Verificar permissões
         if (!document.canUserManageCollaborators(currentUser)) {
-            throw new RuntimeException("Você não tem permissão para gerenciar colaboradores");
+            throw new PermissionDeniedException("Você não tem permissão para gerenciar colaboradores");
         }
         
         // Não permitir remover colaborador principal se é o único
@@ -171,7 +172,7 @@ public class DocumentCollaboratorService {
         
         // Verificar permissões
         if (!document.canUserManageCollaborators(currentUser)) {
-            throw new RuntimeException("Você não tem permissão para gerenciar colaboradores");
+            throw new PermissionDeniedException("Você não tem permissão para gerenciar colaboradores");
         }
         
         // Validar a mudança de permissão
@@ -196,7 +197,7 @@ public class DocumentCollaboratorService {
         
         // Verificar permissões
         if (!document.canUserManageCollaborators(currentUser)) {
-            throw new RuntimeException("Você não tem permissão para gerenciar colaboradores");
+            throw new PermissionDeniedException("Você não tem permissão para gerenciar colaboradores");
         }
         
         // Validar a mudança de papel
@@ -219,7 +220,7 @@ public class DocumentCollaboratorService {
         
         // Verificar permissões
         if (!document.canUserManageCollaborators(currentUser)) {
-            throw new RuntimeException("Você não tem permissão para gerenciar colaboradores");
+            throw new PermissionDeniedException("Você não tem permissão para gerenciar colaboradores");
         }
         
         // Determinar novo papel principal
