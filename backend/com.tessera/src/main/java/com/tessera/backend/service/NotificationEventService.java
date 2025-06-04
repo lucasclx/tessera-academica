@@ -2,6 +2,7 @@ package com.tessera.backend.service;
 
 import com.tessera.backend.entity.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,8 +14,8 @@ public class NotificationEventService {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationEventService.class);
     
-    @Autowired(required = false)
-    private NotificationService notificationService;
+    @Autowired
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
     
     // =====================================================================
     // MÉTODOS PARA DOCUMENTOS
@@ -308,21 +309,18 @@ public class NotificationEventService {
         // Log simples para debug
         logger.debug("NOTIFICAÇÃO [{}] para {}: {} - {}", type, user.getEmail(), title, message);
 
-        // Se o NotificationService estiver disponível, usar ele
-        if (notificationService != null) {
-            try {
-                NotificationType notificationType = NotificationType.valueOf(type);
-                notificationService.createNotification(user, notificationType, title, message, null, null, null, null);
-            } catch (Exception e) {
-                System.err.println("Erro ao enviar notificação: " + e.getMessage());
-            }
-        }
-        
-        // Implementar outros canais de notificação aqui:
-        // - Email
-        // - Push notifications
-        // - WebSocket
-        // - SMS
-        // etc.
+        NotificationType notificationType = NotificationType.valueOf(type);
+        eventPublisher.publishEvent(new com.tessera.backend.event.NotificationEvent(
+                user,
+                notificationType,
+                title,
+                message,
+                null,
+                null,
+                null,
+                null,
+                com.tessera.backend.entity.NotificationPriority.NORMAL,
+                null
+        ));
     }
 }
