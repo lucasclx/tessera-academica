@@ -13,6 +13,7 @@ import com.tessera.backend.entity.Comment;
 import com.tessera.backend.entity.Document;
 import com.tessera.backend.entity.User;
 import com.tessera.backend.entity.Version;
+import com.tessera.backend.entity.DocumentCollaborator;
 import com.tessera.backend.exception.ResourceNotFoundException;
 import com.tessera.backend.repository.CommentRepository;
 import com.tessera.backend.repository.VersionRepository;
@@ -36,9 +37,10 @@ public class CommentService {
         
         Document document = version.getDocument();
         
-        // Verificar permissões - apenas orientador e aluno podem comentar
-        if (!currentUser.getId().equals(document.getStudent().getId()) && 
-            !currentUser.getId().equals(document.getAdvisor().getId())) {
+        // Verificar permissões pelo colaborador
+        DocumentCollaborator collab = document.getCollaborator(currentUser)
+                .orElseThrow(() -> new RuntimeException("Você não tem permissão para comentar nesta versão"));
+        if (!collab.getPermission().canComment()) {
             throw new RuntimeException("Você não tem permissão para comentar nesta versão");
         }
         
@@ -119,9 +121,10 @@ public class CommentService {
         
         Document document = comment.getVersion().getDocument();
         
-        // Verificar permissões - apenas orientador e aluno podem resolver comentários
-        if (!currentUser.getId().equals(document.getStudent().getId()) && 
-            !currentUser.getId().equals(document.getAdvisor().getId())) {
+        // Verificar permissões pelo colaborador
+        DocumentCollaborator collab = document.getCollaborator(currentUser)
+                .orElseThrow(() -> new RuntimeException("Você não tem permissão para resolver este comentário"));
+        if (!collab.getPermission().canComment()) {
             throw new RuntimeException("Você não tem permissão para resolver este comentário");
         }
         
@@ -144,11 +147,13 @@ public class CommentService {
         
         Document document = comment.getVersion().getDocument();
         
-        // Verificar permissões - autor do comentário, orientador ou aluno podem deletar
-        if (!currentUser.getId().equals(comment.getUser().getId()) &&
-            !currentUser.getId().equals(document.getStudent().getId()) && 
-            !currentUser.getId().equals(document.getAdvisor().getId())) {
-            throw new RuntimeException("Você não tem permissão para deletar este comentário");
+        // Verificar permissões - autor ou colaborador com permissão
+        if (!currentUser.getId().equals(comment.getUser().getId())) {
+            DocumentCollaborator collab = document.getCollaborator(currentUser)
+                    .orElseThrow(() -> new RuntimeException("Você não tem permissão para deletar este comentário"));
+            if (!collab.getPermission().canDeleteComments()) {
+                throw new RuntimeException("Você não tem permissão para deletar este comentário");
+            }
         }
         
         commentRepository.delete(comment);

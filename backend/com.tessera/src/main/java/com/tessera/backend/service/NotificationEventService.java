@@ -21,12 +21,13 @@ public class NotificationEventService {
     // =====================================================================
     
     public void onDocumentCreated(Document document, User creator) {
-        // Notificar orientador
-        if (document.getAdvisor() != null && !document.getAdvisor().equals(creator)) {
+        // Notificar orientador principal
+        User advisor = document.getPrimaryAdvisor();
+        if (advisor != null && !advisor.equals(creator)) {
             sendNotification(
-                document.getAdvisor(),
+                advisor,
                 "Nova monografia criada",
-                String.format("O estudante %s criou uma nova monografia: '%s'", 
+                String.format("O estudante %s criou uma nova monografia: '%s'",
                              creator.getName(), document.getTitle()),
                 "DOCUMENT_CREATED"
             );

@@ -15,11 +15,10 @@ import java.util.List;
 @Repository
 public interface DocumentRepository extends JpaRepository<Document, Long> {
     
-    // Métodos existentes mantidos para compatibilidade
-    Page<Document> findByStudent(User student, Pageable pageable);
-    Page<Document> findByAdvisor(User advisor, Pageable pageable);
-    Page<Document> findByStudentAndStatus(User student, DocumentStatus status, Pageable pageable);
-    Page<Document> findByAdvisorAndStatus(User advisor, DocumentStatus status, Pageable pageable);
+
+    // -------------------------------------------------------
+    // Consultas de colaboradores
+    // -------------------------------------------------------
     
     // Novos métodos para busca por colaboradores
     @Query("SELECT DISTINCT d FROM Document d " +
@@ -81,4 +80,8 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     Page<Document> findAllWithFilters(@Param("searchTerm") String searchTerm,
                                       @Param("status") DocumentStatus status,
                                       Pageable pageable);
+
+    // Recupera IDs de estudante e orientador legados para migração
+    @Query(value = "SELECT id, student_id, advisor_id FROM documents", nativeQuery = true)
+    List<Object[]> findLegacyCollaboratorIds();
 }

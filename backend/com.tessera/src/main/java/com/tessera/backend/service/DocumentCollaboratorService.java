@@ -252,41 +252,52 @@ public class DocumentCollaboratorService {
      * Migra documentos existentes para o sistema de colaboradores
      */
     public void migrateExistingDocuments() {
-        List<Document> documents = documentRepository.findAll();
+        List<Object[]> rows = documentRepository.findLegacyCollaboratorIds();
         int migrated = 0;
-        
-        for (Document document : documents) {
+
+        for (Object[] row : rows) {
+            Long docId = ((Number) row[0]).longValue();
+            Long studentId = row[1] != null ? ((Number) row[1]).longValue() : null;
+            Long advisorId = row[2] != null ? ((Number) row[2]).longValue() : null;
+
+            Document document = documentRepository.findById(docId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Documento não encontrado"));
+
             boolean needsMigration = false;
-            
-            // Adicionar estudante principal se não existir como colaborador
-            if (document.getStudent() != null && !document.hasPrimaryStudent()) {
-                DocumentCollaborator studentCollaborator = new DocumentCollaborator();
-                studentCollaborator.setDocument(document);
-                studentCollaborator.setUser(document.getStudent());
-                studentCollaborator.setRole(CollaboratorRole.PRIMARY_STUDENT);
-                studentCollaborator.setPermission(CollaboratorPermission.FULL_ACCESS);
-                studentCollaborator.setAddedBy(document.getStudent());
-                collaboratorRepository.save(studentCollaborator);
-                needsMigration = true;
+
+            if (studentId != null && !document.hasPrimaryStudent()) {
+                User student = userRepository.findById(studentId).orElse(null);
+                if (student != null) {
+                    DocumentCollaborator dc = new DocumentCollaborator();
+                    dc.setDocument(document);
+                    dc.setUser(student);
+                    dc.setRole(CollaboratorRole.PRIMARY_STUDENT);
+                    dc.setPermission(CollaboratorPermission.FULL_ACCESS);
+                    dc.setAddedBy(student);
+                    collaboratorRepository.save(dc);
+                    needsMigration = true;
+                }
             }
-            
-            // Adicionar orientador principal se não existir como colaborador
-            if (document.getAdvisor() != null && !document.hasPrimaryAdvisor()) {
-                DocumentCollaborator advisorCollaborator = new DocumentCollaborator();
-                advisorCollaborator.setDocument(document);
-                advisorCollaborator.setUser(document.getAdvisor());
-                advisorCollaborator.setRole(CollaboratorRole.PRIMARY_ADVISOR);
-                advisorCollaborator.setPermission(CollaboratorPermission.FULL_ACCESS);
-                advisorCollaborator.setAddedBy(document.getStudent());
-                collaboratorRepository.save(advisorCollaborator);
-                needsMigration = true;
+
+            if (advisorId != null && !document.hasPrimaryAdvisor()) {
+                User advisor = userRepository.findById(advisorId).orElse(null);
+                if (advisor != null) {
+                    DocumentCollaborator dc = new DocumentCollaborator();
+                    dc.setDocument(document);
+                    dc.setUser(advisor);
+                    dc.setRole(CollaboratorRole.PRIMARY_ADVISOR);
+                    dc.setPermission(CollaboratorPermission.FULL_ACCESS);
+                    dc.setAddedBy(advisor);
+                    collaboratorRepository.save(dc);
+                    needsMigration = true;
+                }
             }
-            
+
             if (needsMigration) {
                 migrated++;
             }
         }
-        
+
         logger.info("Migração concluída: {} documentos migrados", migrated);
     }
     
