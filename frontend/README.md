@@ -123,7 +123,7 @@ cd tessera-academica/backend
 ```
 
 2. **Configure as variáveis de ambiente:**
-Crie um arquivo `.env` na raiz do projeto backend:
+Copie `.env.example` para `.env` na raiz do projeto backend:
 ```env
 # Database
 DB_HOST=localhost
@@ -172,7 +172,7 @@ yarn install
 ```
 
 3. **Configure as variáveis de ambiente:**
-Crie um arquivo `.env` na raiz do projeto frontend:
+Copie `.env.example` para `.env` na raiz do projeto frontend e ajuste se necessário:
 ```env
 VITE_API_BASE_URL=http://localhost:8080
 ```
