@@ -5,6 +5,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.PropertiesPropertySource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import jakarta.annotation.PostConstruct;
 import java.io.FileInputStream;
@@ -15,6 +17,8 @@ import java.util.Properties;
 public class EnvironmentConfig {
 
     private final ConfigurableEnvironment environment;
+
+    private static final Logger logger = LoggerFactory.getLogger(EnvironmentConfig.class);
 
     public EnvironmentConfig(ConfigurableEnvironment environment) {
         this.environment = environment;
@@ -42,7 +46,7 @@ public class EnvironmentConfig {
             PropertiesPropertySource envPropertySource = new PropertiesPropertySource("dotenv", envProps);
             environment.getPropertySources().addFirst(envPropertySource);
 
-            System.out.println("✅ Arquivo .env carregado com sucesso!");
+            logger.info("✅ Arquivo .env carregado com sucesso!");
 
             // Re-resolve as propriedades após carregar o .env
             this.jwtSecret = environment.getProperty("JWT_SECRET", "");
@@ -50,8 +54,8 @@ public class EnvironmentConfig {
             this.mailUsername = environment.getProperty("MAIL_USERNAME", "");
 
         } catch (IOException e) {
-            System.out.println("⚠️  Aviso: Não foi possível carregar o arquivo .env: " + e.getMessage());
-            System.out.println("💡 Certifique-se de que o arquivo .env existe na raiz do projeto");
+            logger.warn("⚠️  Aviso: Não foi possível carregar o arquivo .env: {}", e.getMessage());
+            logger.warn("💡 Certifique-se de que o arquivo .env existe na raiz do projeto");
         }
 
         validateEnvironment();
@@ -59,22 +63,22 @@ public class EnvironmentConfig {
 
     private void validateEnvironment() {
         if (jwtSecret.isEmpty() || jwtSecret.equals("fallback-secret-key-for-development-only")) {
-            System.err.println("⚠️  AVISO: JWT_SECRET não configurado ou usando valor padrão inseguro!");
-            System.err.println("   Configure a variável JWT_SECRET no arquivo .env");
+            logger.warn("⚠️  AVISO: JWT_SECRET não configurado ou usando valor padrão inseguro!");
+            logger.warn("   Configure a variável JWT_SECRET no arquivo .env");
         }
 
         if (dbPassword.isEmpty()) {
-            System.err.println("⚠️  AVISO: DB_PASSWORD não configurado!");
-            System.err.println("   Configure a variável DB_PASSWORD no arquivo .env");
+            logger.warn("⚠️  AVISO: DB_PASSWORD não configurado!");
+            logger.warn("   Configure a variável DB_PASSWORD no arquivo .env");
         }
 
         if (mailUsername.isEmpty()) {
-            System.out.println("ℹ️  INFO: MAIL_USERNAME não configurado. Funcionalidades de email serão limitadas.");
+            logger.info("ℹ️  INFO: MAIL_USERNAME não configurado. Funcionalidades de email serão limitadas.");
         }
 
-        System.out.println("✅ Configuração de ambiente carregada:");
-        System.out.println("   - JWT configurado: " + (!jwtSecret.isEmpty()));
-        System.out.println("   - Database configurado: " + (!dbPassword.isEmpty()));
-        System.out.println("   - Email configurado: " + (!mailUsername.isEmpty()));
+        logger.info("✅ Configuração de ambiente carregada:");
+        logger.info("   - JWT configurado: {}", !jwtSecret.isEmpty());
+        logger.info("   - Database configurado: {}", !dbPassword.isEmpty());
+        logger.info("   - Email configurado: {}", !mailUsername.isEmpty());
     }
 }
