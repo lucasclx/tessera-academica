@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -17,6 +19,8 @@ import java.util.Set;
 
 @Component
 public class DataInitializer implements CommandLineRunner {
+
+    private static final Logger logger = LoggerFactory.getLogger(DataInitializer.class);
     
     @Autowired
     private RoleRepository roleRepository;
@@ -52,8 +56,8 @@ public class DataInitializer implements CommandLineRunner {
             adminUser.setRoles(roles);
             
             userRepository.save(adminUser);
-            
-            System.out.println("Admin padrão criado: admin@tessera.com / admin123");
+
+            logger.info("Admin padrão criado: admin@tessera.com / admin123");
         }
     }
     
@@ -62,7 +66,7 @@ public class DataInitializer implements CommandLineRunner {
         if (roleOpt.isEmpty()) {
             Role role = new Role(name);
             roleRepository.save(role);
-            System.out.println("Role criada: " + name);
+            logger.info("Role criada: {}", name);
         }
     }
 }
