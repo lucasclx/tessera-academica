@@ -16,5 +16,5 @@ public interface RegistrationRequestRepository extends JpaRepository<Registratio
 
     Optional<RegistrationRequest> findByUserId(Long userId);
 
-    long countByStatus(RequestStatus status); // <-- ADICIONE ESTE MÉTODO PARA CONTAGEM
+    long countByStatus(RequestStatus status);
 }
