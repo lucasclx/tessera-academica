@@ -47,7 +47,21 @@ Os arquivos de produção ficam em `dist/`.
    npm run dev
    ```
 
-   A aplicação ficará acessível em `http://localhost:3000` (porta definida em `vite.config.ts`).
+  A aplicação ficará acessível em `http://localhost:3000` (porta definida em `vite.config.ts`).
+
+## Running Tests
+
+### Backend
+
+```bash
+cd backend/com.tessera && ./mvnw test
+```
+
+### Frontend
+
+```bash
+cd frontend && npm install && npm test
+```
 
 ---
 
