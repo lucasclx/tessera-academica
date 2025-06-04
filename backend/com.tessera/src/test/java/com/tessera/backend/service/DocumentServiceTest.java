@@ -147,6 +147,31 @@ class DocumentServiceTest {
     }
 
     @Test
+    void testChangeStatusToRejected() {
+        Document document = new Document();
+        document.setId(25L);
+        document.setStatus(DocumentStatus.SUBMITTED);
+
+        DocumentCollaborator advCollab = new DocumentCollaborator();
+        advCollab.setDocument(document);
+        advCollab.setUser(advisor);
+        advCollab.setRole(CollaboratorRole.PRIMARY_ADVISOR);
+        advCollab.setPermission(CollaboratorPermission.FULL_ACCESS);
+        document.setCollaborators(new ArrayList<>(List.of(advCollab)));
+
+        when(documentRepository.findById(document.getId())).thenReturn(Optional.of(document));
+        when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        String reason = "Plágio";
+        DocumentDTO dto = service.changeStatus(document.getId(), DocumentStatus.REJECTED, advisor, reason);
+
+        assertEquals(DocumentStatus.REJECTED, dto.getStatus());
+        assertNotNull(document.getRejectedAt());
+        assertEquals(reason, document.getRejectionReason());
+        verify(notificationEventService).onDocumentStatusChanged(document, DocumentStatus.SUBMITTED, advisor);
+    }
+
+    @Test
     void testDeleteDocumentByPrimaryStudent() {
         Document document = new Document();
         document.setId(30L);

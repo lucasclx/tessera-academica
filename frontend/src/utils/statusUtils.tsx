@@ -25,15 +25,20 @@ export const getDocumentStatusInfo = (status: string): StatusInfo => {
       color: 'status-submitted', 
       icon: ClockIcon 
     },
-    REVISION: { 
-      label: 'Em Revisão', 
-      color: 'status-revision', 
-      icon: ExclamationTriangleIcon 
+    REVISION: {
+      label: 'Em Revisão',
+      color: 'status-revision',
+      icon: ExclamationTriangleIcon
     },
-    APPROVED: { 
-      label: 'Aprovado', 
-      color: 'status-approved', 
-      icon: CheckCircleIcon 
+    REJECTED: {
+      label: 'Rejeitado',
+      color: 'status-revision',
+      icon: ExclamationTriangleIcon
+    },
+    APPROVED: {
+      label: 'Aprovado',
+      color: 'status-approved',
+      icon: CheckCircleIcon
     },
     FINALIZED: { 
       label: 'Finalizado', 

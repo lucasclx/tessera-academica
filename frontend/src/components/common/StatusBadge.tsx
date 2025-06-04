@@ -13,6 +13,7 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status, type = 'document', sh
       DRAFT: { label: 'Rascunho', className: 'status-draft', icon: DocumentTextIcon },
       SUBMITTED: { label: 'Submetido', className: 'status-submitted', icon: ClockIcon },
       REVISION: { label: 'Em Revisão', className: 'status-revision', icon: ExclamationTriangleIcon },
+      REJECTED: { label: 'Rejeitado', className: 'status-revision', icon: ExclamationTriangleIcon },
       APPROVED: { label: 'Aprovado', className: 'status-approved', icon: CheckCircleIcon },
       FINALIZED: { label: 'Finalizado', className: 'status-finalized', icon: CheckCircleIcon },
     },

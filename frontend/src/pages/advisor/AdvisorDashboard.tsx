@@ -116,6 +116,7 @@ const AdvisorDashboard: React.FC = () => {
       case 'DRAFT': return { label: 'Rascunho', color: 'status-draft', icon: DocumentTextIcon };
       case 'SUBMITTED': return { label: 'Aguardando Revisão', color: 'status-submitted', icon: ClockIcon };
       case 'REVISION': return { label: 'Em Revisão', color: 'status-revision', icon: ExclamationTriangleIcon };
+      case 'REJECTED': return { label: 'Rejeitado', color: 'status-revision', icon: ExclamationTriangleIcon };
       case 'APPROVED': return { label: 'Aprovado', color: 'status-approved', icon: CheckCircleIcon };
       case 'FINALIZED': return { label: 'Finalizado', color: 'status-finalized', icon: CheckCircleIcon };
       default: return { label: status, color: 'status-draft', icon: DocumentTextIcon };

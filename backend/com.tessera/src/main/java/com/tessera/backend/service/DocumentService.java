@@ -299,6 +299,22 @@ public class DocumentService {
                     throw new PermissionDeniedException("Você não tem permissão para solicitar revisão deste documento.");
                 }
                 break;
+            case REJECTED:
+                if ((oldStatus == DocumentStatus.SUBMITTED || oldStatus == DocumentStatus.REVISION)
+                        && document.canUserApproveDocument(currentUser)) {
+                    if (!StringUtils.hasText(reason)) {
+                        throw new IllegalArgumentException("Um motivo é obrigatório para rejeitar o documento.");
+                    }
+                    canChange = true;
+                    document.setRejectionReason(reason);
+                    document.setRejectedAt(LocalDateTime.now());
+                    document.setApprovedAt(null);
+                } else if (!(oldStatus == DocumentStatus.SUBMITTED || oldStatus == DocumentStatus.REVISION)) {
+                    throw new IllegalStateException("Documento só pode ser rejeitado se estiver Submetido ou em Revisão.");
+                } else {
+                    throw new PermissionDeniedException("Você não tem permissão para rejeitar este documento.");
+                }
+                break;
             case APPROVED:
                 if ((oldStatus == DocumentStatus.SUBMITTED || oldStatus == DocumentStatus.REVISION) && document.canUserApproveDocument(currentUser)) {
                     canChange = true;

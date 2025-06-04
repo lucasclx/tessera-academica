@@ -2,6 +2,7 @@ export const DOCUMENT_STATUSES = {
   DRAFT: { label: 'Rascunho', color: 'status-draft' },
   SUBMITTED: { label: 'Submetido', color: 'status-submitted' },
   REVISION: { label: 'Em Revisão', color: 'status-revision' },
+  REJECTED: { label: 'Rejeitado', color: 'status-revision' },
   APPROVED: { label: 'Aprovado', color: 'status-approved' },
   FINALIZED: { label: 'Finalizado', color: 'status-finalized' },
 } as const;
