@@ -14,8 +14,6 @@ public class DocumentDTO {
     private String title;
     private String description;
     private DocumentStatus status;
-    private Long studentId;
-    private Long advisorId;
     private String studentName;
     private String advisorName;
     private LocalDateTime createdAt;

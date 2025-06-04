@@ -71,6 +71,7 @@ export interface Document {
   status: 'DRAFT' | 'SUBMITTED' | 'REVISION' | 'REJECTED' | 'APPROVED' | 'FINALIZED';
   studentId?: number;
   advisorId?: number;
+
   studentName: string;
   advisorName: string;
   createdAt: string;

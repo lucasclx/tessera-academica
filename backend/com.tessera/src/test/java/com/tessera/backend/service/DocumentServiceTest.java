@@ -58,11 +58,8 @@ class DocumentServiceTest {
         DocumentDTO dto = new DocumentDTO();
         dto.setTitle("Doc");
         dto.setDescription("desc");
-        dto.setStudentId(student.getId());
-        dto.setAdvisorId(advisor.getId());
 
         when(userRepository.findById(student.getId())).thenReturn(Optional.of(student));
-        when(userRepository.findById(advisor.getId())).thenReturn(Optional.of(advisor));
         when(collaboratorRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -72,11 +69,9 @@ class DocumentServiceTest {
 
         verify(documentRepository, times(2)).save(captor.capture());
         Document finalDoc = captor.getAllValues().get(1);
-        assertEquals(2, finalDoc.getCollaborators().size());
+        assertEquals(1, finalDoc.getCollaborators().size());
         assertTrue(finalDoc.getCollaborators().stream()
                 .anyMatch(c -> c.getUser() == student && c.getRole() == CollaboratorRole.PRIMARY_STUDENT));
-        assertTrue(finalDoc.getCollaborators().stream()
-                .anyMatch(c -> c.getUser() == advisor && c.getRole() == CollaboratorRole.PRIMARY_ADVISOR));
     }
 
     @Test
@@ -108,10 +103,8 @@ class DocumentServiceTest {
         DocumentDTO dto = new DocumentDTO();
         dto.setTitle("New");
         dto.setDescription("NewDesc");
-        dto.setAdvisorId(newAdvisor.getId());
 
         when(documentRepository.findById(document.getId())).thenReturn(Optional.of(document));
-        when(userRepository.findById(newAdvisor.getId())).thenReturn(Optional.of(newAdvisor));
         when(collaboratorRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -119,8 +112,7 @@ class DocumentServiceTest {
 
         assertEquals("New", result.getTitle());
         assertEquals("NewDesc", result.getDescription());
-        verify(collaboratorRepository, times(2)).save(any(DocumentCollaborator.class));
-        assertEquals(CollaboratorRole.SECONDARY_ADVISOR, oldAdvisorCollab.getRole());
+        verify(collaboratorRepository, never()).save(any(DocumentCollaborator.class));
     }
 
     @Test

@@ -11,7 +11,7 @@ import {
   TrashIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../store/authStore';
-import { documentsApi, versionsApi, usersApi, DocumentDetailDTO, Version, UserSelection } from '../lib/api';
+import { documentsApi, versionsApi, DocumentDetailDTO, Version } from '../lib/api';
 import { toast } from 'react-hot-toast';
 import { debugLog } from '../utils/logger';
 import TiptapEditor, { EditorRef } from '../Editor/TiptapEditor';
@@ -31,26 +31,20 @@ const schema = yup.object({
     .string()
     .max(500, 'Descrição deve ter no máximo 500 caracteres')
     .nullable(),
-  advisorId: yup
-    .number()
-    .typeError('Selecione um orientador válido')
-    .positive('Selecione um orientador')
-    .required('Orientador é obrigatório'),
+  // Advisor selection removed
 });
 
 interface FormData {
   title: string;
   description?: string | null;
-  advisorId: number | undefined;
 }
 
 const DocumentForm: React.FC<{
   register: any;
   errors: any;
-  advisors: UserSelection[];
   onFieldChange: () => void;
   disabled?: boolean;
-}> = ({ register, errors, advisors, onFieldChange, disabled = false }) => {
+}> = ({ register, errors, onFieldChange, disabled = false }) => {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       <h2 className="text-lg font-medium text-gray-900 mb-6">Informações do Documento</h2>
@@ -89,31 +83,7 @@ const DocumentForm: React.FC<{
             <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
           )}
         </div>
-        <div>
-          <label htmlFor="advisorId" className="block text-sm font-medium text-gray-700 mb-2">
-            Orientador Principal *
-          </label>
-          <select
-            {...register('advisorId')}
-            id="advisorId"
-            className={`input-field ${errors.advisorId ? 'input-error' : ''}`}
-            onChange={onFieldChange}
-            disabled={disabled || !advisors || advisors.length === 0}
-          >
-            <option value="">Selecione um orientador</option>
-            {(advisors || []).map((advisor) => (
-              <option key={advisor.id} value={advisor.id}>
-                {advisor.name}
-              </option>
-            ))}
-          </select>
-          {errors.advisorId && (
-            <p className="mt-1 text-sm text-red-600">{errors.advisorId.message}</p>
-          )}
-           {(!advisors || advisors.length === 0) && !disabled && (
-             <p className="mt-1 text-sm text-yellow-600">Carregando orientadores ou nenhum disponível. Verifique o cadastro de orientadores ou o backend se o erro persistir.</p>
-           )}
-        </div>
+        {/* Advisor selection removed */}
       </div>
     </div>
   );
@@ -213,9 +183,6 @@ const DocumentEditPage: React.FC = () => {
 
   const isEditing = Boolean(id);
 
-  const { data: advisorsData, loading: advisorsLoading, error: advisorsError } = useApiData<UserSelection[]>(
-    '/users/advisors', [], { errorMessage: 'Erro ao carregar orientadores. Verifique o backend.' }
-  );
 
   const { data: documentData, loading: documentLoading, refetch: refetchDocument, error: documentError } = useApiData<DocumentDetailDTO>(
     isEditing && id ? `/documents/${id}` : null,
@@ -230,7 +197,7 @@ const DocumentEditPage: React.FC = () => {
     formState: { errors, dirtyFields },
   } = useForm<FormData>({
     resolver: yupResolver(schema),
-    defaultValues: { title: '', description: '', advisorId: undefined }
+    defaultValues: { title: '', description: '' }
   });
 
   const loadLatestVersion = useCallback(async (docId: number) => {
@@ -255,7 +222,7 @@ const DocumentEditPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const currentOverallLoading = advisorsLoading || (isEditing && documentLoading);
+    const currentOverallLoading = isEditing && documentLoading;
     setPageLoading(currentOverallLoading);
 
     if (!currentOverallLoading) {
@@ -265,7 +232,6 @@ const DocumentEditPage: React.FC = () => {
           reset({
             title: documentData.title,
             description: documentData.description || '',
-            advisorId: documentData.advisorId,
           });
           loadLatestVersion(Number(id));
         } else if (documentError) {
@@ -273,19 +239,16 @@ const DocumentEditPage: React.FC = () => {
         }
       } else {
         debugLog('DocumentEditPage: 🆕 Novo documento - resetando formulário e definindo editorInitialContent');
-        reset({ title: '', description: '', advisorId: undefined });
+        reset({ title: '', description: '' });
         setLatestVersion(null);
         setEditorInitialContent(''); // Tiptap receberá string vazia como prop 'content'
         setHasUnsavedChanges(false);
       }
     }
-    if(advisorsError && !advisorsLoading) {
-        toast.error("Erro ao carregar lista de orientadores. Funcionalidades podem ser limitadas.");
-    }
   }, [
     isEditing, id, reset, loadLatestVersion,
     documentData, documentLoading, documentError,
-    advisorsData, advisorsLoading, advisorsError
+    
   ]);
 
 
@@ -334,18 +297,6 @@ const DocumentEditPage: React.FC = () => {
 
   const onSubmitDocument = async (data: FormData) => {
     debugLog('DocumentEditPage: 💾 Tentando salvar documento (com Tiptap):', data);
-    if (!data.advisorId) {
-        toast.error("Por favor, selecione um orientador.");
-        return;
-    }
-    // Garante que temos `advisorsData` antes de prosseguir com a criação.
-    if (!isEditing && (!advisorsData || advisorsData.length === 0)) {
-        toast.error("Não há orientadores disponíveis para selecionar. Verifique o cadastro ou o backend.");
-        if (advisorsError) { // Se houve erro ao carregar, reforça a mensagem
-            toast.error("Falha ao carregar orientadores. Não é possível criar o documento.");
-        }
-        return;
-    }
 
 
     setActionLoading(true);
@@ -374,15 +325,13 @@ const DocumentEditPage: React.FC = () => {
       if (isEditing && docIdToUse && documentData) {
         debugLog('DocumentEditPage: ✏️ Atualizando documento existente (Tiptap):', docIdToUse);
         const formMetaChanged = data.title !== documentData.title ||
-                                data.description !== (documentData.description || '') ||
-                                Number(data.advisorId) !== documentData.advisorId;
+                                data.description !== (documentData.description || '');
         let infoUpdated = false;
 
         if (formMetaChanged) {
           await documentsApi.update(docIdToUse, {
             title: data.title,
             description: data.description,
-            advisorId: data.advisorId,
           });
           infoUpdated = true;
         }
@@ -419,7 +368,6 @@ const DocumentEditPage: React.FC = () => {
             title: data.title,
             description: data.description,
             studentId: user.id,
-            advisorId: Number(data.advisorId),
         };
         const newDoc = await documentsApi.create(newDocPayload);
         docIdToUse = newDoc.id;
@@ -477,15 +425,6 @@ const DocumentEditPage: React.FC = () => {
     return <LoadingSpinner size="lg" message="Carregando dados da página..." fullScreen />;
   }
 
-  if (advisorsError && (!advisorsData || advisorsData.length === 0)) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-red-600">Erro crítico: Não foi possível carregar a lista de orientadores.</p>
-        <p className="text-sm text-gray-600">Isto é necessário para {(isEditing && documentData) ? "editar o orientador" : "criar novos documentos"}. Verifique o backend ou contate o suporte.</p>
-        <button onClick={() => navigate(-1)} className="btn btn-secondary mt-4">Voltar</button>
-      </div>
-    );
-  }
    if (isEditing && documentError && !documentData) {
     return (
       <div className="text-center py-12 text-red-600">
@@ -542,8 +481,8 @@ const DocumentEditPage: React.FC = () => {
                 <button
                 onClick={handleSubmit(onSubmitDocument)}
                 className="btn btn-primary"
-                disabled={actionLoading || advisorsLoading || (!isEditing && (!advisorsData || advisorsData.length === 0))}
-                title={((!advisorsData || advisorsData.length === 0) && !isEditing) ? "Não há orientadores disponíveis." : (isEditing ? "Salvar Alterações" : "Criar Documento")}
+                disabled={actionLoading}
+                title={isEditing ? "Salvar Alterações" : "Criar Documento"}
                 >
                 {actionLoading ? (
                     <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>{isEditing ? 'Salvando...' : 'Criando...'}</>
@@ -567,9 +506,8 @@ const DocumentEditPage: React.FC = () => {
         <DocumentForm
           register={register}
           errors={errors}
-          advisors={advisorsData || []}
           onFieldChange={handleFormChange}
-          disabled={actionLoading || !canModifyDocument || advisorsLoading}
+          disabled={actionLoading || !canModifyDocument}
         />
         <DocumentEditor
           editorRef={editorRef}
