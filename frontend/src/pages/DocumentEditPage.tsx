@@ -1,4 +1,3 @@
-// Arquivo: srcs/src (cópia)/pages/DocumentEditPage.tsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -15,8 +14,7 @@ import { useAuthStore } from '../store/authStore';
 import { documentsApi, versionsApi, usersApi, DocumentDetailDTO, Version, UserSelection } from '../lib/api';
 import { toast } from 'react-hot-toast';
 import { debugLog } from '../utils/logger';
-// MODIFICAÇÃO: Importar TiptapEditor e sua EditorRef
-import TiptapEditor, { EditorRef } from '../Editor/TiptapEditor'; // Ajuste o caminho se necessário
+import TiptapEditor, { EditorRef } from '../Editor/TiptapEditor';
 import PageHeader from '../components/common/PageHeader';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { useConfirmDialog } from '../hooks/useConfirmDialog';
@@ -45,7 +43,6 @@ interface FormData {
   advisorId: number | undefined;
 }
 
-// Componente do Formulário de Documento (sem alterações)
 const DocumentForm: React.FC<{
   register: any;
   errors: any;
@@ -121,7 +118,6 @@ const DocumentForm: React.FC<{
   );
 };
 
-// Componente do Editor de Documento - MODIFICADO para usar TiptapEditor
 const DocumentEditor: React.FC<{
   editorRef: React.RefObject<EditorRef>; // EditorRef agora é do Tiptap
   initialContent: string; // Será passado como 'content' para TiptapEditor
@@ -171,7 +167,6 @@ const DocumentEditor: React.FC<{
             Opcional, mas recomendado ao salvar alterações no conteúdo.
           </p>
         </div>
-        {/* MODIFICAÇÃO: Usando TiptapEditor */}
         <TiptapEditor
           ref={editorRef}
           content={initialContent} // Passa o conteúdo inicial
@@ -187,7 +182,6 @@ const DocumentEditor: React.FC<{
   );
 };
 
-// Componente de Indicador de Alterações Não Salvas (sem alterações)
 const UnsavedChangesIndicator: React.FC<{ hasChanges: boolean }> = ({ hasChanges }) => {
   if (!hasChanges) return null;
   return (
@@ -204,7 +198,7 @@ const DocumentEditPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { confirmDeletion } = useConfirmDialog();
-  const editorRef = useRef<EditorRef>(null); // Agora será a ref para TiptapEditor
+  const editorRef = useRef<EditorRef>(null);
 
   const [latestVersion, setLatestVersion] = useState<Version | null>(null);
   const [editorInitialContent, setEditorInitialContent] = useState('');
@@ -443,7 +437,7 @@ const DocumentEditPage: React.FC = () => {
     }
   };
 
-  const handleDeleteDocument = async () => { /* ... (sem alterações) ... */
+  const handleDeleteDocument = async () => {
     if (!documentData) return;
     const confirmed = await confirmDeletion(documentData.title);
     if (!confirmed) return;
@@ -556,7 +550,6 @@ const DocumentEditPage: React.FC = () => {
           onFieldChange={handleFormChange}
           disabled={actionLoading || !canModifyDocument || advisorsLoading}
         />
-        {/* Componente DocumentEditor agora usa Tiptap internamente */}
         <DocumentEditor
           editorRef={editorRef}
           initialContent={editorInitialContent}

@@ -1,4 +1,3 @@
-// Arquivo: srcs/src (cópia)/lib/api.tsx
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { toast } from 'react-hot-toast';
 import { toastManager } from '../utils/toastManager';

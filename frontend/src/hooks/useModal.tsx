@@ -1,4 +1,3 @@
-// Arquivo: srcs/src (cópia)/hooks/useModal.tsx
 import { useState, useCallback } from 'react';
 
 interface UseModalResult<T = any> {
@@ -22,8 +21,7 @@ export function useModal<T = any>(): UseModalResult<T> {
 
   const closeModal = useCallback(() => {
     setIsOpen(false);
-    // Opcionalmente, resete selectedItem apenas se não for uma reabertura rápida
-    // setSelectedItem(null); 
+    // setSelectedItem(null); // opcional
   }, []);
 
   return {
