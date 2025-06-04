@@ -1,4 +1,3 @@
-// Arquivo: scrs/src (cópia)/main/java/com/tessera/backend/repository/DocumentCollaboratorRepository.java
 package com.tessera.backend.repository;
 
 import com.tessera.backend.entity.Document;
@@ -65,6 +64,5 @@ public interface DocumentCollaboratorRepository extends JpaRepository<DocumentCo
            "GROUP BY c.role")
     List<Object[]> getCollaboratorStatsByDocument(@Param("document") Document document);
 
-    // NOVO MÉTODO ADICIONADO
     List<DocumentCollaborator> findAllByDocumentIdInAndActiveTrue(List<Long> documentIds);
 }
