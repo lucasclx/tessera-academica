@@ -82,4 +82,15 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
                                       Pageable pageable);
 
 
+    // -------------------------------------------------------
+    // Utilidades para estatísticas de versão
+    // -------------------------------------------------------
+
+    /**
+     * Recupera a contagem de versões para um conjunto de documentos.
+     * Utiliza LEFT JOIN para considerar documentos sem versões registradas.
+     */
+    @Query("SELECT d.id, COUNT(v) FROM Document d LEFT JOIN d.versions v WHERE d.id IN :ids GROUP BY d.id")
+    List<Object[]> getVersionCounts(@Param("ids") List<Long> ids);
+
 }
