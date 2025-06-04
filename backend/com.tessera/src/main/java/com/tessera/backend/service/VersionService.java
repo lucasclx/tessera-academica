@@ -14,6 +14,8 @@ import com.tessera.backend.entity.DocumentStatus;
 import com.tessera.backend.entity.User;
 import com.tessera.backend.entity.Version;
 import com.tessera.backend.exception.ResourceNotFoundException;
+import com.tessera.backend.exception.PermissionDeniedException;
+import com.tessera.backend.exception.BusinessRuleException;
 import com.tessera.backend.repository.DocumentRepository;
 import com.tessera.backend.repository.VersionRepository;
 import com.tessera.backend.util.DiffUtils;
@@ -40,12 +42,12 @@ public class VersionService {
         
         // Verificar permissões - apenas colaboradores com permissão de edição podem criar versões
         if (!document.canUserEdit(currentUser)) {
-            throw new RuntimeException("Você não tem permissão para criar uma nova versão");
+            throw new PermissionDeniedException("Você não tem permissão para criar uma nova versão");
         }
         
         // Verificar se o documento está em status que permite novas versões
         if (document.getStatus() != DocumentStatus.DRAFT && document.getStatus() != DocumentStatus.REVISION) {
-            throw new RuntimeException("Novas versões só podem ser criadas em documentos em rascunho ou revisão");
+            throw new BusinessRuleException("Novas versões só podem ser criadas em documentos em rascunho ou revisão");
         }
         
         // Calcular número da versão
