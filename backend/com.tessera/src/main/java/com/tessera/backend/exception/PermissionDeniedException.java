@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
  * Thrown when a user attempts an action without the required authorization.
  */
 @ResponseStatus(HttpStatus.FORBIDDEN)
-public class PermissionDeniedException extends RuntimeException {
+public class PermissionDeniedException extends ApiException {
     public PermissionDeniedException(String message) {
         super(message);
     }

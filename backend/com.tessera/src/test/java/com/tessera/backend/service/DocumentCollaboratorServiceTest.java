@@ -7,6 +7,7 @@ import com.tessera.backend.repository.DocumentCollaboratorRepository;
 import com.tessera.backend.repository.DocumentRepository;
 import com.tessera.backend.repository.UserRepository;
 import com.tessera.backend.exception.PermissionDeniedException;
+import com.tessera.backend.exception.BusinessRuleException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -205,7 +206,7 @@ class DocumentCollaboratorServiceTest {
                 .thenReturn(Optional.of(existing));
         when(collaboratorRepository.save(any())).thenThrow(new DataIntegrityViolationException("dup"));
 
-        RuntimeException ex = assertThrows(RuntimeException.class,
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class,
                 () -> service.addCollaborator(100L, req, manager));
 
         assertEquals("Este usuário já é colaborador do documento", ex.getMessage());

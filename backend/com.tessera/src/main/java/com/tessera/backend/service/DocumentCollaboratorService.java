@@ -5,6 +5,7 @@ import com.tessera.backend.dto.AddCollaboratorRequestDTO;
 import com.tessera.backend.entity.*;
 import com.tessera.backend.exception.ResourceNotFoundException;
 import com.tessera.backend.exception.PermissionDeniedException;
+import com.tessera.backend.exception.BusinessRuleException;
 import com.tessera.backend.repository.DocumentCollaboratorRepository;
 import com.tessera.backend.repository.DocumentRepository;
 import com.tessera.backend.repository.UserRepository;
@@ -72,7 +73,7 @@ public class DocumentCollaboratorService {
         if (existingOpt.isPresent()) {
             DocumentCollaborator existing = existingOpt.get();
             if (existing.isActive()) {
-                throw new RuntimeException("Este usuário já é colaborador do documento");
+                throw new BusinessRuleException("Este usuário já é colaborador do documento");
             }
 
             // Reativar colaborador inativo
@@ -108,7 +109,7 @@ public class DocumentCollaboratorService {
             Optional<DocumentCollaborator> dup =
                     collaboratorRepository.findByDocumentAndUser(document, newCollaborator);
             if (dup.isPresent()) {
-                throw new RuntimeException("Este usuário já é colaborador do documento");
+                throw new BusinessRuleException("Este usuário já é colaborador do documento");
             }
             throw e;
         }
@@ -148,10 +149,10 @@ public class DocumentCollaboratorService {
         // Não permitir remover colaborador principal se é o único
         if (collaborator.getRole().isPrimary()) {
             if (collaborator.getRole() == CollaboratorRole.PRIMARY_STUDENT && document.getActiveStudentCount() == 1) {
-                throw new RuntimeException("Não é possível remover o único estudante principal");
+                throw new BusinessRuleException("Não é possível remover o único estudante principal");
             }
             if (collaborator.getRole() == CollaboratorRole.PRIMARY_ADVISOR && document.getActiveAdvisorCount() == 1) {
-                throw new RuntimeException("Não é possível remover o único orientador principal");
+                throw new BusinessRuleException("Não é possível remover o único orientador principal");
             }
         }
         
@@ -238,7 +239,7 @@ public class DocumentCollaboratorService {
             // Rebaixar atual principal para colaborador
             demoteCurrentPrimary(document, CollaboratorRole.PRIMARY_ADVISOR, CollaboratorRole.SECONDARY_ADVISOR);
         } else {
-            throw new RuntimeException("Este tipo de colaborador não pode ser promovido a principal");
+            throw new BusinessRuleException("Este tipo de colaborador não pode ser promovido a principal");
         }
         
         collaborator.setRole(newRole);
@@ -297,65 +298,65 @@ public class DocumentCollaboratorService {
     private void validateCollaboratorAddition(Document document, CollaboratorRole role, User user) {
         // Verificar se o usuário tem o papel apropriado no sistema
         if (role.isStudent() && !hasUserRole(user, "STUDENT")) {
-            throw new RuntimeException("O usuário deve ter papel de STUDENT para ser colaborador estudante");
+            throw new BusinessRuleException("O usuário deve ter papel de STUDENT para ser colaborador estudante");
         }
         
         if (role.isAdvisor() && !hasUserRole(user, "ADVISOR")) {
-            throw new RuntimeException("O usuário deve ter papel de ADVISOR para ser colaborador orientador");
+            throw new BusinessRuleException("O usuário deve ter papel de ADVISOR para ser colaborador orientador");
         }
         
         // Verificar limites
         if (role.isStudent() && !document.canAddMoreStudents()) {
-            throw new RuntimeException("Limite máximo de estudantes atingido (" + document.getMaxStudents() + ")");
+            throw new BusinessRuleException("Limite máximo de estudantes atingido (" + document.getMaxStudents() + ")");
         }
         
         if (role.isAdvisor() && !document.canAddMoreAdvisors()) {
-            throw new RuntimeException("Limite máximo de orientadores atingido (" + document.getMaxAdvisors() + ")");
+            throw new BusinessRuleException("Limite máximo de orientadores atingido (" + document.getMaxAdvisors() + ")");
         }
         
         // Verificar se já existe um principal do mesmo tipo
         if (role == CollaboratorRole.PRIMARY_STUDENT && document.hasPrimaryStudent()) {
-            throw new RuntimeException("Já existe um estudante principal. Promova-o ou use outro papel.");
+            throw new BusinessRuleException("Já existe um estudante principal. Promova-o ou use outro papel.");
         }
         
         if (role == CollaboratorRole.PRIMARY_ADVISOR && document.hasPrimaryAdvisor()) {
-            throw new RuntimeException("Já existe um orientador principal. Promova-o ou use outro papel.");
+            throw new BusinessRuleException("Já existe um orientador principal. Promova-o ou use outro papel.");
         }
     }
     
     private void validatePermissionChange(DocumentCollaborator collaborator, CollaboratorPermission newPermission) {
         // Principais sempre devem ter acesso completo
         if (collaborator.getRole().isPrimary() && newPermission != CollaboratorPermission.FULL_ACCESS) {
-            throw new RuntimeException("Colaboradores principais devem manter acesso completo");
+            throw new BusinessRuleException("Colaboradores principais devem manter acesso completo");
         }
         
         // Observer sempre deve ter apenas leitura
         if (collaborator.getRole() == CollaboratorRole.OBSERVER && newPermission != CollaboratorPermission.READ_ONLY) {
-            throw new RuntimeException("Observadores só podem ter permissão de leitura");
+            throw new BusinessRuleException("Observadores só podem ter permissão de leitura");
         }
     }
     
     private void validateRoleChange(Document document, DocumentCollaborator collaborator, CollaboratorRole newRole) {
         // Não permitir mudança de tipo (estudante para orientador ou vice-versa)
         if (collaborator.getRole().isStudent() && !newRole.isStudent()) {
-            throw new RuntimeException("Não é possível mudar um estudante para papel de orientador");
+            throw new BusinessRuleException("Não é possível mudar um estudante para papel de orientador");
         }
         
         if (collaborator.getRole().isAdvisor() && !newRole.isAdvisor()) {
-            throw new RuntimeException("Não é possível mudar um orientador para papel de estudante");
+            throw new BusinessRuleException("Não é possível mudar um orientador para papel de estudante");
         }
         
         // Verificar se já existe principal do novo tipo
         if (newRole == CollaboratorRole.PRIMARY_STUDENT && 
             document.hasPrimaryStudent() && 
             collaborator.getRole() != CollaboratorRole.PRIMARY_STUDENT) {
-            throw new RuntimeException("Já existe um estudante principal");
+            throw new BusinessRuleException("Já existe um estudante principal");
         }
         
         if (newRole == CollaboratorRole.PRIMARY_ADVISOR && 
             document.hasPrimaryAdvisor() && 
             collaborator.getRole() != CollaboratorRole.PRIMARY_ADVISOR) {
-            throw new RuntimeException("Já existe um orientador principal");
+            throw new BusinessRuleException("Já existe um orientador principal");
         }
     }
     
