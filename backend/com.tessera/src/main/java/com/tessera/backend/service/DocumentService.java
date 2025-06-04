@@ -79,8 +79,6 @@ public class DocumentService {
         Document document = new Document();
         document.setTitle(documentDTO.getTitle());
         document.setDescription(documentDTO.getDescription());
-        document.setStudent(student); // Mantido para compatibilidade/fallback
-        document.setAdvisor(advisor); // Mantido para compatibilidade/fallback
         document.setStatus(DocumentStatus.DRAFT);
 
         Document savedDocument = documentRepository.save(document);
@@ -242,7 +240,6 @@ public class DocumentService {
             newPrimaryAdvisorCollab.setPermission(CollaboratorPermission.FULL_ACCESS); // Orientador principal usualmente tem acesso total
             collaboratorRepository.save(newPrimaryAdvisorCollab);
             
-            document.setAdvisor(newAdvisor); // Atualiza o campo legado para consistência/fallback
             updated = true;
             logger.info("Orientador principal do Documento ID {} alterado para {}", id, newAdvisor.getEmail());
         }

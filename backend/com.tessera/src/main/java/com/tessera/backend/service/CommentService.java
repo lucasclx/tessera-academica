@@ -3,16 +3,19 @@ package com.tessera.backend.service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import com.tessera.backend.dto.CommentDTO;
 import com.tessera.backend.entity.Comment;
 import com.tessera.backend.entity.Document;
 import com.tessera.backend.entity.User;
 import com.tessera.backend.entity.Version;
+import com.tessera.backend.entity.DocumentCollaborator;
 import com.tessera.backend.exception.ResourceNotFoundException;
 import com.tessera.backend.exception.PermissionDeniedException;
 import com.tessera.backend.repository.CommentRepository;
@@ -37,9 +40,10 @@ public class CommentService {
         
         Document document = version.getDocument();
         
-        // Verificar permissões - apenas orientador e aluno podem comentar
-        if (!currentUser.getId().equals(document.getStudent().getId()) &&
-            !currentUser.getId().equals(document.getAdvisor().getId())) {
+        // Verificar permissões pelo colaborador
+        DocumentCollaborator collab = document.getCollaborator(currentUser)
+                .orElseThrow(() -> new PermissionDeniedException("Você não tem permissão para comentar nesta versão"));
+        if (!collab.getPermission().canComment()) {
             throw new PermissionDeniedException("Você não tem permissão para comentar nesta versão");
         }
         
@@ -52,7 +56,6 @@ public class CommentService {
         
         comment = commentRepository.save(comment);
         
-        // Disparar evento de notificação
         notificationEventService.onCommentAdded(comment, currentUser);
         
         return mapToDTO(comment);
@@ -100,7 +103,6 @@ public class CommentService {
         Comment comment = commentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Comentário não encontrado"));
         
-        // Verificar se o usuário é o autor do comentário
         if (!currentUser.getId().equals(comment.getUser().getId())) {
             throw new PermissionDeniedException("Você não tem permissão para editar este comentário");
         }
@@ -120,9 +122,9 @@ public class CommentService {
         
         Document document = comment.getVersion().getDocument();
         
-        // Verificar permissões - apenas orientador e aluno podem resolver comentários
-        if (!currentUser.getId().equals(document.getStudent().getId()) &&
-            !currentUser.getId().equals(document.getAdvisor().getId())) {
+        DocumentCollaborator collab = document.getCollaborator(currentUser)
+                .orElseThrow(() -> new PermissionDeniedException("Você não tem permissão para resolver este comentário"));
+        if (!collab.getPermission().canComment()) {
             throw new PermissionDeniedException("Você não tem permissão para resolver este comentário");
         }
         
@@ -132,7 +134,6 @@ public class CommentService {
         
         comment = commentRepository.save(comment);
         
-        // Disparar evento de notificação
         notificationEventService.onCommentResolved(comment, currentUser);
         
         return mapToDTO(comment);
@@ -145,11 +146,12 @@ public class CommentService {
         
         Document document = comment.getVersion().getDocument();
         
-        // Verificar permissões - autor do comentário, orientador ou aluno podem deletar
-        if (!currentUser.getId().equals(comment.getUser().getId()) &&
-            !currentUser.getId().equals(document.getStudent().getId()) &&
-            !currentUser.getId().equals(document.getAdvisor().getId())) {
-            throw new PermissionDeniedException("Você não tem permissão para deletar este comentário");
+        if (!currentUser.getId().equals(comment.getUser().getId())) {
+            DocumentCollaborator collab = document.getCollaborator(currentUser)
+                    .orElseThrow(() -> new PermissionDeniedException("Você não tem permissão para deletar este comentário"));
+            if (!collab.getPermission().canDeleteComments()) {
+                throw new PermissionDeniedException("Você não tem permissão para deletar este comentário");
+            }
         }
         
         commentRepository.delete(comment);

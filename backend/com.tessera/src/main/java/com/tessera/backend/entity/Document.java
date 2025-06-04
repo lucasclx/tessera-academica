@@ -31,14 +31,7 @@ public class Document {
     @Column(columnDefinition = "TEXT")
     private String description;
     
-    // CAMPOS MANTIDOS PARA COMPATIBILIDADE (serão gradualmente depreciados)
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "student_id")
-    private User student;
-    
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "advisor_id")
-    private User advisor;
+    // Campos student/advisor removidos. Toda a relação é tratada por DocumentCollaborator
     
     // NOVA RELAÇÃO PARA COLABORADORES MÚLTIPLOS
     @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
@@ -102,7 +95,7 @@ public class Document {
                 .filter(c -> c.isActive() && c.getRole() == CollaboratorRole.PRIMARY_STUDENT)
                 .map(DocumentCollaborator::getUser)
                 .findFirst()
-                .orElse(student); // Fallback para compatibilidade
+                .orElse(null);
     }
     
     /**
@@ -113,7 +106,7 @@ public class Document {
                 .filter(c -> c.isActive() && c.getRole() == CollaboratorRole.PRIMARY_ADVISOR)
                 .map(DocumentCollaborator::getUser)
                 .findFirst()
-                .orElse(advisor); // Fallback para compatibilidade
+                .orElse(null);
     }
     
     /**
@@ -201,9 +194,6 @@ public class Document {
      */
     public String getAllStudentNames() {
         List<User> students = getAllStudents();
-        if (students.isEmpty() && student != null) {
-            return student.getName();
-        }
         return students.stream()
                 .map(User::getName)
                 .collect(Collectors.joining(", "));
@@ -214,9 +204,6 @@ public class Document {
      */
     public String getAllAdvisorNames() {
         List<User> advisors = getAllAdvisors();
-        if (advisors.isEmpty() && advisor != null) {
-            return advisor.getName();
-        }
         return advisors.stream()
                 .map(User::getName)
                 .collect(Collectors.joining(", "));
