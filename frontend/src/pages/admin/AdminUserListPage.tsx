@@ -1,4 +1,3 @@
-// Arquivo: srcs/src (cópia)/pages/admin/AdminUserListPage.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   UsersIcon,
