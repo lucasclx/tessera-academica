@@ -81,7 +81,6 @@
         </dependency>
 
 
-		<!-- Adicionar esta dependência no pom.xml, na seção <dependencies> -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-thymeleaf</artifactId>
@@ -93,7 +92,6 @@
             <version>1.2</version>
         </dependency>
 
-		<!-- Adicionar ao pom.xml se desejar suporte automático a .env -->
 		<dependency>
 			<groupId>me.paulschwarz</groupId>
 			<artifactId>spring-dotenv</artifactId>
