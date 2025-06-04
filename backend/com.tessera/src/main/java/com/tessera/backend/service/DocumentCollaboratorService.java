@@ -249,58 +249,6 @@ public class DocumentCollaboratorService {
         return mapToDTO(collaborator);
     }
     
-    /**
-     * Migra documentos existentes para o sistema de colaboradores
-     */
-    public void migrateExistingDocuments() {
-        List<Object[]> rows = documentRepository.findLegacyCollaboratorIds();
-        int migrated = 0;
-
-        for (Object[] row : rows) {
-            Long docId = ((Number) row[0]).longValue();
-            Long studentId = row[1] != null ? ((Number) row[1]).longValue() : null;
-            Long advisorId = row[2] != null ? ((Number) row[2]).longValue() : null;
-
-            Document document = documentRepository.findById(docId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Documento não encontrado"));
-
-            boolean needsMigration = false;
-
-            if (studentId != null && !document.hasPrimaryStudent()) {
-                User student = userRepository.findById(studentId).orElse(null);
-                if (student != null) {
-                    DocumentCollaborator dc = new DocumentCollaborator();
-                    dc.setDocument(document);
-                    dc.setUser(student);
-                    dc.setRole(CollaboratorRole.PRIMARY_STUDENT);
-                    dc.setPermission(CollaboratorPermission.FULL_ACCESS);
-                    dc.setAddedBy(student);
-                    collaboratorRepository.save(dc);
-                    needsMigration = true;
-                }
-            }
-
-            if (advisorId != null && !document.hasPrimaryAdvisor()) {
-                User advisor = userRepository.findById(advisorId).orElse(null);
-                if (advisor != null) {
-                    DocumentCollaborator dc = new DocumentCollaborator();
-                    dc.setDocument(document);
-                    dc.setUser(advisor);
-                    dc.setRole(CollaboratorRole.PRIMARY_ADVISOR);
-                    dc.setPermission(CollaboratorPermission.FULL_ACCESS);
-                    dc.setAddedBy(advisor);
-                    collaboratorRepository.save(dc);
-                    needsMigration = true;
-                }
-            }
-
-            if (needsMigration) {
-                migrated++;
-            }
-        }
-
-        logger.info("Migração concluída: {} documentos migrados", migrated);
-    }
     
     // =============================================================================
     // MÉTODOS AUXILIARES PRIVADOS
