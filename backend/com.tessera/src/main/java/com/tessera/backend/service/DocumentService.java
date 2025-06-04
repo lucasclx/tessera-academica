@@ -16,7 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional; // <-- ADICIONAR IMPORTAÇÃO
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -49,7 +49,7 @@ public class DocumentService {
         return user.getRoles().stream().anyMatch(role -> roleName.equals(role.getName()));
     }
 
-    @Transactional // Pode ser adicionado aqui para cobrir o método inteiro
+    @Transactional
     public DocumentDTO createDocument(DocumentDTO documentDTO, final User currentUser) {
         logger.info("Tentativa de criação de documento por {}: {}", currentUser.getEmail(), documentDTO.getTitle());
 
@@ -125,7 +125,7 @@ public class DocumentService {
         documentRepository.save(document);
     }
 
-    @Transactional(readOnly = true) // Adicionar aqui também para consistência e garantir que o mapeamento está na transação
+    @Transactional(readOnly = true)
     public DocumentDTO getDocument(Long id) {
         logger.debug("Buscando documento com ID: {}", id);
         Document document = documentRepository.findById(id)
@@ -144,7 +144,7 @@ public class DocumentService {
         return mapToDetailDTO(document, currentUser);
     }
 
-    @Transactional(readOnly = true) // <-- ADICIONAR ANOTAÇÃO AQUI
+    @Transactional(readOnly = true)
     public Page<DocumentDTO> getDocumentsByCollaborator(final User user, String searchTerm, String statusFilter, Pageable pageable) {
         logger.debug("Buscando documentos para colaborador: {}, searchTerm: '{}', statusFilter: '{}', pageable: {}", user.getEmail(), searchTerm, statusFilter, pageable);
         DocumentStatus status = parseStatus(statusFilter);
