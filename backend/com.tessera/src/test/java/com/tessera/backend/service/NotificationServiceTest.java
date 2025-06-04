@@ -20,6 +20,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import org.mockito.ArgumentMatchers;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -59,8 +60,12 @@ class NotificationServiceTest {
 
         verify(notificationRepository).save(any(Notification.class));
         verify(emailService).sendNotificationEmail(eq(user), any(Notification.class));
-        verify(messagingTemplate).convertAndSend(eq("/user/"+user.getEmail()+"/topic/notifications"), any());
-        verify(messagingTemplate).convertAndSend(eq("/user/"+user.getEmail()+"/topic/notification-summary"), any());
+        verify(messagingTemplate)
+                .convertAndSend(eq("/user/"+user.getEmail()+"/topic/notifications"),
+                                ArgumentMatchers.<Object>any());
+        verify(messagingTemplate)
+                .convertAndSend(eq("/user/"+user.getEmail()+"/topic/notification-summary"),
+                                ArgumentMatchers.<Object>any());
     }
 
     @Test
@@ -76,7 +81,9 @@ class NotificationServiceTest {
         assertTrue(n.isRead());
         assertNotNull(n.getReadAt());
         verify(notificationRepository).save(n);
-        verify(messagingTemplate).convertAndSend(eq("/user/"+user.getEmail()+"/topic/notification-summary"), any());
+        verify(messagingTemplate)
+                .convertAndSend(eq("/user/"+user.getEmail()+"/topic/notification-summary"),
+                                ArgumentMatchers.<Object>any());
     }
 
     @Test
@@ -85,7 +92,9 @@ class NotificationServiceTest {
 
         service.markAllAsRead(user);
 
-        verify(messagingTemplate).convertAndSend(eq("/user/"+user.getEmail()+"/topic/notification-summary"), any());
+        verify(messagingTemplate)
+                .convertAndSend(eq("/user/"+user.getEmail()+"/topic/notification-summary"),
+                                ArgumentMatchers.<Object>any());
     }
 
     @Test
