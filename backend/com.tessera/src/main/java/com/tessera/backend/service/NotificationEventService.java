@@ -307,12 +307,12 @@ public class NotificationEventService {
     private void sendNotification(User user, String title, String message, String type) {
         // Log simples para debug
         logger.debug("NOTIFICAÇÃO [{}] para {}: {} - {}", type, user.getEmail(), title, message);
-        
+
         // Se o NotificationService estiver disponível, usar ele
         if (notificationService != null) {
             try {
-                // Aqui você pode implementar o envio real via NotificationService
-                // notificationService.createNotification(user, type, title, message, ...);
+                NotificationType notificationType = NotificationType.valueOf(type);
+                notificationService.createNotification(user, notificationType, title, message, null, null, null, null);
             } catch (Exception e) {
                 System.err.println("Erro ao enviar notificação: " + e.getMessage());
             }

@@ -1,11 +1,12 @@
 // src/App.tsx - CORRIGIDO
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { debugLog } from './utils/logger';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useAuthStore } from './store/authStore';
+import { useThemeStore } from './store/themeStore';
 
 // Componentes de Layout e Proteção (carregados diretamente)
 import Layout from './components/Layout/Layout';
@@ -49,6 +50,16 @@ const queryClient = new QueryClient({
 
 const App: React.FC = () => {
   const { isAuthenticated } = useAuthStore();
+  const { theme } = useThemeStore();
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  }, [theme]);
 
   debugLog('🚀 App renderizando', { isAuthenticated });
 
