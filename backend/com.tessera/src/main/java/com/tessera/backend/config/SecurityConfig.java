@@ -63,7 +63,7 @@ public class SecurityConfig {
                         "/v3/api-docs/**",
                         "/swagger-ui/**",
                         "/swagger-ui.html",
-                        "/ws/**" // <-- ADICIONE ESTA LINHA PARA PERMITIR ACESSO AOS ENDPOINTS WEBSOCKET/SOCKJS
+                        "/ws/**"
                 ).permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers("/advisor/**").hasRole("ADVISOR") 
