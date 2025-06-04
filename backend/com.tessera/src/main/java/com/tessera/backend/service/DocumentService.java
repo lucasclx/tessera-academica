@@ -53,40 +53,21 @@ public class DocumentService {
     public DocumentDTO createDocument(DocumentDTO documentDTO, final User currentUser) {
         logger.info("Tentativa de criação de documento por {}: {}", currentUser.getEmail(), documentDTO.getTitle());
 
-        Long tempTargetStudentId = documentDTO.getStudentId();
-        if (tempTargetStudentId == null) {
-            if (userHasRole(currentUser, "STUDENT")) { 
-                tempTargetStudentId = currentUser.getId();
-                logger.debug("Nenhum studentId fornecido por estudante {}, usando o ID do próprio usuário: {}", currentUser.getEmail(), tempTargetStudentId);
-            } else {
-                throw new IllegalArgumentException("studentId é obrigatório para criação de documento por não-estudantes.");
-            }
+        if (!userHasRole(currentUser, "STUDENT")) {
+            throw new IllegalArgumentException("Apenas estudantes podem criar documentos.");
         }
-        final Long finalTargetStudentId = tempTargetStudentId;
 
-        final User student = userRepository.findById(finalTargetStudentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Estudante alvo não encontrado com ID: " + finalTargetStudentId));
-
-        User advisor = userRepository.findById(documentDTO.getAdvisorId())
-                .orElseThrow(() -> new ResourceNotFoundException("Orientador não encontrado com ID: " + documentDTO.getAdvisorId()));
-
-        boolean isAdmin = userHasRole(currentUser, "ADMIN"); 
-        if (!currentUser.getId().equals(student.getId()) && !isAdmin) {
-            logger.warn("Permissão negada: Usuário {} tentou criar documento para estudante {}", currentUser.getEmail(), student.getEmail());
-            throw new UnauthorizedOperationException("Você não tem permissão para criar documentos para este estudante.");
-        }
+        final User student = currentUser;
 
         Document document = new Document();
         document.setTitle(documentDTO.getTitle());
         document.setDescription(documentDTO.getDescription());
-        document.setStudent(student); // Mantido para compatibilidade/fallback
-        document.setAdvisor(advisor); // Mantido para compatibilidade/fallback
         document.setStatus(DocumentStatus.DRAFT);
 
         Document savedDocument = documentRepository.save(document);
         logger.info("Documento salvo com ID: {}", savedDocument.getId());
 
-        createPrimaryCollaborators(savedDocument, student, advisor, currentUser);
+        createPrimaryStudent(savedDocument, student, currentUser);
 
         notificationEventService.onDocumentCreated(savedDocument, currentUser);
         logger.info("Notificação de criação de documento disparada para o documento ID: {}", savedDocument.getId());
@@ -94,7 +75,7 @@ public class DocumentService {
         return mapToDTO(savedDocument);
     }
 
-    private void createPrimaryCollaborators(Document document, User studentUser, User advisorUser, final User addedBy) {
+    private void createPrimaryStudent(Document document, User studentUser, final User addedBy) {
         DocumentCollaborator studentCollaborator = new DocumentCollaborator();
         studentCollaborator.setDocument(document);
         studentCollaborator.setUser(studentUser);
@@ -105,23 +86,7 @@ public class DocumentService {
         studentCollaborator.setAddedAt(LocalDateTime.now());
         collaboratorRepository.save(studentCollaborator);
         logger.info("Colaborador Estudante Principal (ID: {}) adicionado ao Documento ID: {}", studentUser.getId(), document.getId());
-
-        DocumentCollaborator advisorCollaborator = new DocumentCollaborator();
-        advisorCollaborator.setDocument(document);
-        advisorCollaborator.setUser(advisorUser);
-        advisorCollaborator.setRole(CollaboratorRole.PRIMARY_ADVISOR);
-        advisorCollaborator.setPermission(CollaboratorPermission.FULL_ACCESS);
-        advisorCollaborator.setAddedBy(addedBy);
-        advisorCollaborator.setActive(true);
-        advisorCollaborator.setAddedAt(LocalDateTime.now());
-        collaboratorRepository.save(advisorCollaborator);
-        logger.info("Colaborador Orientador Principal (ID: {}) adicionado ao Documento ID: {}", advisorUser.getId(), document.getId());
-
-        // Adicionar à lista de colaboradores do documento se a gestão for feita pela entidade Document
-        // document.getCollaborators().add(studentCollaborator);
-        // document.getCollaborators().add(advisorCollaborator);
-        // Se o DocumentRepository salva o Document e os Collaborators são salvos separadamente,
-        // o importante é que as referências estejam corretas.
+        // Documentos novos não têm orientador por padrão; ele deverá ser adicionado depois
     }
 
     @Transactional(readOnly = true) // Adicionar aqui também para consistência e garantir que o mapeamento está na transação
@@ -204,47 +169,6 @@ public class DocumentService {
             updated = true;
         }
 
-        // Atualização do orientador principal via sistema de colaboradores
-        if (documentDTO.getAdvisorId() != null && 
-            (document.getPrimaryAdvisor() == null || !documentDTO.getAdvisorId().equals(document.getPrimaryAdvisor().getId()))) {
-            
-            User newAdvisor = userRepository.findById(documentDTO.getAdvisorId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Novo orientador não encontrado com ID: " + documentDTO.getAdvisorId()));
-
-            // Rebaixa o orientador principal atual, se existir e for diferente do novo
-            document.getCollaborators().stream()
-                .filter(c -> c.isActive() && c.getRole() == CollaboratorRole.PRIMARY_ADVISOR && !c.getUser().getId().equals(newAdvisor.getId()))
-                .findFirst()
-                .ifPresent(oldPrimary -> {
-                    oldPrimary.setRole(CollaboratorRole.SECONDARY_ADVISOR); // Ou outro papel apropriado
-                    // oldPrimary.setPermission(CollaboratorPermission.READ_WRITE); // Ajustar permissão se necessário
-                    collaboratorRepository.save(oldPrimary);
-                    logger.info("Orientador Principal anterior (ID: {}) do Documento ID {} rebaixado para SECUNDARY_ADVISOR.", oldPrimary.getUser().getId(), id);
-                });
-            
-            // Promove ou adiciona o novo orientador principal
-            DocumentCollaborator newPrimaryAdvisorCollab = document.getCollaborators().stream()
-                .filter(c -> c.getUser().getId().equals(newAdvisor.getId()) && c.isActive())
-                .findFirst()
-                .orElseGet(() -> { // Cria novo colaborador se não existir
-                    DocumentCollaborator newCollab = new DocumentCollaborator();
-                    newCollab.setDocument(document);
-                    newCollab.setUser(newAdvisor);
-                    newCollab.setAddedBy(currentUser); // Quem está fazendo a alteração
-                    newCollab.setAddedAt(LocalDateTime.now());
-                    newCollab.setActive(true);
-                    // document.getCollaborators().add(newCollab); // Adicionar à lista em memória, JPA fará o resto
-                    return newCollab;
-                });
-            
-            newPrimaryAdvisorCollab.setRole(CollaboratorRole.PRIMARY_ADVISOR);
-            newPrimaryAdvisorCollab.setPermission(CollaboratorPermission.FULL_ACCESS); // Orientador principal usualmente tem acesso total
-            collaboratorRepository.save(newPrimaryAdvisorCollab);
-            
-            document.setAdvisor(newAdvisor); // Atualiza o campo legado para consistência/fallback
-            updated = true;
-            logger.info("Orientador principal do Documento ID {} alterado para {}", id, newAdvisor.getEmail());
-        }
 
 
         if (updated) {
@@ -407,21 +331,6 @@ public class DocumentService {
         dto.setDescription(document.getDescription());
         dto.setStatus(document.getStatus());
 
-        // Usa os métodos da entidade Document que já encapsulam a lógica de fallback e colaboradores
-        User primaryStudent = document.getPrimaryStudent();
-        if (primaryStudent != null) {
-            dto.setStudentId(primaryStudent.getId());
-            dto.setStudentName(primaryStudent.getName());
-        }
-        // Se primaryStudent for nulo, studentId e studentName no DTO permanecerão nulos, o que é ok.
-
-        User primaryAdvisor = document.getPrimaryAdvisor();
-        if (primaryAdvisor != null) {
-            dto.setAdvisorId(primaryAdvisor.getId());
-            dto.setAdvisorName(primaryAdvisor.getName());
-        }
-        // Se primaryAdvisor for nulo, advisorId e advisorName no DTO permanecerão nulos.
-        
         dto.setCreatedAt(document.getCreatedAt());
         dto.setUpdatedAt(document.getUpdatedAt());
         dto.setSubmittedAt(document.getSubmittedAt());

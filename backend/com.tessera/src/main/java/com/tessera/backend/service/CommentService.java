@@ -36,9 +36,11 @@ public class CommentService {
         
         Document document = version.getDocument();
         
-        // Verificar permissões - apenas orientador e aluno podem comentar
-        if (!currentUser.getId().equals(document.getStudent().getId()) && 
-            !currentUser.getId().equals(document.getAdvisor().getId())) {
+        // Verificar permissões - apenas colaboradores estudantes ou orientadores podem comentar
+        boolean allowed = document.getCollaborator(currentUser)
+                .map(c -> c.getRole().isStudent() || c.getRole().isAdvisor())
+                .orElse(false);
+        if (!allowed) {
             throw new RuntimeException("Você não tem permissão para comentar nesta versão");
         }
         
@@ -119,9 +121,11 @@ public class CommentService {
         
         Document document = comment.getVersion().getDocument();
         
-        // Verificar permissões - apenas orientador e aluno podem resolver comentários
-        if (!currentUser.getId().equals(document.getStudent().getId()) && 
-            !currentUser.getId().equals(document.getAdvisor().getId())) {
+        // Verificar permissões - apenas colaboradores estudantes ou orientadores podem resolver
+        boolean allowed = document.getCollaborator(currentUser)
+                .map(c -> c.getRole().isStudent() || c.getRole().isAdvisor())
+                .orElse(false);
+        if (!allowed) {
             throw new RuntimeException("Você não tem permissão para resolver este comentário");
         }
         
@@ -144,10 +148,12 @@ public class CommentService {
         
         Document document = comment.getVersion().getDocument();
         
-        // Verificar permissões - autor do comentário, orientador ou aluno podem deletar
-        if (!currentUser.getId().equals(comment.getUser().getId()) &&
-            !currentUser.getId().equals(document.getStudent().getId()) && 
-            !currentUser.getId().equals(document.getAdvisor().getId())) {
+        // Verificar permissões - autor do comentário, estudantes ou orientadores podem deletar
+        boolean allowed = currentUser.getId().equals(comment.getUser().getId()) ||
+                document.getCollaborator(currentUser)
+                        .map(c -> c.getRole().isStudent() || c.getRole().isAdvisor())
+                        .orElse(false);
+        if (!allowed) {
             throw new RuntimeException("Você não tem permissão para deletar este comentário");
         }
         

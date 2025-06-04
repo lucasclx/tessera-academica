@@ -38,9 +38,12 @@ public class VersionService {
         Document document = documentRepository.findById(versionDTO.getDocumentId())
                 .orElseThrow(() -> new ResourceNotFoundException("Documento não encontrado"));
         
-        // Verificar permissões - apenas o estudante pode criar versões em documentos de rascunho ou revisão
-        if (!currentUser.getId().equals(document.getStudent().getId())) {
-            throw new RuntimeException("Apenas o estudante pode criar novas versões");
+        // Verificar permissões - somente colaboradores estudantes podem criar novas versões
+        boolean allowed = document.getCollaborator(currentUser)
+                .map(c -> c.getRole().isStudent())
+                .orElse(false);
+        if (!allowed) {
+            throw new RuntimeException("Apenas estudantes podem criar novas versões");
         }
         
         // Verificar se o documento está em status que permite novas versões

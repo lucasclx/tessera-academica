@@ -246,46 +246,6 @@ public class DocumentCollaboratorService {
     /**
      * Migra documentos existentes para o sistema de colaboradores
      */
-    public void migrateExistingDocuments() {
-        List<Document> documents = documentRepository.findAll();
-        int migrated = 0;
-        
-        for (Document document : documents) {
-            boolean needsMigration = false;
-            
-            // Adicionar estudante principal se não existir como colaborador
-            if (document.getStudent() != null && !document.hasPrimaryStudent()) {
-                DocumentCollaborator studentCollaborator = new DocumentCollaborator();
-                studentCollaborator.setDocument(document);
-                studentCollaborator.setUser(document.getStudent());
-                studentCollaborator.setRole(CollaboratorRole.PRIMARY_STUDENT);
-                studentCollaborator.setPermission(CollaboratorPermission.FULL_ACCESS);
-                studentCollaborator.setAddedBy(document.getStudent());
-                collaboratorRepository.save(studentCollaborator);
-                needsMigration = true;
-            }
-            
-            // Adicionar orientador principal se não existir como colaborador
-            if (document.getAdvisor() != null && !document.hasPrimaryAdvisor()) {
-                DocumentCollaborator advisorCollaborator = new DocumentCollaborator();
-                advisorCollaborator.setDocument(document);
-                advisorCollaborator.setUser(document.getAdvisor());
-                advisorCollaborator.setRole(CollaboratorRole.PRIMARY_ADVISOR);
-                advisorCollaborator.setPermission(CollaboratorPermission.FULL_ACCESS);
-                advisorCollaborator.setAddedBy(document.getStudent());
-                collaboratorRepository.save(advisorCollaborator);
-                needsMigration = true;
-            }
-            
-            if (needsMigration) {
-                migrated++;
-            }
-        }
-        
-        System.out.println("Migração concluída: " + migrated + " documentos migrados");
-    }
-    
-    // =============================================================================
     // MÉTODOS AUXILIARES PRIVADOS
     // =============================================================================
     

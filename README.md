@@ -52,3 +52,6 @@ Os arquivos de produção ficam em `dist/`.
 ---
 
 Com o backend e o frontend executando, acesse a interface em `http://localhost:3000` e utilize o sistema normalmente.
+
+### Database Migration
+A SQL script to migrate legacy `student_id` and `advisor_id` fields to the new `document_collaborators` table is available in `backend/db/migration/V1__migrate_student_advisor_to_collaborators.sql`.

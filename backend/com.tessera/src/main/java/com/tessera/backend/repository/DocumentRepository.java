@@ -15,11 +15,7 @@ import java.util.List;
 @Repository
 public interface DocumentRepository extends JpaRepository<Document, Long> {
     
-    // Métodos existentes mantidos para compatibilidade
-    Page<Document> findByStudent(User student, Pageable pageable);
-    Page<Document> findByAdvisor(User advisor, Pageable pageable);
-    Page<Document> findByStudentAndStatus(User student, DocumentStatus status, Pageable pageable);
-    Page<Document> findByAdvisorAndStatus(User advisor, DocumentStatus status, Pageable pageable);
+
     
     // Novos métodos para busca por colaboradores
     @Query("SELECT DISTINCT d FROM Document d " +
