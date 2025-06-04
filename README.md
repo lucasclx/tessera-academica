@@ -41,7 +41,7 @@ Os arquivos de produção ficam em `dist/`.
 
 2. **Frontend**
 
-   No diretório `frontend`, crie um `.env` definindo `VITE_API_BASE_URL` para a URL do backend e rode:
+   Copie `frontend/.env.example` para `.env`, defina `VITE_API_BASE_URL` com a URL do backend e rode:
 
    ```bash
    npm run dev
