@@ -68,7 +68,10 @@ export interface Document {
   id: number;
   title: string;
   description: string;
-  status: 'DRAFT' | 'SUBMITTED' | 'REVISION' | 'APPROVED' | 'FINALIZED';
+  status: 'DRAFT' | 'SUBMITTED' | 'REVISION' | 'REJECTED' | 'APPROVED' | 'FINALIZED';
+  studentId?: number;
+  advisorId?: number;
+
   studentName: string;
   advisorName: string;
   createdAt: string;

@@ -110,6 +110,8 @@ const DocumentListPage: React.FC = () => {
         };
       case 'REVISION':
         return { label: 'Em Revisão', color: 'status-revision', icon: ExclamationTriangleIcon };
+      case 'REJECTED':
+        return { label: 'Rejeitado', color: 'status-revision', icon: ExclamationTriangleIcon };
       case 'APPROVED':
         return { label: 'Aprovado', color: 'status-approved', icon: CheckCircleIcon };
       case 'FINALIZED':
@@ -132,6 +134,7 @@ const DocumentListPage: React.FC = () => {
     { value: 'DRAFT', label: 'Rascunho' },
     { value: 'SUBMITTED', label: isAdvisor() ? 'Aguardando Revisão' : 'Submetido' },
     { value: 'REVISION', label: 'Em Revisão' },
+    { value: 'REJECTED', label: 'Rejeitado' },
     { value: 'APPROVED', label: 'Aprovado' },
     { value: 'FINALIZED', label: 'Finalizado' },
   ];

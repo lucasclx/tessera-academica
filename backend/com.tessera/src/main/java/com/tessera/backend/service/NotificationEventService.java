@@ -75,9 +75,15 @@ public class NotificationEventService {
                 
             case REVISION:
                 title = "Revisão solicitada";
-                message = String.format("O orientador %s solicitou revisões no documento '%s'", 
+                message = String.format("O orientador %s solicitou revisões no documento '%s'",
                                       changedBy.getName(), document.getTitle());
                 notificationType = "DOCUMENT_REVISION_REQUESTED";
+                break;
+            case REJECTED:
+                title = "Documento rejeitado";
+                message = String.format("O orientador %s rejeitou o documento '%s'",
+                                      changedBy.getName(), document.getTitle());
+                notificationType = "DOCUMENT_REJECTED";
                 break;
                 
             case FINALIZED:

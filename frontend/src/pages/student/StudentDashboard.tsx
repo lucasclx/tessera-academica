@@ -60,6 +60,8 @@ const StudentDashboard: React.FC = () => {
         return { label: 'Submetido', color: 'status-submitted', icon: ClockIcon };
       case 'REVISION':
         return { label: 'Em Revisão', color: 'status-revision', icon: ExclamationTriangleIcon };
+      case 'REJECTED':
+        return { label: 'Rejeitado', color: 'status-revision', icon: ExclamationTriangleIcon };
       case 'APPROVED':
         return { label: 'Aprovado', color: 'status-approved', icon: CheckCircleIcon };
       case 'FINALIZED':
