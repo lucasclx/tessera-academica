@@ -54,7 +54,7 @@ dependências necessárias.
 
 1. **Backend**
 
-   Copie `backend/com.tessera/.env.example` para `.env`, ajuste as variáveis (banco de dados, JWT, etc.) e execute:
+   Copie `backend/com.tessera/.env.example` para `.env`, ajuste as variáveis (banco de dados, JWT, CORS, etc.) e execute:
 
    ```bash
    cd backend/com.tessera
@@ -62,6 +62,7 @@ dependências necessárias.
    ```
 
    O serviço inicia em `http://localhost:8080`.
+   Defina `ALLOWED_ORIGINS` ou a propriedade `app.cors.allowed-origins` para controlar quais origens podem acessar o backend.
 
 2. **Frontend**
 
