@@ -43,8 +43,8 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
         }}
       />
       
-      {process.env.NODE_ENV === 'development' && (
-        <ReactQueryDevtools 
+      {import.meta.env.DEV && (
+        <ReactQueryDevtools
           initialIsOpen={false}
           position="bottom-right"
         />

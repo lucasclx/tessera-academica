@@ -34,7 +34,7 @@ class Analytics {
   }
 
   private sendEvent(event: AnalyticsEvent) {
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.log('📊 Analytics:', event);
       return;
     }
