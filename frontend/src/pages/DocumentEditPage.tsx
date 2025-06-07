@@ -9,6 +9,8 @@ import {
   DocumentArrowUpIcon as SaveIcon,
   ClockIcon,
   TrashIcon,
+  ArrowDownTrayIcon,
+
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../store/authStore';
 import { documentsApi, versionsApi, DocumentDetailDTO, Version } from '../lib/api';
@@ -20,6 +22,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import { formatDateTime } from '../utils/dateUtils';
 import { useWebSocket } from '../components/providers/WebSocketProvider';
+import { exportHtmlToPdf, sanitizeFilename } from '../utils/pdfExport';
 
 const schema = yup.object({
   title: yup
@@ -95,6 +98,8 @@ const DocumentEditor: React.FC<{
   commitMessage: string;
   setCommitMessage: (message: string) => void;
   onContentChange: (newContent: string) => void; // Será o 'onChange' do Tiptap
+  onSelectionChange?: (sel: { from: number; to: number }) => void;
+  onAddComment?: (sel: { from: number; to: number }) => void;
   isEditingDoc: boolean; // Renomeado para clareza, para diferenciar do 'editable' do Tiptap
   latestVersion?: Version | null;
   disabled?: boolean; // Para desabilitar campos e editor
@@ -104,6 +109,8 @@ const DocumentEditor: React.FC<{
   commitMessage,
   setCommitMessage,
   onContentChange,
+  onSelectionChange,
+  onAddComment,
   isEditingDoc,
   latestVersion,
   disabled = false,
@@ -142,6 +149,8 @@ const DocumentEditor: React.FC<{
           ref={editorRef}
           content={initialContent} // Passa o conteúdo inicial
           onChange={onContentChange} // Callback para mudanças
+          onSelectionChange={onSelectionChange}
+          onAddComment={onAddComment}
           placeholder="Comece a escrever seu documento aqui..."
           className="border border-gray-300 rounded-lg shadow-sm overflow-hidden" // Estilo para o wrapper do Tiptap
           editorClassName="min-h-[400px] p-4" // Estilo para a área de edição do Tiptap
@@ -172,16 +181,52 @@ const DocumentEditPage: React.FC = () => {
   const editorRef = useRef<EditorRef>(null);
 
   const [latestVersion, setLatestVersion] = useState<Version | null>(null);
-  const [editorInitialContent, setEditorInitialContent] = useState('');
+  const draftKey = `documentDraft_${id ?? 'new'}`;
+  const savedDraft = (() => {
+    if (typeof window === 'undefined') return null;
+    const raw = localStorage.getItem(draftKey);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as { title: string; description?: string; content: string };
+    } catch {
+      return null;
+    }
+  })();
+
+  const [editorInitialContent, setEditorInitialContent] = useState(
+    savedDraft?.content || ''
+  );
   const [commitMessage, setCommitMessage] = useState('');
   const [pageLoading, setPageLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(Boolean(savedDraft));
   const [activeEditors, setActiveEditors] = useState<{ id: number; name: string }[]>([]);
+  const [selection, setSelection] = useState<{ from: number; to: number } | null>(null);
+  const [isCommentPanelOpen, setIsCommentPanelOpen] = useState(false);
 
   const { sendMessage, subscribe } = useWebSocket();
 
   const isEditing = Boolean(id);
+
+  const saveDraftToStorage = useCallback(
+    (content?: string) => {
+      const values = getValues();
+      const draft = {
+        title: values.title,
+        description: values.description || '',
+        content:
+          content !== undefined
+            ? content
+            : editorRef.current?.getContent() || '',
+      };
+      try {
+        localStorage.setItem(draftKey, JSON.stringify(draft));
+      } catch {
+        // ignore storage errors
+      }
+    },
+    [draftKey, getValues]
+  );
 
 
   const { data: documentData, loading: documentLoading, refetch: refetchDocument, error: documentError } = useApiData<DocumentDetailDTO>(
@@ -194,68 +239,88 @@ const DocumentEditPage: React.FC = () => {
     register,
     handleSubmit,
     reset,
+    getValues,
     formState: { errors, dirtyFields },
   } = useForm<FormData>({
     resolver: yupResolver(schema),
-    defaultValues: { title: '', description: '' }
+    defaultValues: {
+      title: savedDraft?.title || '',
+      description: savedDraft?.description || '',
+    },
   });
 
-  const loadLatestVersion = useCallback(async (docId: number) => {
-    try {
-      debugLog('DocumentEditPage: 📥 Carregando versões do documento', docId);
-      const versions = await versionsApi.getByDocument(docId);
-      if (versions.length > 0) {
-        const latest = versions[0];
-        debugLog('DocumentEditPage: 📝 Última versão encontrada:', latest.versionNumber);
-        setLatestVersion(latest);
-        setEditorInitialContent(latest.content);
-      } else {
-        debugLog('DocumentEditPage: 📝 Nenhuma versão encontrada para doc existente, editor vazio.');
-        setLatestVersion(null);
-        setEditorInitialContent('');
-      }
-    } catch (error) {
+  const loadLatestVersion = useCallback(
+    async (docId: number) => {
+      try {
+        debugLog('DocumentEditPage: 📥 Carregando versões do documento', docId);
+        const versions = await versionsApi.getByDocument(docId);
+        if (versions.length > 0) {
+          const latest = versions[0];
+          debugLog('DocumentEditPage: 📝 Última versão encontrada:', latest.versionNumber);
+          setLatestVersion(latest);
+          if (!savedDraft) {
+            setEditorInitialContent(latest.content);
+          }
+        } else {
+          debugLog('DocumentEditPage: 📝 Nenhuma versão encontrada para doc existente, editor vazio.');
+          setLatestVersion(null);
+          if (!savedDraft) {
+            setEditorInitialContent('');
+          }
+        }
+      } catch (error) {
       console.error('DocumentEditPage: ❌ Erro ao carregar versões:', error);
       toast.error('Erro ao carregar o conteúdo da última versão do documento');
-      setEditorInitialContent('');
-    }
-  }, []);
+        if (!savedDraft) {
+          setEditorInitialContent('');
+        }
+      }
+    },
+    [savedDraft]
+  );
 
   useEffect(() => {
     const currentOverallLoading = isEditing && documentLoading;
     setPageLoading(currentOverallLoading);
 
-    if (!currentOverallLoading) {
-      if (isEditing) {
-        if (documentData) {
-          debugLog('DocumentEditPage: 🔄 Sincronizando dados do documento existente com formulário', documentData);
-          reset({
-            title: documentData.title,
-            description: documentData.description || '',
-          });
-          loadLatestVersion(Number(id));
-        } else if (documentError) {
-            toast.error("Falha ao carregar dados do documento para edição.");
+      if (!currentOverallLoading) {
+        if (isEditing) {
+          if (documentData) {
+            debugLog('DocumentEditPage: 🔄 Sincronizando dados do documento existente com formulário', documentData);
+            if (!savedDraft) {
+              reset({
+                title: documentData.title,
+                description: documentData.description || '',
+              });
+              loadLatestVersion(Number(id));
+            } else {
+              loadLatestVersion(Number(id));
+            }
+          } else if (documentError) {
+              toast.error("Falha ao carregar dados do documento para edição.");
+          }
+        } else {
+          debugLog('DocumentEditPage: 🆕 Novo documento - resetando formulário e definindo editorInitialContent');
+          if (!savedDraft) {
+            reset({ title: '', description: '' });
+            setLatestVersion(null);
+            setEditorInitialContent(''); // Tiptap receberá string vazia como prop 'content'
+          }
+          setHasUnsavedChanges(Boolean(savedDraft));
         }
-      } else {
-        debugLog('DocumentEditPage: 🆕 Novo documento - resetando formulário e definindo editorInitialContent');
-        reset({ title: '', description: '' });
-        setLatestVersion(null);
-        setEditorInitialContent(''); // Tiptap receberá string vazia como prop 'content'
-        setHasUnsavedChanges(false);
       }
-    }
   }, [
     isEditing, id, reset, loadLatestVersion,
-    documentData, documentLoading, documentError,
-    
+    documentData, documentLoading, documentError, savedDraft
+
   ]);
 
 
   const handleFormChange = useCallback(() => {
     debugLog('DocumentEditPage: 📝 Formulário alterado');
     setHasUnsavedChanges(true);
-  }, []);
+    saveDraftToStorage();
+  }, [saveDraftToStorage]);
 
   const handleEditorContentChange = useCallback((newContent: string) => {
     debugLog('DocumentEditPage: ✏️ Conteúdo do editor (Tiptap) alterado.');
@@ -264,9 +329,19 @@ const DocumentEditPage: React.FC = () => {
     // Ou, o TiptapEditor pode internamente comparar antes de chamar onChange.
     // Por segurança, marcamos como alterado se o editor chamar.
     setHasUnsavedChanges(true);
+    saveDraftToStorage(newContent);
     // Não precisamos definir editorInitialContent aqui, pois onContentChange é para mudanças do usuário.
     // editorInitialContent é para o conteúdo que *vem* dos dados.
-  }, []);
+  }, [saveDraftToStorage]);
+
+  const handleExportPdf = useCallback(() => {
+    if (!editorRef.current) return;
+    const html = editorRef.current.getContent();
+    const title = isEditing && documentData ? documentData.title : 'documento';
+    const versionLabel = latestVersion ? `v${latestVersion.versionNumber}` : 'draft';
+    const filename = `${sanitizeFilename(title)}_${versionLabel}.pdf`;
+    exportHtmlToPdf(html, filename);
+  }, [isEditing, documentData, latestVersion]);
 
 
   useEffect(() => {
@@ -355,6 +430,7 @@ const DocumentEditPage: React.FC = () => {
 
         if (infoUpdated || versionCreated) {
             toast.success('Documento atualizado com sucesso!');
+            localStorage.removeItem(draftKey);
         } else {
             // react-hot-toast doesn't provide a dedicated `info` helper.
             // Use the default toast function to display informational messages.
@@ -381,6 +457,7 @@ const DocumentEditPage: React.FC = () => {
           });
         }
         toast.success('Documento criado com sucesso!');
+        localStorage.removeItem(draftKey);
         navigate(`/student/documents/${docIdToUse}/edit`, { replace: true });
         setActionLoading(false);
         return;
@@ -491,6 +568,10 @@ const DocumentEditPage: React.FC = () => {
                 )}
                 </button>
             )}
+            <button onClick={handleExportPdf} className="btn btn-primary" title="Exportar PDF">
+              <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
+              Exportar PDF
+            </button>
           </div>
         }
       />
@@ -515,11 +596,38 @@ const DocumentEditPage: React.FC = () => {
           commitMessage={commitMessage}
           setCommitMessage={setCommitMessage}
           onContentChange={handleEditorContentChange}
+          onSelectionChange={(sel) => setSelection(sel)}
+          onAddComment={(sel) => {
+            setSelection(sel);
+            setIsCommentPanelOpen(true);
+          }}
           isEditingDoc={isEditing}
           latestVersion={latestVersion}
           disabled={actionLoading || !canModifyDocument}
         />
       </form>
+
+      {isCommentPanelOpen && latestVersion && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto z-40">
+          <div className="relative top-0 right-0 h-full w-full max-w-md ml-auto bg-white shadow-xl flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <ChatBubbleLeftEllipsisIcon className="h-5 w-5 mr-2" /> Comentários
+              </h3>
+              <button onClick={() => setIsCommentPanelOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto flex-1">
+              <CommentThread
+                versionId={latestVersion.id}
+                selectedPosition={selection || undefined}
+                onCommentAdded={() => setIsCommentPanelOpen(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

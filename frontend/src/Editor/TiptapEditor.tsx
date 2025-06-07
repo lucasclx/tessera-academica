@@ -17,6 +17,7 @@ import TableHeader from '@tiptap/extension-table-header';
 import TableCell from '@tiptap/extension-table-cell';
 import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
+import { ChatBubbleLeftEllipsisIcon } from '@heroicons/react/24/outline';
 import {
   BoldIcon, ItalicIcon, UnderlineIcon, StrikethroughIcon, HighlighterIcon,
   AlignLeftIcon, AlignCenterIcon, AlignRightIcon, AlignJustifyIcon,
@@ -37,6 +38,7 @@ interface EditorProps {
   placeholder?: string;
   onChange: (content: string) => void;
   onSelectionChange?: (selection: { from: number; to: number }) => void;
+  onAddComment?: (selection: { from: number; to: number }) => void;
   editable?: boolean;
   className?: string;
   editorClassName?: string;
@@ -79,6 +81,7 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
   placeholder = 'Escreva seu texto aqui...',
   onChange,
   onSelectionChange,
+  onAddComment,
   editable = true,
   className = '',
   editorClassName = 'min-h-[300px] max-h-[600px] overflow-y-auto custom-scrollbar',
@@ -108,11 +111,9 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
     },
     onCreate: ({ editor: createdEditor}) => {
         // console.log("TiptapEditor: onCreate disparado");
-        setTimeout(() => {
-            if (!createdEditor.isDestroyed) {
-                setIsEditorReallyReady(true);
-            }
-        }, 50);
+        if (!createdEditor.isDestroyed) {
+            setIsEditorReallyReady(true);
+        }
     },
     onDestroy: () => {
         // console.log("TiptapEditor: onDestroy disparado");
@@ -267,6 +268,19 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
           <button onClick={() => editor.chain().focus().toggleStrike().run()} disabled={!editable || !editor.can().chain().focus().toggleStrike().run()} className={`p-1.5 rounded ${editor.isActive('strike') ? 'bg-primary-500 text-white' : 'hover:bg-gray-700'} disabled:opacity-50`} title="Riscado"><StrikethroughIcon size={16} /></button>
           <button onClick={() => editor.chain().focus().toggleSubscript().run()} disabled={!editable || !editor.can().chain().focus().toggleSubscript().run()} className={`p-1.5 rounded ${editor.isActive('subscript') ? 'bg-primary-500 text-white' : 'hover:bg-gray-700'} disabled:opacity-50`} title="Subscrito"><SubscriptIcon size={16} /></button>
           <button onClick={() => editor.chain().focus().toggleSuperscript().run()} disabled={!editable || !editor.can().chain().focus().toggleSuperscript().run()} className={`p-1.5 rounded ${editor.isActive('superscript') ? 'bg-primary-500 text-white' : 'hover:bg-gray-700'} disabled:opacity-50`} title="Sobrescrito"><SuperscriptIcon size={16} /></button>
+          {onAddComment && (
+            <button
+              onClick={() => {
+                const { from, to } = editor.state.selection;
+                onAddComment({ from, to });
+              }}
+              disabled={!editable}
+              className="p-1.5 rounded hover:bg-gray-700 disabled:opacity-50"
+              title="Comentar seleção"
+            >
+              <ChatBubbleLeftEllipsisIcon className="h-4 w-4" />
+            </button>
+          )}
           <button onClick={() => { const previousUrl = editor.getAttributes('link').href; const url = window.prompt('URL do link:', previousUrl || 'https://'); if (url === null) return; if (url === '') { editor.chain().focus().extendMarkRange('link').unsetLink().run(); return; } editor.chain().focus().extendMarkRange('link').setLink({ href: url, target: '_blank' }).run();}} disabled={!editable} className={`p-1.5 rounded ${editor.isActive('link') ? 'bg-primary-500 text-white' : 'hover:bg-gray-700'} disabled:opacity-50`} title="Link"><LinkIcon size={16} /></button>
         </BubbleMenu>
       )}
