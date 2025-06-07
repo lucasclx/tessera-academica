@@ -17,13 +17,16 @@ import TableHeader from '@tiptap/extension-table-header';
 import TableCell from '@tiptap/extension-table-cell';
 import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
-import { ChatBubbleLeftEllipsisIcon } from '@heroicons/react/24/outline';
+import MathExtension from '@aarkue/tiptap-math-extension';
+import 'katex/dist/katex.min.css';
+
 import {
   BoldIcon, ItalicIcon, UnderlineIcon, StrikethroughIcon, HighlighterIcon,
   AlignLeftIcon, AlignCenterIcon, AlignRightIcon, AlignJustifyIcon,
   ListIcon, ListOrderedIcon, QuoteIcon, CodeIcon, LinkIcon, ImageIcon,
   TableIcon, UndoIcon, RedoIcon, Heading1Icon, Heading2Icon, Heading3Icon, PilcrowIcon,
-  SubscriptIcon, SuperscriptIcon
+  SigmaIcon, FunctionSquareIcon
+
 } from 'lucide-react';
 
 const LoadingSpinner: React.FC<{ message?: string }> = ({ message }) => (
@@ -74,6 +77,7 @@ const editorExtensionsConfig = (placeholderText: string, charLimit?: number) => 
   TableCell.configure({ HTMLAttributes: { class: 'border border-gray-300 p-2 align-top' } }),
   Placeholder.configure({ placeholder: placeholderText }),
   CharacterCount.configure({ limit: charLimit }),
+  MathExtension.configure({ evaluation: false }),
 ];
 
 const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
@@ -184,6 +188,19 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
     const setLinkCallback = () => { const previousUrl = editor.getAttributes('link').href; const url = window.prompt('Insira a URL do link:', previousUrl || 'https://'); if (url === null) return; if (url === '') { editor.chain().focus().extendMarkRange('link').unsetLink().run(); return; } editor.chain().focus().extendMarkRange('link').setLink({ href: url, target: '_blank' }).run(); };
     const addImageCallback = () => { const url = window.prompt('Insira a URL da imagem:'); if (url) { editor.chain().focus().setImage({ src: url }).run(); } };
     const insertTableCallback = () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+    const insertInlineMath = () => {
+      const latex = window.prompt('Insira a expressão LaTeX:');
+      if (latex) {
+        editor.chain().focus().insertContent({ type: 'inlineMath', attrs: { latex, evaluate: 'no', display: 'no' } }).run();
+      }
+    };
+    const insertBlockMath = () => {
+      const latex = window.prompt('Insira a expressão LaTeX em bloco:');
+      if (latex) {
+        editor.chain().focus().insertContent({ type: 'inlineMath', attrs: { latex, evaluate: 'no', display: 'yes' } }).run();
+        editor.chain().focus().insertContent('<p></p>').run();
+      }
+    };
 
     return (
       <div className="editor-toolbar sticky top-0 z-10 bg-gray-50 border-b border-gray-200 p-1 sm:p-2 flex flex-wrap items-center gap-x-1 gap-y-0.5 min-h-[46px]">
@@ -222,6 +239,8 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
           <ToolbarButton onClick={setLinkCallback} isActive={editor.isActive('link')} title="Inserir/Editar Link"><LinkIcon size={18} /></ToolbarButton>
           <ToolbarButton onClick={addImageCallback} title="Inserir Imagem"><ImageIcon size={18} /></ToolbarButton>
           <ToolbarButton onClick={insertTableCallback} title="Inserir Tabela"><TableIcon size={18} /></ToolbarButton>
+          <ToolbarButton onClick={insertInlineMath} title="Equação Inline"><FunctionSquareIcon size={18} /></ToolbarButton>
+          <ToolbarButton onClick={insertBlockMath} title="Equação em Bloco"><SigmaIcon size={18} /></ToolbarButton>
         </div>
       </div>
     );

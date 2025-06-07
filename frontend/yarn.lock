@@ -2,6 +2,14 @@
 # yarn lockfile v1
 
 
+"@aarkue/tiptap-math-extension@^1.3.6":
+  version "1.3.6"
+  resolved "https://registry.npmjs.org/@aarkue/tiptap-math-extension/-/tiptap-math-extension-1.3.6.tgz"
+  integrity sha512-+wYePrAbziOmQfpbWMCiLth9IiirDr9r6DiMtz4kM8IYsZPSW4foUWQTSl5iu3bgDVY9oib9UWLlbOPrO4i1yg==
+  dependencies:
+    evaluatex "^2.2.0"
+    katex "^0.16.7"
+
 "@adobe/css-tools@^4.4.0":
   version "4.4.3"
   resolved "https://registry.npmjs.org/@adobe/css-tools/-/css-tools-4.4.3.tgz"
@@ -804,7 +812,7 @@
     "@testing-library/dom" "^9.0.0"
     "@types/react-dom" "^18.0.0"
 
-"@tiptap/core@^2.12.0", "@tiptap/core@^2.7.0":
+"@tiptap/core@^2.0.0", "@tiptap/core@^2.12.0", "@tiptap/core@^2.7.0":
   version "2.12.0"
   resolved "https://registry.npmjs.org/@tiptap/core/-/core-2.12.0.tgz"
   integrity sha512-3qX8oGVKFFZzQ0vit+ZolR6AJIATBzmEmjAA0llFhWk4vf3v64p1YcXcJsOBsr5scizJu5L6RYWEFatFwqckRg==
@@ -990,7 +998,7 @@
   resolved "https://registry.npmjs.org/@tiptap/extension-underline/-/extension-underline-2.12.0.tgz"
   integrity sha512-u95lrUCesw1SN3BXY4xrgfSuxtoCYmJ9uaU7IVVOu0zVsDFtLlOa82kd63KVF+URL0kMdO+FBmvdS6d8Era70Q==
 
-"@tiptap/pm@^2.12.0", "@tiptap/pm@^2.7.0":
+"@tiptap/pm@^2.0.0", "@tiptap/pm@^2.12.0", "@tiptap/pm@^2.7.0":
   version "2.12.0"
   resolved "https://registry.npmjs.org/@tiptap/pm/-/pm-2.12.0.tgz"
   integrity sha512-TNzVwpeNzFfHAcYTOKqX9iU4fRxliyoZrCnERR+RRzeg7gWrXrCLubQt1WEx0sojMAfznshSL3M5HGsYjEbYwA==
@@ -1637,6 +1645,11 @@ commander@^4.0.0:
   resolved "https://registry.npmjs.org/commander/-/commander-4.1.1.tgz"
   integrity sha512-NOKm8xhkzAjzFx8B2v5OAHT+u5pRQc2UCa2Vq9jYL/31o2wi9mxBA7LIFs3sV5VSC49z6pEhfbMULvShKj26WA==
 
+commander@^8.3.0:
+  version "8.3.0"
+  resolved "https://registry.npmjs.org/commander/-/commander-8.3.0.tgz"
+  integrity sha512-OkTL9umf+He2DZkUq8f8J9of7yL6RJKI24dVITBmNfZBmri9zYZQrKkuXiKhyfPSu8tUhnVBB1iKXevvnlR4Ww==
+
 concat-map@0.0.1:
   version "0.0.1"
   resolved "https://registry.npmjs.org/concat-map/-/concat-map-0.0.1.tgz"
@@ -2088,6 +2101,11 @@ esutils@^2.0.2:
   version "2.0.3"
   resolved "https://registry.npmjs.org/esutils/-/esutils-2.0.3.tgz"
   integrity sha512-kVscqXk4OCp68SZ0dkgEKVi6/8ij300KBWTJq32P/dYeWTSwK41WyTxalN1eRmA5Z9UU/LX9D7FWSmV9SAYx6g==
+
+evaluatex@^2.2.0:
+  version "2.2.0"
+  resolved "https://registry.npmjs.org/evaluatex/-/evaluatex-2.2.0.tgz"
+  integrity sha512-QVtGvYTf9HvQyDjbBCwoDQPP9KMuVB56H8KalrkLsPPCQfngpVmkiIoxJ4FU/SVmlmhnbr/heOmP5VlbCTEJpg==
 
 eventemitter3@^2.0.3:
   version "2.0.3"
@@ -2752,6 +2770,13 @@ json5@^2.2.3:
   version "2.2.3"
   resolved "https://registry.npmjs.org/json5/-/json5-2.2.3.tgz"
   integrity sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg==
+
+katex@^0.16.22, katex@^0.16.7:
+  version "0.16.22"
+  resolved "https://registry.npmjs.org/katex/-/katex-0.16.22.tgz"
+  integrity sha512-XCHRdUw4lf3SKBaJe4EvgqIuWwkPSo9XoeO8GjQW94Bp7TWv9hNhzZjZ+OH9yf1UmLygb7DIT5GSFQiyt16zYg==
+  dependencies:
+    commander "^8.3.0"
 
 keyv@^4.5.3:
   version "4.5.4"

@@ -18,6 +18,7 @@ import {
 import { useAuthStore } from '../store/authStore';
 import { documentsApi, versionsApi, DocumentDetailDTO as ApiDocumentDetailDTO } from '../lib/api';
 import { toast } from 'react-hot-toast';
+import 'katex/dist/katex.min.css';
 
 // Componentes otimizados
 import PageHeader from '../components/common/PageHeader';
