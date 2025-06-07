@@ -52,7 +52,7 @@ public class DocumentController {
         @ApiResponse(responseCode = "404", description = "Estudante ou orientador não encontrado")
     })
     public ResponseEntity<DocumentDTO> createDocument(
-            @Parameter(description = "Dados do documento a ser criado")
+            @Parameter(description = "Dados do documento a ser criado (inclui advisorId opcional)")
             @Valid @RequestBody DocumentDTO documentDTO,
             Authentication authentication) {
         User currentUser = getCurrentUser(authentication);

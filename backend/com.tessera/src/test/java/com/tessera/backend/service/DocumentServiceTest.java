@@ -75,6 +75,28 @@ class DocumentServiceTest {
     }
 
     @Test
+    void testCreateDocumentWithAdvisorAddsPrimaryAdvisor() {
+        DocumentDTO dto = new DocumentDTO();
+        dto.setTitle("Doc2");
+        dto.setDescription("desc2");
+        dto.setAdvisorId(advisor.getId());
+
+        when(userRepository.findById(advisor.getId())).thenReturn(Optional.of(advisor));
+        when(collaboratorRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ArgumentCaptor<Document> captor = ArgumentCaptor.forClass(Document.class);
+
+        service.createDocument(dto, student);
+
+        verify(documentRepository, times(2)).save(captor.capture());
+        Document finalDoc = captor.getAllValues().get(1);
+        assertEquals(2, finalDoc.getCollaborators().size());
+        assertTrue(finalDoc.getCollaborators().stream()
+                .anyMatch(c -> c.getUser() == advisor && c.getRole() == CollaboratorRole.PRIMARY_ADVISOR));
+    }
+
+    @Test
     void testUpdateDocumentChangesTitleDescriptionAndAdvisor() {
         Document document = new Document();
         document.setId(10L);
