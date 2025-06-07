@@ -83,7 +83,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
         // config.addAllowedOrigin("http://localhost:3000"); // Se ainda usar
-        config.addAllowedOrigin("http://localhost:5173"); // Frontend URL Vite
+        config.addAllowedOrigin("http://localhost:3000"); // Frontend URL Vite
         config.addAllowedOriginPattern("*"); // Para desenvolvimento, pode ser mais permissivo, mas restrinja em produção
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
@@ -97,7 +97,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
         // config.addAllowedOrigin("http://localhost:3000");
-        config.addAllowedOrigin("http://localhost:5173");
+        config.addAllowedOrigin("http://localhost:3000");
         config.addAllowedOriginPattern("*"); // Adicionado para flexibilidade em dev
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");

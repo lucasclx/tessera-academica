@@ -26,6 +26,30 @@ npm run build
 
 Os arquivos de produção ficam em `dist/`.
 
+## Instalação de Dependências para Testes
+
+Antes de executar os testes é necessário baixar todas as dependências do
+backend (Maven) e do frontend (npm). O repositório já fornece o Maven Wrapper,
+portanto não é preciso ter o Maven instalado localmente.
+
+### Backend
+
+```bash
+cd backend/com.tessera
+./mvnw -q dependency:go-offline
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm ci
+```
+
+Para ambientes offline ou de integração contínua, utilize o script
+`scripts/install-dependencies.sh`, que faz o pré-download de todas as
+dependências necessárias.
+
 ## Execução
 
 1. **Backend**
