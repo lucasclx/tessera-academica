@@ -184,7 +184,7 @@ npm run dev
 yarn dev
 ```
 
-O frontend estará disponível em `http://localhost:5173`
+O frontend estará disponível em `http://localhost:3000`
 
 ## 👤 Usuários Padrão
 

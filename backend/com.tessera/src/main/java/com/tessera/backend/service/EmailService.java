@@ -138,7 +138,7 @@ public class EmailService {
         
         if (notification.getActionUrl() != null && !notification.getActionUrl().isEmpty()) {
             messageText += "Para mais detalhes, acesse: " + 
-                          "http://localhost:5173" + notification.getActionUrl() + "\n\n";
+                            "http://localhost:3000" + notification.getActionUrl() + "\n\n";
         }
         
         if (notification.getTriggeredBy() != null) {
