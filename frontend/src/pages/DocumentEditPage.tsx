@@ -9,6 +9,8 @@ import {
   DocumentArrowUpIcon as SaveIcon,
   ClockIcon,
   TrashIcon,
+  ChatBubbleLeftEllipsisIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../store/authStore';
 import { documentsApi, versionsApi, DocumentDetailDTO, Version } from '../lib/api';
@@ -20,6 +22,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import { formatDateTime } from '../utils/dateUtils';
 import { useWebSocket } from '../components/providers/WebSocketProvider';
+import CommentThread from '../components/Comments/CommentThread';
 
 const schema = yup.object({
   title: yup
@@ -95,6 +98,8 @@ const DocumentEditor: React.FC<{
   commitMessage: string;
   setCommitMessage: (message: string) => void;
   onContentChange: (newContent: string) => void; // Será o 'onChange' do Tiptap
+  onSelectionChange?: (sel: { from: number; to: number }) => void;
+  onAddComment?: (sel: { from: number; to: number }) => void;
   isEditingDoc: boolean; // Renomeado para clareza, para diferenciar do 'editable' do Tiptap
   latestVersion?: Version | null;
   disabled?: boolean; // Para desabilitar campos e editor
@@ -104,6 +109,8 @@ const DocumentEditor: React.FC<{
   commitMessage,
   setCommitMessage,
   onContentChange,
+  onSelectionChange,
+  onAddComment,
   isEditingDoc,
   latestVersion,
   disabled = false,
@@ -142,6 +149,8 @@ const DocumentEditor: React.FC<{
           ref={editorRef}
           content={initialContent} // Passa o conteúdo inicial
           onChange={onContentChange} // Callback para mudanças
+          onSelectionChange={onSelectionChange}
+          onAddComment={onAddComment}
           placeholder="Comece a escrever seu documento aqui..."
           className="border border-gray-300 rounded-lg shadow-sm overflow-hidden" // Estilo para o wrapper do Tiptap
           editorClassName="min-h-[400px] p-4" // Estilo para a área de edição do Tiptap
@@ -192,6 +201,8 @@ const DocumentEditPage: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(Boolean(savedDraft));
   const [activeEditors, setActiveEditors] = useState<{ id: number; name: string }[]>([]);
+  const [selection, setSelection] = useState<{ from: number; to: number } | null>(null);
+  const [isCommentPanelOpen, setIsCommentPanelOpen] = useState(false);
 
   const { sendMessage, subscribe } = useWebSocket();
 
@@ -572,11 +583,38 @@ const DocumentEditPage: React.FC = () => {
           commitMessage={commitMessage}
           setCommitMessage={setCommitMessage}
           onContentChange={handleEditorContentChange}
+          onSelectionChange={(sel) => setSelection(sel)}
+          onAddComment={(sel) => {
+            setSelection(sel);
+            setIsCommentPanelOpen(true);
+          }}
           isEditingDoc={isEditing}
           latestVersion={latestVersion}
           disabled={actionLoading || !canModifyDocument}
         />
       </form>
+
+      {isCommentPanelOpen && latestVersion && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto z-40">
+          <div className="relative top-0 right-0 h-full w-full max-w-md ml-auto bg-white shadow-xl flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <ChatBubbleLeftEllipsisIcon className="h-5 w-5 mr-2" /> Comentários
+              </h3>
+              <button onClick={() => setIsCommentPanelOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto flex-1">
+              <CommentThread
+                versionId={latestVersion.id}
+                selectedPosition={selection || undefined}
+                onCommentAdded={() => setIsCommentPanelOpen(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
