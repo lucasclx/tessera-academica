@@ -103,11 +103,9 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
     },
     onCreate: ({ editor: createdEditor}) => {
         // console.log("TiptapEditor: onCreate disparado");
-        setTimeout(() => {
-            if (!createdEditor.isDestroyed) {
-                setIsEditorReallyReady(true);
-            }
-        }, 50);
+        if (!createdEditor.isDestroyed) {
+            setIsEditorReallyReady(true);
+        }
     },
     onDestroy: () => {
         // console.log("TiptapEditor: onDestroy disparado");
