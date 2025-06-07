@@ -4,6 +4,7 @@ import com.tessera.backend.dto.DocumentDTO;
 import com.tessera.backend.dto.DocumentDetailDTO;
 import com.tessera.backend.dto.DocumentCollaboratorDTO;
 import com.tessera.backend.dto.UserSelectionDTO;
+import com.tessera.backend.dto.VersionDTO;
 import com.tessera.backend.entity.*;
 import com.tessera.backend.exception.ResourceNotFoundException;
 import com.tessera.backend.exception.PermissionDeniedException;
@@ -11,6 +12,7 @@ import com.tessera.backend.repository.DocumentCollaboratorRepository;
 import com.tessera.backend.exception.BusinessRuleException;
 import com.tessera.backend.repository.DocumentRepository;
 import com.tessera.backend.repository.UserRepository;
+import com.tessera.backend.repository.VersionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +25,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Objects;
 import java.util.HashMap;
 import java.util.stream.Collectors;
 
@@ -40,13 +42,20 @@ public class DocumentService {
 
     @Autowired
     private DocumentCollaboratorRepository collaboratorRepository;
+    
+    @Autowired
+    private VersionRepository versionRepository;
 
     @Autowired
     private NotificationEventService notificationEventService;
 
     @Autowired
     private EditingSessionService editingSessionService;
-    // Método auxiliar para verificar papéis de forma segura para lambdas
+
+    @Autowired
+    private VersionService versionService;
+
+
     private boolean userHasRole(final User user, final String roleName) {
         if (user == null || user.getRoles() == null || roleName == null) {
             return false;
@@ -108,13 +117,11 @@ public class DocumentService {
             logger.info("Colaborador Orientador Principal (ID: {}) adicionado ao Documento ID: {}", advisorUser.getId(), document.getId());
         }
 
-        // Adicionar à lista de colaboradores do documento para manter a relação bi-direcional
         document.getCollaborators().add(studentCollaborator);
         if (advisorCollaborator != null) {
             document.getCollaborators().add(advisorCollaborator);
         }
 
-        // Persistir o documento atualizado para garantir que o relacionamento seja salvo
         documentRepository.save(document);
     }
 
@@ -155,7 +162,6 @@ public class DocumentService {
         }
         logger.info("Encontrados {} documentos para {} na página {}", documentsPage.getNumberOfElements(), user.getEmail(), pageable.getPageNumber());
         
-        // Pré-carregar contagem de versões para evitar N+1
         List<Long> ids = documentsPage.getContent().stream()
                 .map(Document::getId)
                 .toList();
@@ -217,25 +223,36 @@ public class DocumentService {
         }
 
         boolean updated = false;
-        if (StringUtils.hasText(documentDTO.getTitle()) && !documentDTO.getTitle().equals(document.getTitle())) {
+        if (StringUtils.hasText(documentDTO.getTitle()) && !Objects.equals(documentDTO.getTitle(), document.getTitle())) {
             document.setTitle(documentDTO.getTitle());
             updated = true;
         }
-        if (documentDTO.getDescription() != null && !documentDTO.getDescription().equals(document.getDescription())) {
+        if (!Objects.equals(documentDTO.getDescription(), document.getDescription())) {
             document.setDescription(documentDTO.getDescription());
             updated = true;
         }
 
         if (updated) {
             document.setUpdatedAt(LocalDateTime.now());
-            logger.info("Documento ID {} atualizado.", id);
-        }
-        // Salvar o documento principal pode não ser necessário se apenas colaboradores foram alterados
-        // e as informações de advisor/student no Document são apenas para fallback.
-        // No entanto, se o setUpdatedAt() é importante, o save é necessário.
-        return mapToDTO(documentRepository.save(document));
-    }
+            Document savedDocument = documentRepository.save(document);
+            
+            logger.info("Documento ID {} atualizado. Criando nova versão para registrar a alteração de metadados.", id);
+            
+            Version latestVersion = versionRepository.findLatestByDocument(savedDocument).orElse(null);
+            
+            VersionDTO newVersionDto = new VersionDTO();
+            newVersionDto.setDocumentId(savedDocument.getId());
+            newVersionDto.setCommitMessage("Metadados do documento atualizados.");
+            newVersionDto.setContent(latestVersion != null ? latestVersion.getContent() : "");
 
+            versionService.createVersion(newVersionDto, currentUser);
+            
+            return mapToDTO(savedDocument);
+        }
+
+        return mapToDTO(document);
+    }
+    
     @Transactional
     public DocumentDTO changeStatus(Long id, DocumentStatus newStatus, final User currentUser, String reason) {
         logger.info("Tentativa de mudança de status para {} no Documento ID {} por {}", newStatus, id, currentUser.getEmail());
@@ -244,16 +261,15 @@ public class DocumentService {
 
         DocumentStatus oldStatus = document.getStatus();
 
-        // Lógica de transição de status (verificar permissões usando o sistema de colaboradores)
         boolean canChange = false;
         switch (newStatus) {
             case SUBMITTED:
                 if ((oldStatus == DocumentStatus.DRAFT || oldStatus == DocumentStatus.REVISION) && document.canUserSubmitDocument(currentUser)) {
                     canChange = true;
                     document.setSubmittedAt(LocalDateTime.now());
-                    document.setRejectionReason(null); // Limpar rejeição anterior
+                    document.setRejectionReason(null); 
                     document.setRejectedAt(null);
-                    document.setApprovedAt(null); // Limpar aprovação anterior se estiver voltando de REVISION para SUBMITTED
+                    document.setApprovedAt(null); 
                 } else if (!(oldStatus == DocumentStatus.DRAFT || oldStatus == DocumentStatus.REVISION)) {
                     throw new IllegalStateException("Documento só pode ser submetido se estiver em Rascunho ou Revisão.");
                 } else {
@@ -261,7 +277,7 @@ public class DocumentService {
                 }
                 break;
             case REVISION:
-                if (oldStatus == DocumentStatus.SUBMITTED && document.canUserApproveDocument(currentUser)) { // Assumindo que quem aprova também pode pedir revisão
+                if (oldStatus == DocumentStatus.SUBMITTED && document.canUserApproveDocument(currentUser)) { 
                     if (!StringUtils.hasText(reason)) {
                         throw new IllegalArgumentException("Um motivo é obrigatório para solicitar revisão.");
                     }
@@ -294,7 +310,7 @@ public class DocumentService {
                 if ((oldStatus == DocumentStatus.SUBMITTED || oldStatus == DocumentStatus.REVISION) && document.canUserApproveDocument(currentUser)) {
                     canChange = true;
                     document.setApprovedAt(LocalDateTime.now());
-                    document.setRejectionReason(null); // Limpar rejeição se estava em revisão
+                    document.setRejectionReason(null); 
                     document.setRejectedAt(null);
                 } else if (!(oldStatus == DocumentStatus.SUBMITTED || oldStatus == DocumentStatus.REVISION)) {
                     throw new IllegalStateException("Documento só pode ser aprovado se estiver Submetido ou em Revisão.");
@@ -303,8 +319,6 @@ public class DocumentService {
                 }
                 break;
             case FINALIZED:
-                 // Geralmente, o estudante principal ou orientador podem finalizar após aprovação.
-                 // Ou um admin. Ajuste conforme a regra de negócio.
                 if (oldStatus == DocumentStatus.APPROVED && (document.canUserManageCollaborators(currentUser) || userHasRole(currentUser, "ADMIN"))) {
                     canChange = true;
                 } else if (oldStatus != DocumentStatus.APPROVED) {
@@ -314,13 +328,11 @@ public class DocumentService {
                 }
                 break;
             case DRAFT: 
-                // Apenas admin pode reverter um documento Finalizado para Rascunho,
-                // ou o estudante principal se não estiver Finalizado e tiver permissão.
                 boolean isAdmin = userHasRole(currentUser, "ADMIN");
                 if (oldStatus == DocumentStatus.FINALIZED && !isAdmin) {
                      throw new PermissionDeniedException("Apenas admins podem reverter um documento Finalizado para Rascunho.");
                 }
-                if (document.canUserEdit(currentUser) || isAdmin) { // Usuário com permissão de edição ou admin
+                if (document.canUserEdit(currentUser) || isAdmin) { 
                     canChange = true;
                     document.setSubmittedAt(null);
                     document.setApprovedAt(null);
@@ -334,7 +346,7 @@ public class DocumentService {
                  throw new IllegalArgumentException("Novo status desconhecido ou transição não permitida: " + newStatus);
         }
 
-        if (!canChange) { // Dupla verificação, embora as exceções já devam ter sido lançadas
+        if (!canChange) {
             throw new IllegalStateException("Transição de status inválida ou permissão negada.");
         }
 
@@ -371,14 +383,6 @@ public class DocumentService {
             throw new IllegalStateException("Apenas documentos em rascunho podem ser excluídos por estudantes (não admins).");
         }
         
-        // Antes de deletar o documento, é preciso remover as referências em DocumentCollaborator
-        // Se CascadeType.ALL ou REMOVE estiver configurado em Document -> collaborators, isso pode ser automático.
-        // Caso contrário, é preciso remover manualmente:
-        // collaboratorRepository.deleteAll(document.getCollaborators());
-        // document.getCollaborators().clear();
-        // Ou, se o CascadeType.REMOVE está em DocumentCollaborator->document, apenas deletar o Document pode ser suficiente
-        // Se o cascade for Document -> Collaborators, Document -> Versions, etc., o delete(document) deve cuidar disso.
-
         documentRepository.delete(document);
         logger.info("Documento ID {} excluído com sucesso por {}", id, currentUser.getEmail());
     }
@@ -391,7 +395,7 @@ public class DocumentService {
             return DocumentStatus.valueOf(statusFilter.toUpperCase());
         } catch (IllegalArgumentException e) {
             logger.warn("Status de filtro inválido recebido: {}", statusFilter);
-            return null; // Ou lançar uma exceção se um filtro inválido não for permitido
+            return null;
         }
     }
 
@@ -406,18 +410,15 @@ public class DocumentService {
         dto.setDescription(document.getDescription());
         dto.setStatus(document.getStatus());
 
-        // Usa os métodos da entidade Document que já encapsulam a lógica de fallback e colaboradores
         User primaryStudent = document.getPrimaryStudent();
         if (primaryStudent != null) {
             dto.setStudentName(primaryStudent.getName());
         }
-        // Se primaryStudent for nulo, studentId e studentName no DTO permanecerão nulos, o que é ok.
 
         User primaryAdvisor = document.getPrimaryAdvisor();
         if (primaryAdvisor != null) {
             dto.setAdvisorName(primaryAdvisor.getName());
         }
-        // Se primaryAdvisor for nulo, advisorId e advisorName no DTO permanecerão nulos.
         
         dto.setCreatedAt(document.getCreatedAt());
         dto.setUpdatedAt(document.getUpdatedAt());
@@ -429,7 +430,6 @@ public class DocumentService {
         if (prefetchedVersionCount != null) {
             dto.setVersionCount(prefetchedVersionCount);
         } else {
-            // Acesso à coleção LAZY de versions. Isso precisa estar dentro de uma transação.
             dto.setVersionCount(document.getVersions() != null ? document.getVersions().size() : 0);
         }
 
@@ -439,13 +439,11 @@ public class DocumentService {
     private DocumentDetailDTO mapToDetailDTO(Document document, User currentUser) {
         DocumentDetailDTO dto = new DocumentDetailDTO(mapToDTO(document));
 
-        // Map collaborators
         dto.setCollaborators(document.getCollaborators().stream()
                 .filter(DocumentCollaborator::isActive)
                 .map(this::mapCollaboratorToDTO)
                 .collect(Collectors.toList()));
 
-        // Lists of students and advisors
         dto.setStudents(document.getAllStudents().stream()
                 .map(u -> new UserSelectionDTO(u.getId(), u.getName(), u.getEmail()))
                 .collect(Collectors.toList()));
@@ -453,12 +451,10 @@ public class DocumentService {
                 .map(u -> new UserSelectionDTO(u.getId(), u.getName(), u.getEmail()))
                 .collect(Collectors.toList()));
 
-        // Permission flags for current user
         dto.setCanEdit(document.canUserEdit(currentUser));
         dto.setCanManageCollaborators(document.canUserManageCollaborators(currentUser));
         dto.setCanSubmitDocument(document.canUserSubmitDocument(currentUser));
         dto.setCanApproveDocument(document.canUserApproveDocument(currentUser));
-
         dto.setCanAddMoreStudents(document.canAddMoreStudents());
         dto.setCanAddMoreAdvisors(document.canAddMoreAdvisors());
         dto.setActiveStudentCount(document.getActiveStudentCount());
@@ -467,7 +463,6 @@ public class DocumentService {
         dto.setMaxAdvisors(document.getMaxAdvisors());
         dto.setAllowMultipleStudents(document.isAllowMultipleStudents());
         dto.setAllowMultipleAdvisors(document.isAllowMultipleAdvisors());
-
         User primaryStudent = document.getPrimaryStudent();
         dto.setPrimaryStudentName(primaryStudent != null ? primaryStudent.getName() : null);
         User primaryAdvisor = document.getPrimaryAdvisor();
@@ -487,6 +482,7 @@ public class DocumentService {
         dto.setUserEmail(collaborator.getUser().getEmail());
         dto.setRole(collaborator.getRole());
         dto.setPermission(collaborator.getPermission());
+        dto.recalculatePermissions();
         dto.setAddedAt(collaborator.getAddedAt());
         dto.setAddedByName(collaborator.getAddedBy() != null ? collaborator.getAddedBy().getName() : null);
         dto.setActive(collaborator.isActive());

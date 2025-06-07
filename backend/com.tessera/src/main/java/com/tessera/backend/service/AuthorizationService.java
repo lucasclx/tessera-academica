@@ -1,21 +1,21 @@
 package com.tessera.backend.service;
 
-import com.tessera.backend.entity.Document; // e outras entidades necessárias
+import com.tessera.backend.entity.Document;
 import com.tessera.backend.entity.User;
-import com.tessera.backend.entity.DocumentCollaborator;
-import com.tessera.backend.entity.CollaboratorRole;
-import com.tessera.backend.repository.DocumentRepository;
 import com.tessera.backend.repository.DocumentCollaboratorRepository;
+import com.tessera.backend.repository.DocumentRepository;
 import com.tessera.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-@Service("authorizationService") // O nome "authorizationService" é o padrão, mas pode ser explícito.
+@Service("authorizationService")
+@Transactional(readOnly = true)
 public class AuthorizationService {
 
     @Autowired
-    private DocumentRepository documentRepository; // Exemplo de dependência
+    private DocumentRepository documentRepository;
 
     @Autowired
     private DocumentCollaboratorRepository collaboratorRepository;
@@ -23,85 +23,43 @@ public class AuthorizationService {
     @Autowired
     private UserRepository userRepository;
 
-    public boolean hasDocumentAccess(Authentication authentication, Long documentId) {
+    private User getUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            return false;
+            return null;
         }
-
-        User user = userRepository.findByEmail(authentication.getName()).orElse(null);
-        if (user == null) {
-            return false;
-        }
-
-        Document document = documentRepository.findById(documentId).orElse(null);
-        if (document == null) {
-            return false;
-        }
-
-        return collaboratorRepository
-                .existsByDocumentAndUserAndActiveTrue(document, user);
+        return userRepository.findByEmail(authentication.getName()).orElse(null);
     }
 
-    // Implemente outros métodos como canEditDocument, canChangeDocumentStatus, etc.
+    public boolean hasDocumentAccess(Authentication authentication, Long documentId) {
+        User user = getUser(authentication);
+        if (user == null) return false;
+
+        return collaboratorRepository.existsByDocumentIdAndUserIdAndActiveTrue(documentId, user.getId());
+    }
+
     public boolean canEditDocument(Authentication authentication, Long documentId) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return false;
-        }
+        User user = getUser(authentication);
+        if (user == null) return false;
 
-        User user = userRepository.findByEmail(authentication.getName()).orElse(null);
-        if (user == null) {
-            return false;
-        }
-
-        Document document = documentRepository.findById(documentId).orElse(null);
-        if (document == null) {
-            return false;
-        }
-
-        return collaboratorRepository.findByDocumentAndUserAndActiveTrue(document, user)
-                .map(c -> c.getPermission().canWrite() && c.getRole().canEdit())
-                .orElse(false);
+        return collaboratorRepository.existsWithWritePermission(documentId, user.getId());
     }
 
     public boolean canChangeDocumentStatus(Authentication authentication, Long documentId) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return false;
-        }
+        User user = getUser(authentication);
+        if (user == null) return false;
 
-        User user = userRepository.findByEmail(authentication.getName()).orElse(null);
-        if (user == null) {
-            return false;
-        }
-
-        Document document = documentRepository.findById(documentId).orElse(null);
-        if (document == null) {
-            return false;
-        }
-
-        return collaboratorRepository.findByDocumentAndUserAndActiveTrue(document, user)
-                .map(c -> c.getPermission().canManageCollaborators()
-                        || c.getRole().canManageCollaborators()
-                        || c.getRole().canSubmitDocument()
-                        || c.getRole().canApproveDocument())
-                .orElse(false);
+        return collaboratorRepository.existsWithStatusChangePermission(documentId, user.getId());
     }
+
     public boolean canDeleteDocument(Authentication authentication, Long documentId) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return false;
+        User user = getUser(authentication);
+        if (user == null) return false;
+        
+        // Apenas Admins ou Estudantes Principais podem deletar.
+        if(user.getRoles().stream().anyMatch(r -> r.getName().equals("ADMIN"))) {
+            return true;
         }
 
-        User user = userRepository.findByEmail(authentication.getName()).orElse(null);
-        if (user == null) {
-            return false;
-        }
-
-        Document document = documentRepository.findById(documentId).orElse(null);
-        if (document == null) {
-            return false;
-        }
-
-        return collaboratorRepository.findByDocumentAndUserAndActiveTrue(document, user)
-                .map(c -> c.getRole() == CollaboratorRole.PRIMARY_STUDENT)
-                .orElse(false);
+        return collaboratorRepository.isPrimaryStudent(documentId, user.getId());
     }
 }

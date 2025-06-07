@@ -31,9 +31,6 @@ public class Document {
     @Column(columnDefinition = "TEXT")
     private String description;
     
-    // Campos student/advisor removidos. Toda a relação é tratada por DocumentCollaborator
-    
-    // NOVA RELAÇÃO PARA COLABORADORES MÚLTIPLOS
     @OneToMany(mappedBy = "document", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<DocumentCollaborator> collaborators = new ArrayList<>();
     
@@ -57,19 +54,11 @@ public class Document {
     @Column(columnDefinition = "TEXT")
     private String rejectionReason;
     
-    // Campos para colaboração
     private boolean allowMultipleStudents = true;
     private boolean allowMultipleAdvisors = true;
     private int maxStudents = 5;
     private int maxAdvisors = 3;
     
-    // =============================================================================
-    // MÉTODOS PARA GERENCIAR COLABORADORES
-    // =============================================================================
-    
-    /**
-     * Retorna todos os estudantes ativos (incluindo principal e colaboradores)
-     */
     public List<User> getAllStudents() {
         return collaborators.stream()
                 .filter(c -> c.isActive() && c.getRole().isStudent())
@@ -77,9 +66,6 @@ public class Document {
                 .collect(Collectors.toList());
     }
     
-    /**
-     * Retorna todos os orientadores ativos (incluindo principal e colaboradores)
-     */
     public List<User> getAllAdvisors() {
         return collaborators.stream()
                 .filter(c -> c.isActive() && c.getRole().isAdvisor())
@@ -87,9 +73,6 @@ public class Document {
                 .collect(Collectors.toList());
     }
     
-    /**
-     * Retorna o estudante principal
-     */
     public User getPrimaryStudent() {
         return collaborators.stream()
                 .filter(c -> c.isActive() && c.getRole() == CollaboratorRole.PRIMARY_STUDENT)
@@ -98,9 +81,6 @@ public class Document {
                 .orElse(null);
     }
     
-    /**
-     * Retorna o orientador principal
-     */
     public User getPrimaryAdvisor() {
         return collaborators.stream()
                 .filter(c -> c.isActive() && c.getRole() == CollaboratorRole.PRIMARY_ADVISOR)
@@ -109,9 +89,6 @@ public class Document {
                 .orElse(null);
     }
     
-    /**
-     * Retorna todos os co-autores/estudantes colaboradores
-     */
     public List<User> getCoStudents() {
         return collaborators.stream()
                 .filter(c -> c.isActive() && 
@@ -121,9 +98,6 @@ public class Document {
                 .collect(Collectors.toList());
     }
     
-    /**
-     * Retorna todos os co-orientadores
-     */
     public List<User> getCoAdvisors() {
         return collaborators.stream()
                 .filter(c -> c.isActive() && 
@@ -134,35 +108,25 @@ public class Document {
                 .collect(Collectors.toList());
     }
     
-    /**
-     * Verifica se um usuário é colaborador ativo
-     */
     public boolean hasCollaborator(User user) {
         return collaborators.stream()
                 .anyMatch(c -> c.isActive() && c.getUser().getId().equals(user.getId()));
     }
     
-    /**
-     * Obtém o colaborador específico de um usuário
-     */
     public Optional<DocumentCollaborator> getCollaborator(User user) {
         return collaborators.stream()
                 .filter(c -> c.isActive() && c.getUser().getId().equals(user.getId()))
                 .findFirst();
     }
     
-    /**
-     * Verifica se o usuário pode editar o documento
-     */
+    @Deprecated
     public boolean canUserEdit(User user) {
         return getCollaborator(user)
                 .map(c -> c.getPermission().canWrite() && c.getRole().canEdit())
                 .orElse(false);
     }
     
-    /**
-     * Verifica se o usuário pode gerenciar colaboradores
-     */
+    @Deprecated
     public boolean canUserManageCollaborators(User user) {
         return getCollaborator(user)
                 .map(c -> c.getPermission().canManageCollaborators() || 
@@ -170,9 +134,7 @@ public class Document {
                 .orElse(false);
     }
     
-    /**
-     * Verifica se o usuário pode submeter o documento
-     */
+    @Deprecated
     public boolean canUserSubmitDocument(User user) {
         return getCollaborator(user)
                 .map(c -> c.getRole().canSubmitDocument() && 
@@ -180,18 +142,13 @@ public class Document {
                 .orElse(false);
     }
     
-    /**
-     * Verifica se o usuário pode aprovar o documento
-     */
+    @Deprecated
     public boolean canUserApproveDocument(User user) {
         return getCollaborator(user)
                 .map(c -> c.getRole().canApproveDocument())
                 .orElse(false);
     }
     
-    /**
-     * Retorna uma string com os nomes de todos os estudantes
-     */
     public String getAllStudentNames() {
         List<User> students = getAllStudents();
         return students.stream()
@@ -199,9 +156,6 @@ public class Document {
                 .collect(Collectors.joining(", "));
     }
     
-    /**
-     * Retorna uma string com os nomes de todos os orientadores
-     */
     public String getAllAdvisorNames() {
         List<User> advisors = getAllAdvisors();
         return advisors.stream()
@@ -209,49 +163,31 @@ public class Document {
                 .collect(Collectors.joining(", "));
     }
     
-    /**
-     * Conta estudantes ativos
-     */
     public int getActiveStudentCount() {
         return (int) collaborators.stream()
                 .filter(c -> c.isActive() && c.getRole().isStudent())
                 .count();
     }
     
-    /**
-     * Conta orientadores ativos
-     */
     public int getActiveAdvisorCount() {
         return (int) collaborators.stream()
                 .filter(c -> c.isActive() && c.getRole().isAdvisor())
                 .count();
     }
     
-    /**
-     * Verifica se ainda pode adicionar estudantes
-     */
     public boolean canAddMoreStudents() {
         return allowMultipleStudents && getActiveStudentCount() < maxStudents;
     }
     
-    /**
-     * Verifica se ainda pode adicionar orientadores
-     */
     public boolean canAddMoreAdvisors() {
         return allowMultipleAdvisors && getActiveAdvisorCount() < maxAdvisors;
     }
     
-    /**
-     * Verifica se tem estudante principal definido
-     */
     public boolean hasPrimaryStudent() {
         return collaborators.stream()
                 .anyMatch(c -> c.isActive() && c.getRole() == CollaboratorRole.PRIMARY_STUDENT);
     }
     
-    /**
-     * Verifica se tem orientador principal definido
-     */
     public boolean hasPrimaryAdvisor() {
         return collaborators.stream()
                 .anyMatch(c -> c.isActive() && c.getRole() == CollaboratorRole.PRIMARY_ADVISOR);
