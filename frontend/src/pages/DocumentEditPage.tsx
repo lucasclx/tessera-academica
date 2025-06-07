@@ -9,8 +9,8 @@ import {
   DocumentArrowUpIcon as SaveIcon,
   ClockIcon,
   TrashIcon,
-  ChatBubbleLeftEllipsisIcon,
-  XMarkIcon,
+  ArrowDownTrayIcon,
+
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../store/authStore';
 import { documentsApi, versionsApi, DocumentDetailDTO, Version } from '../lib/api';
@@ -22,7 +22,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import { formatDateTime } from '../utils/dateUtils';
 import { useWebSocket } from '../components/providers/WebSocketProvider';
-import CommentThread from '../components/Comments/CommentThread';
+import { exportHtmlToPdf, sanitizeFilename } from '../utils/pdfExport';
 
 const schema = yup.object({
   title: yup
@@ -334,6 +334,15 @@ const DocumentEditPage: React.FC = () => {
     // editorInitialContent é para o conteúdo que *vem* dos dados.
   }, [saveDraftToStorage]);
 
+  const handleExportPdf = useCallback(() => {
+    if (!editorRef.current) return;
+    const html = editorRef.current.getContent();
+    const title = isEditing && documentData ? documentData.title : 'documento';
+    const versionLabel = latestVersion ? `v${latestVersion.versionNumber}` : 'draft';
+    const filename = `${sanitizeFilename(title)}_${versionLabel}.pdf`;
+    exportHtmlToPdf(html, filename);
+  }, [isEditing, documentData, latestVersion]);
+
 
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -559,6 +568,10 @@ const DocumentEditPage: React.FC = () => {
                 )}
                 </button>
             )}
+            <button onClick={handleExportPdf} className="btn btn-primary" title="Exportar PDF">
+              <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
+              Exportar PDF
+            </button>
           </div>
         }
       />
