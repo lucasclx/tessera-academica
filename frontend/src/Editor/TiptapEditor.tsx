@@ -9,6 +9,8 @@ import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
+import Subscript from '@tiptap/extension-subscript';
+import Superscript from '@tiptap/extension-superscript';
 import Table from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableHeader from '@tiptap/extension-table-header';
@@ -20,7 +22,8 @@ import {
   BoldIcon, ItalicIcon, UnderlineIcon, StrikethroughIcon, HighlighterIcon,
   AlignLeftIcon, AlignCenterIcon, AlignRightIcon, AlignJustifyIcon,
   ListIcon, ListOrderedIcon, QuoteIcon, CodeIcon, LinkIcon, ImageIcon,
-  TableIcon, UndoIcon, RedoIcon, Heading1Icon, Heading2Icon, Heading3Icon, PilcrowIcon
+  TableIcon, UndoIcon, RedoIcon, Heading1Icon, Heading2Icon, Heading3Icon, PilcrowIcon,
+  SubscriptIcon, SuperscriptIcon
 } from 'lucide-react';
 
 const LoadingSpinner: React.FC<{ message?: string }> = ({ message }) => (
@@ -60,6 +63,8 @@ const editorExtensionsConfig = (placeholderText: string, charLimit?: number) => 
   TextStyle, FontFamily,
   Highlight.configure({ multicolor: true }),
   Underline,
+  Subscript,
+  Superscript,
   TextAlign.configure({ types: ['heading', 'paragraph'], alignments: ['left', 'center', 'right', 'justify'], defaultAlignment: 'left' }),
   Link.configure({ openOnClick: false, autolink: true, HTMLAttributes: { class: 'text-primary-600 hover:text-primary-700 underline cursor-pointer', rel: 'noopener noreferrer nofollow', target: '_blank' } }),
   Image.configure({ inline: false, allowBase64: true, HTMLAttributes: { class: 'max-w-full h-auto rounded-md border border-gray-200 my-4' } }),
@@ -198,6 +203,8 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
           <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} isActive={editor.isActive('underline')} title="Sublinhado (Ctrl+U)"><UnderlineIcon size={18} /></ToolbarButton>
           <ToolbarButton onClick={() => editor.chain().focus().toggleStrike().run()} isActive={editor.isActive('strike')} title="Riscado"><StrikethroughIcon size={18} /></ToolbarButton>
           <ToolbarButton onClick={() => editor.chain().focus().toggleHighlight({color: '#FFF3A3'}).run()} isActive={editor.isActive('highlight')} title="Realçar"><HighlighterIcon size={18} /></ToolbarButton>
+          <ToolbarButton onClick={() => editor.chain().focus().toggleSubscript().run()} isActive={editor.isActive('subscript')} title="Subscrito"><SubscriptIcon size={18} /></ToolbarButton>
+          <ToolbarButton onClick={() => editor.chain().focus().toggleSuperscript().run()} isActive={editor.isActive('superscript')} title="Sobrescrito"><SuperscriptIcon size={18} /></ToolbarButton>
         </div>
         <div className="flex items-center border-r border-gray-200 pr-1 mr-1">
           <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} isActive={editor.isActive('bulletList')} title="Lista com Marcadores"><ListIcon size={18} /></ToolbarButton>
@@ -259,6 +266,8 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
           <button onClick={() => editor.chain().focus().toggleItalic().run()} disabled={!editable || !editor.can().chain().focus().toggleItalic().run()} className={`p-1.5 rounded ${editor.isActive('italic') ? 'bg-primary-500 text-white' : 'hover:bg-gray-700'} disabled:opacity-50`} title="Itálico (Ctrl+I)"><ItalicIcon size={16} /></button>
           <button onClick={() => editor.chain().focus().toggleUnderline().run()} disabled={!editable || !editor.can().chain().focus().toggleUnderline().run()} className={`p-1.5 rounded ${editor.isActive('underline') ? 'bg-primary-500 text-white' : 'hover:bg-gray-700'} disabled:opacity-50`} title="Sublinhado (Ctrl+U)"><UnderlineIcon size={16} /></button>
           <button onClick={() => editor.chain().focus().toggleStrike().run()} disabled={!editable || !editor.can().chain().focus().toggleStrike().run()} className={`p-1.5 rounded ${editor.isActive('strike') ? 'bg-primary-500 text-white' : 'hover:bg-gray-700'} disabled:opacity-50`} title="Riscado"><StrikethroughIcon size={16} /></button>
+          <button onClick={() => editor.chain().focus().toggleSubscript().run()} disabled={!editable || !editor.can().chain().focus().toggleSubscript().run()} className={`p-1.5 rounded ${editor.isActive('subscript') ? 'bg-primary-500 text-white' : 'hover:bg-gray-700'} disabled:opacity-50`} title="Subscrito"><SubscriptIcon size={16} /></button>
+          <button onClick={() => editor.chain().focus().toggleSuperscript().run()} disabled={!editable || !editor.can().chain().focus().toggleSuperscript().run()} className={`p-1.5 rounded ${editor.isActive('superscript') ? 'bg-primary-500 text-white' : 'hover:bg-gray-700'} disabled:opacity-50`} title="Sobrescrito"><SuperscriptIcon size={16} /></button>
           {onAddComment && (
             <button
               onClick={() => {
