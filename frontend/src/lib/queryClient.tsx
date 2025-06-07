@@ -2,7 +2,6 @@
 import { QueryClient, QueryCache, MutationCache } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 import { toastManager } from '../utils/toastManager';
-import { analytics } from '../utils/analytics';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,32 +44,12 @@ export const queryClient = new QueryClient({
     onError: (error: any, query) => {
       // Log de erros em queries
       console.error('Query Error:', error, query.queryKey);
-      
-      // Tracking de erros
-      try {
-        analytics?.track('query_error', {
-          queryKey: query.queryKey,
-          error: error.message,
-          timestamp: Date.now()
-        });
-      } catch (analyticsError) {
-        console.warn('Erro ao registrar analytics para query error:', analyticsError);
-      }
     }
   }),
-  
+
   mutationCache: new MutationCache({
     onError: (error: any, variables, context, mutation) => {
       console.error('Mutation Error:', error, mutation);
-      
-      try {
-        analytics?.track('mutation_error', {
-          error: error.message,
-          timestamp: Date.now()
-        });
-      } catch (analyticsError) {
-        console.warn('Erro ao registrar analytics para mutation error:', analyticsError);
-      }
     }
   })
 });
