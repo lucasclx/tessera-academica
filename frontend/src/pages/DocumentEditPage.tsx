@@ -10,9 +10,8 @@ import {
   ClockIcon,
   TrashIcon,
   ArrowDownTrayIcon,
+  ChatBubbleLeftEllipsisIcon,
   XMarkIcon,
-  ChatBubbleLeftEllipsisIcon
-
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../store/authStore';
 import { documentsApi, versionsApi, DocumentDetailDTO, Version } from '../lib/api';
@@ -26,7 +25,6 @@ import { formatDateTime } from '../utils/dateUtils';
 import { useWebSocket } from '../components/providers/WebSocketProvider';
 import { exportHtmlToPdf, sanitizeFilename } from '../utils/pdfExport';
 import CommentThread from '../components/Comments/CommentThread';
-
 
 const schema = yup.object({
   title: yup
@@ -174,7 +172,6 @@ const UnsavedChangesIndicator: React.FC<{ hasChanges: boolean }> = ({ hasChanges
   );
 };
 
-// Componente Principal
 const DocumentEditPage: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
@@ -182,6 +179,25 @@ const DocumentEditPage: React.FC = () => {
   const { confirmDeletion } = useConfirmDialog();
   const editorRef = useRef<EditorRef>(null);
 
+  // Estados principais
+  const [latestVersion, setLatestVersion] = useState<Version | null>(null);
+  const [editorInitialContent, setEditorInitialContent] = useState('');
+  const [commitMessage, setCommitMessage] = useState('');
+  const [pageLoading, setPageLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [activeEditors, setActiveEditors] = useState<{ id: number; name: string }[]>([]);
+  const [selection, setSelection] = useState<{ from: number; to: number } | null>(null);
+  const [isCommentPanelOpen, setIsCommentPanelOpen] = useState(false);
+  
+  // Estados para controlar carregamento de versões
+  const [versionsLoaded, setVersionsLoaded] = useState(false);
+  const [loadingVersions, setLoadingVersions] = useState(false);
+
+  const { sendMessage, subscribe } = useWebSocket();
+  const isEditing = Boolean(id);
+
+  // Draft management
   const draftKey = `documentDraft_${id ?? 'new'}`;
   const savedDraft = (() => {
     if (typeof window === 'undefined') return null;
@@ -194,12 +210,13 @@ const DocumentEditPage: React.FC = () => {
     }
   })();
 
+  // Form setup
   const {
     register,
     handleSubmit,
     reset,
     getValues,
-    formState: { errors },
+    formState: { errors, dirtyFields },
   } = useForm<FormData>({
     resolver: yupResolver(schema),
     defaultValues: {
@@ -208,115 +225,118 @@ const DocumentEditPage: React.FC = () => {
     },
   });
 
-  const [latestVersion, setLatestVersion] = useState<Version | null>(null);
-  const [editorInitialContent, setEditorInitialContent] = useState(
-    savedDraft?.content || ''
-  );
-  const [commitMessage, setCommitMessage] = useState('');
-  const [pageLoading, setPageLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(Boolean(savedDraft));
-  const [activeEditors, setActiveEditors] = useState<{ id: number; name: string }[]>([]);
-  const [selection, setSelection] = useState<{ from: number; to: number } | null>(null);
-  const [isCommentPanelOpen, setIsCommentPanelOpen] = useState(false);
-
-  const { sendMessage, subscribe } = useWebSocket();
-
-  const isEditing = Boolean(id);
-  
-  const saveDraftToStorage = useCallback(
-    (content?: string) => {
-      const values = getValues();
-      const draft = {
-        title: values.title,
-        description: values.description || '',
-        content:
-          content !== undefined
-            ? content
-            : editorRef.current?.getContent() || '',
-      };
-      try {
-        localStorage.setItem(draftKey, JSON.stringify(draft));
-      } catch {
-        // ignore storage errors
-      }
-    },
-    [draftKey, getValues]
-  );
-
-
-  const { data: documentData, loading: documentLoading, refetch: refetchDocument, error: documentError } = useApiData<DocumentDetailDTO>(
+  // API Data Hook - com immediate false para controlar manualmente
+  const { 
+    data: documentData, 
+    loading: documentLoading, 
+    refetch: refetchDocument, 
+    error: documentError 
+  } = useApiData<DocumentDetailDTO>(
     isEditing && id ? `/documents/${id}` : null,
-    [id, isEditing],
-    { errorMessage: 'Erro ao carregar documento.', immediate: isEditing }
+    [],
+    { errorMessage: 'Erro ao carregar documento.', immediate: false }
   );
 
-  const loadLatestVersion = useCallback(
-    async (docId: number) => {
-      try {
-        debugLog('DocumentEditPage: 📥 Carregando versões do documento', docId);
-        const versions = await versionsApi.getByDocument(docId);
-        if (versions.length > 0) {
-          const latest = versions[0];
-          debugLog('DocumentEditPage: 📝 Última versão encontrada:', latest.versionNumber);
-          setLatestVersion(latest);
-          if (!savedDraft) {
-            setEditorInitialContent(latest.content);
-          }
-        } else {
-          debugLog('DocumentEditPage: 📝 Nenhuma versão encontrada para doc existente, editor vazio.');
-          setLatestVersion(null);
-          if (!savedDraft) {
-            setEditorInitialContent('');
-          }
+  // Carregar versões com controle de estado
+  const loadLatestVersion = useCallback(async (docId: number) => {
+    if (loadingVersions || versionsLoaded) {
+      debugLog('DocumentEditPage: ⏭️ Pulando carregamento de versões (já carregando ou carregado)');
+      return;
+    }
+
+    try {
+      setLoadingVersions(true);
+      debugLog('DocumentEditPage: 📥 Carregando versões do documento', docId);
+      
+      const versions = await versionsApi.getByDocument(docId);
+      
+      if (versions.length > 0) {
+        const latest = versions[0];
+        debugLog('DocumentEditPage: 📝 Última versão encontrada:', latest.versionNumber);
+        setLatestVersion(latest);
+        
+        if (!savedDraft) {
+          setEditorInitialContent(latest.content);
         }
-      } catch (error) {
-        console.error('DocumentEditPage: ❌ Erro ao carregar versões:', error);
-        toast.error('Erro ao carregar o conteúdo da última versão do documento');
-          if (!savedDraft) {
-            setEditorInitialContent('');
-          }
+      } else {
+        debugLog('DocumentEditPage: 📝 Nenhuma versão encontrada');
+        setLatestVersion(null);
+        if (!savedDraft) {
+          setEditorInitialContent('');
+        }
       }
-    },
-    [savedDraft]
-  );
+      
+      setVersionsLoaded(true);
+    } catch (error) {
+      console.error('DocumentEditPage: ❌ Erro ao carregar versões:', error);
+      toast.error('Erro ao carregar versões do documento');
+      
+      if (!savedDraft) {
+        setEditorInitialContent('');
+      }
+    } finally {
+      setLoadingVersions(false);
+    }
+  }, [savedDraft, loadingVersions, versionsLoaded]);
 
+  // Save draft
+  const saveDraftToStorage = useCallback((content?: string) => {
+    const values = getValues();
+    const draft = {
+      title: values.title,
+      description: values.description || '',
+      content: content !== undefined ? content : editorRef.current?.getContent() || '',
+    };
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+    } catch {
+      // ignore storage errors
+    }
+  }, [draftKey, getValues]);
+
+  // Effect para carregar documento (executa apenas uma vez)
   useEffect(() => {
-    const currentOverallLoading = isEditing && documentLoading;
-    setPageLoading(currentOverallLoading);
+    if (isEditing && id) {
+      debugLog('DocumentEditPage: 📄 Iniciando carregamento do documento');
+      refetchDocument();
+    }
+  }, [id]); // Removidas dependências desnecessárias
 
-      if (!currentOverallLoading) {
-        if (isEditing) {
-          if (documentData) {
-            debugLog('DocumentEditPage: 🔄 Sincronizando dados do documento existente com formulário', documentData);
-            if (!savedDraft) {
-              reset({
-                title: documentData.title,
-                description: documentData.description || '',
-              });
-              loadLatestVersion(Number(id));
-            } else {
-              loadLatestVersion(Number(id));
-            }
-          } else if (documentError) {
-              toast.error("Falha ao carregar dados do documento para edição.");
-          }
-        } else {
-          debugLog('DocumentEditPage: 🆕 Novo documento - resetando formulário e definindo editorInitialContent');
-          if (!savedDraft) {
-            reset({ title: '', description: '' });
-            setLatestVersion(null);
-            setEditorInitialContent(''); 
-          }
-          setHasUnsavedChanges(Boolean(savedDraft));
-        }
+  // Effect para processar dados do documento carregado
+  useEffect(() => {
+    if (isEditing && documentData && !versionsLoaded) {
+      debugLog('DocumentEditPage: 🔄 Processando dados do documento carregado');
+      
+      if (!savedDraft) {
+        reset({
+          title: documentData.title,
+          description: documentData.description || '',
+        });
       }
-  }, [
-    isEditing, id, reset, loadLatestVersion,
-    documentData, documentLoading, documentError, savedDraft
-  ]);
+      
+      // Carregar versões apenas uma vez
+      loadLatestVersion(Number(id));
+    }
+  }, [documentData, isEditing, id, reset, savedDraft, versionsLoaded, loadLatestVersion]);
 
+  // Effect para controlar estado de loading da página
+  useEffect(() => {
+    if (isEditing) {
+      setPageLoading(documentLoading || loadingVersions);
+    } else {
+      // Para novo documento, não há loading
+      setPageLoading(false);
+      setVersionsLoaded(true);
+      if (!savedDraft) {
+        setEditorInitialContent('');
+      } else {
+        setEditorInitialContent(savedDraft.content);
+      }
+      setHasUnsavedChanges(Boolean(savedDraft));
+    }
+  }, [isEditing, documentLoading, loadingVersions, savedDraft]);
 
+  // Handlers
   const handleFormChange = useCallback(() => {
     debugLog('DocumentEditPage: 📝 Formulário alterado');
     setHasUnsavedChanges(true);
@@ -324,7 +344,7 @@ const DocumentEditPage: React.FC = () => {
   }, [saveDraftToStorage]);
 
   const handleEditorContentChange = useCallback((newContent: string) => {
-    debugLog('DocumentEditPage: ✏️ Conteúdo do editor (Tiptap) alterado.');
+    debugLog('DocumentEditPage: ✏️ Conteúdo do editor alterado');
     setHasUnsavedChanges(true);
     saveDraftToStorage(newContent);
   }, [saveDraftToStorage]);
@@ -332,13 +352,13 @@ const DocumentEditPage: React.FC = () => {
   const handleExportPdf = useCallback(() => {
     if (!editorRef.current) return;
     const html = editorRef.current.getContent();
-    const title = getValues('title') || 'documento';
+    const title = isEditing && documentData ? documentData.title : 'documento';
     const versionLabel = latestVersion ? `v${latestVersion.versionNumber}` : 'draft';
     const filename = `${sanitizeFilename(title)}_${versionLabel}.pdf`;
     exportHtmlToPdf(html, filename);
-  }, [getValues, latestVersion]);
+  }, [isEditing, documentData, latestVersion]);
 
-
+  // Cleanup on unmount
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) {
@@ -350,23 +370,26 @@ const DocumentEditPage: React.FC = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
+  // WebSocket for collaborative editing
   useEffect(() => {
     if (!isEditing || !id || !user) return;
     const docId = Number(id);
     const payload = { documentId: docId, userId: user.id, userName: user.name };
     sendMessage('/app/editing/join', payload);
+    
     const unsubscribe = subscribe(`/topic/documents/${docId}/editors`, (editors: any) => {
       setActiveEditors(Array.isArray(editors) ? editors : []);
     });
+    
     return () => {
       sendMessage('/app/editing/leave', payload);
       if (unsubscribe) unsubscribe();
     };
   }, [isEditing, id, user, sendMessage, subscribe]);
 
-
+  // Submit handler
   const onSubmitDocument = async (data: FormData) => {
-    debugLog('DocumentEditPage: 💾 Tentando salvar documento (com Tiptap):', data);
+    debugLog('DocumentEditPage: 💾 Tentando salvar documento:', data);
     setActionLoading(true);
 
     let currentEditorHTML = '';
@@ -374,23 +397,24 @@ const DocumentEditPage: React.FC = () => {
       try {
         currentEditorHTML = editorRef.current.getContent();
       } catch (editorError) {
-        console.warn('DocumentEditPage: ⚠️ Erro ao obter conteúdo do editor Tiptap ao salvar:', editorError);
+        console.warn('DocumentEditPage: ⚠️ Erro ao obter conteúdo do editor:', editorError);
         toast.error("Não foi possível obter o conteúdo do editor. Tente novamente.");
         setActionLoading(false);
         return;
       }
     } else {
-        console.warn("DocumentEditPage: ⚠️ editorRef.current (Tiptap) é nulo ao tentar salvar.");
-        toast.error("Referência do editor não encontrada. Tente recarregar a página.");
-        setActionLoading(false);
-        return;
+      console.warn("DocumentEditPage: ⚠️ editorRef.current é nulo");
+      toast.error("Referência do editor não encontrada. Tente recarregar a página.");
+      setActionLoading(false);
+      return;
     }
 
     try {
       let docIdToUse = isEditing ? Number(id) : undefined;
 
       if (isEditing && docIdToUse && documentData) {
-        debugLog('DocumentEditPage: ✏️ Atualizando documento existente (Tiptap):', docIdToUse);
+        debugLog('DocumentEditPage: ✏️ Atualizando documento existente:', docIdToUse);
+        
         const formMetaChanged = data.title !== documentData.title ||
                                 data.description !== (documentData.description || '');
         let infoUpdated = false;
@@ -406,37 +430,42 @@ const DocumentEditPage: React.FC = () => {
         const currentEditorIsEmpty = currentEditorHTML === '<p></p>' || currentEditorHTML === '';
         const latestVersionContent = latestVersion?.content || '';
         const latestVersionIsEmpty = latestVersionContent === '<p></p>' || latestVersionContent === '';
-
-        const editorContentActuallyChanged = !(currentEditorIsEmpty && latestVersionIsEmpty) && currentEditorHTML !== latestVersionContent;
+        const editorContentActuallyChanged = !(currentEditorIsEmpty && latestVersionIsEmpty) && 
+                                             currentEditorHTML !== latestVersionContent;
 
         let versionCreated = false;
         if (editorContentActuallyChanged || (commitMessage.trim() !== '' && (!currentEditorIsEmpty || latestVersion))) {
-            await versionsApi.create({
-              documentId: docIdToUse,
-              content: currentEditorHTML,
-              commitMessage: commitMessage.trim() || (editorContentActuallyChanged ? 'Atualização de conteúdo' : 'Alterações nos metadados com mensagem de versão'),
-            });
-            versionCreated = true;
+          await versionsApi.create({
+            documentId: docIdToUse,
+            content: currentEditorHTML,
+            commitMessage: commitMessage.trim() || (editorContentActuallyChanged ? 'Atualização de conteúdo' : 'Alterações nos metadados com mensagem de versão'),
+          });
+          versionCreated = true;
         }
 
         if (infoUpdated || versionCreated) {
-            toast.success('Documento atualizado com sucesso!');
-            localStorage.removeItem(draftKey);
+          toast.success('Documento atualizado com sucesso!');
+          localStorage.removeItem(draftKey);
         } else {
-            toast('Nenhuma alteração detectada para salvar.');
+          toast('Nenhuma alteração detectada para salvar.');
         }
 
       } else {
-        debugLog('DocumentEditPage: 🆕 Criando novo documento (Tiptap)');
-        if (!user?.id) { throw new Error("Usuário não autenticado"); } 
+        debugLog('DocumentEditPage: 🆕 Criando novo documento');
+        if (!user?.id) {
+          toast.error('Usuário não autenticado');
+          setActionLoading(false);
+          return;
+        }
+        
         const newDocPayload = {
-            title: data.title,
-            description: data.description,
-            studentId: user.id,
+          title: data.title,
+          description: data.description,
+          studentId: user.id,
         };
         const newDoc = await documentsApi.create(newDocPayload);
         docIdToUse = newDoc.id;
-        
+
         if (currentEditorHTML.trim() !== '' && currentEditorHTML !== '<p></p>') {
           await versionsApi.create({
             documentId: docIdToUse,
@@ -444,24 +473,29 @@ const DocumentEditPage: React.FC = () => {
             commitMessage: commitMessage.trim() || 'Versão inicial',
           });
         }
+        
         toast.success('Documento criado com sucesso!');
         localStorage.removeItem(draftKey);
         navigate(`/student/documents/${docIdToUse}/edit`, { replace: true });
-        setActionLoading(false);
         return;
       }
 
       setHasUnsavedChanges(false);
       setCommitMessage('');
+      
       if (docIdToUse) {
         await refetchDocument();
-        await loadLatestVersion(docIdToUse); 
+        // Reset flag para permitir recarregar versões se necessário
+        setVersionsLoaded(false);
+        await loadLatestVersion(docIdToUse);
       }
+      
       reset(data);
 
     } catch (error: any) {
-      console.error('DocumentEditPage: ❌ Erro ao salvar documento (Tiptap):', error);
-      const errorMsg = error.response?.data?.message || (isEditing ? 'Erro ao atualizar documento' : 'Erro ao criar documento');
+      console.error('DocumentEditPage: ❌ Erro ao salvar documento:', error);
+      const errorMsg = error.response?.data?.message || 
+                       (isEditing ? 'Erro ao atualizar documento' : 'Erro ao criar documento');
       toast.error(errorMsg);
     } finally {
       setActionLoading(false);
@@ -477,7 +511,6 @@ const DocumentEditPage: React.FC = () => {
     try {
       await documentsApi.delete(documentData.id);
       toast.success('Documento excluído com sucesso!');
-      localStorage.removeItem(draftKey);
       navigate('/student/documents', { replace: true });
     } catch (error: any) {
       console.error('DocumentEditPage: ❌ Erro ao excluir documento:', error);
@@ -487,24 +520,26 @@ const DocumentEditPage: React.FC = () => {
     }
   };
 
+  // Render conditions
   if (pageLoading) {
-    return <LoadingSpinner size="lg" message="Carregando dados da página..." fullScreen />;
+    return <LoadingSpinner size="lg" message="Carregando dados..." fullScreen />;
   }
 
-   if (isEditing && documentError && !documentData) {
+  if (isEditing && documentError && !documentData) {
     return (
       <div className="text-center py-12 text-red-600">
-        <p>Erro crítico: Não foi possível carregar os dados deste documento.</p>
+        <p>Erro: Não foi possível carregar os dados deste documento.</p>
         <button onClick={() => navigate(-1)} className="btn btn-secondary mt-4">Voltar</button>
       </div>
     );
   }
 
   const pageTitle = isEditing
-    ? `Editando: ${getValues('title') || 'Carregando...'}`
+    ? `Editando: ${documentData?.title || 'Carregando...'}`
     : 'Novo Documento';
 
-  const canModifyDocument = !isEditing || (documentData?.status === 'DRAFT' || documentData?.status === 'REVISION');
+  const canModifyDocument = !isEditing || 
+                           (documentData?.status === 'DRAFT' || documentData?.status === 'REVISION');
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-10">
@@ -514,9 +549,9 @@ const DocumentEditPage: React.FC = () => {
           <div className="space-y-1 text-sm text-gray-600">
             <p>ID: {documentData.id} | Status: {documentData.status} | Versões: {documentData.versionCount}</p>
             <p>Criado: {formatDateTime(documentData.createdAt)} | Atualizado: {formatDateTime(documentData.updatedAt)}</p>
-              {activeEditors.length > 0 && (
-                <p>Editando agora: {activeEditors.map(e => e.name).join(", ")}</p>
-              )}
+            {activeEditors.length > 0 && (
+              <p>Editando agora: {activeEditors.map(e => e.name).join(", ")}</p>
+            )}
           </div>
         ) : (
           <p className="text-sm text-gray-600">Crie um novo documento acadêmico</p>
@@ -544,18 +579,24 @@ const DocumentEditPage: React.FC = () => {
               </button>
             )}
             {canModifyDocument && (
-                <button
+              <button
                 onClick={handleSubmit(onSubmitDocument)}
                 className="btn btn-primary"
                 disabled={actionLoading}
                 title={isEditing ? "Salvar Alterações" : "Criar Documento"}
-                >
+              >
                 {actionLoading ? (
-                    <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>{isEditing ? 'Salvando...' : 'Criando...'}</>
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    {isEditing ? 'Salvando...' : 'Criando...'}
+                  </>
                 ) : (
-                    <><SaveIcon className="h-5 w-5 mr-2" />{isEditing ? 'Salvar Alterações' : 'Criar Documento'}</>
+                  <>
+                    <SaveIcon className="h-5 w-5 mr-2" />
+                    {isEditing ? 'Salvar Alterações' : 'Criar Documento'}
+                  </>
                 )}
-                </button>
+              </button>
             )}
             <button onClick={handleExportPdf} className="btn btn-primary" title="Exportar PDF">
               <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
@@ -565,12 +606,12 @@ const DocumentEditPage: React.FC = () => {
         }
       />
 
-    {!canModifyDocument && isEditing && documentData && (
+      {!canModifyDocument && isEditing && documentData && (
         <div className="p-4 bg-yellow-50 border border-yellow-300 text-yellow-700 rounded-md text-sm">
-            Este documento está no status "{documentData.status}" e não pode mais ser editado diretamente aqui.
-            Para fazer alterações, o status precisa ser "Rascunho" (DRAFT) ou "Em Revisão" (REVISION).
+          Este documento está no status "{documentData.status}" e não pode mais ser editado diretamente aqui.
+          Para fazer alterações, o status precisa ser "Rascunho" (DRAFT) ou "Em Revisão" (REVISION).
         </div>
-    )}
+      )}
 
       <form onSubmit={handleSubmit(onSubmitDocument)} className="space-y-6">
         <DocumentForm
@@ -581,7 +622,7 @@ const DocumentEditPage: React.FC = () => {
         />
         <DocumentEditor
           editorRef={editorRef}
-          initialContent={editorInitialContent}
+          initialContent={savedDraft?.content || editorInitialContent}
           commitMessage={commitMessage}
           setCommitMessage={setCommitMessage}
           onContentChange={handleEditorContentChange}
