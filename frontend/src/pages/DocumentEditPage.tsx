@@ -10,6 +10,8 @@ import {
   ClockIcon,
   TrashIcon,
   ArrowDownTrayIcon,
+  XMarkIcon,
+  ChatBubbleLeftEllipsisIcon
 
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../store/authStore';
@@ -23,6 +25,8 @@ import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import { formatDateTime } from '../utils/dateUtils';
 import { useWebSocket } from '../components/providers/WebSocketProvider';
 import { exportHtmlToPdf, sanitizeFilename } from '../utils/pdfExport';
+import CommentThread from '../components/Comments/CommentThread';
+
 
 const schema = yup.object({
   title: yup
@@ -34,7 +38,6 @@ const schema = yup.object({
     .string()
     .max(500, 'Descrição deve ter no máximo 500 caracteres')
     .nullable(),
-  // Advisor selection removed
 });
 
 interface FormData {
@@ -86,23 +89,22 @@ const DocumentForm: React.FC<{
             <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
           )}
         </div>
-        {/* Advisor selection removed */}
       </div>
     </div>
   );
 };
 
 const DocumentEditor: React.FC<{
-  editorRef: React.RefObject<EditorRef>; // EditorRef agora é do Tiptap
-  initialContent: string; // Será passado como 'content' para TiptapEditor
+  editorRef: React.RefObject<EditorRef>;
+  initialContent: string;
   commitMessage: string;
   setCommitMessage: (message: string) => void;
-  onContentChange: (newContent: string) => void; // Será o 'onChange' do Tiptap
+  onContentChange: (newContent: string) => void;
   onSelectionChange?: (sel: { from: number; to: number }) => void;
   onAddComment?: (sel: { from: number; to: number }) => void;
-  isEditingDoc: boolean; // Renomeado para clareza, para diferenciar do 'editable' do Tiptap
+  isEditingDoc: boolean;
   latestVersion?: Version | null;
-  disabled?: boolean; // Para desabilitar campos e editor
+  disabled?: boolean;
 }> = ({
   editorRef,
   initialContent,
@@ -147,15 +149,15 @@ const DocumentEditor: React.FC<{
         </div>
         <TiptapEditor
           ref={editorRef}
-          content={initialContent} // Passa o conteúdo inicial
-          onChange={onContentChange} // Callback para mudanças
+          content={initialContent}
+          onChange={onContentChange}
           onSelectionChange={onSelectionChange}
           onAddComment={onAddComment}
           placeholder="Comece a escrever seu documento aqui..."
-          className="border border-gray-300 rounded-lg shadow-sm overflow-hidden" // Estilo para o wrapper do Tiptap
-          editorClassName="min-h-[400px] p-4" // Estilo para a área de edição do Tiptap
+          className="border border-gray-300 rounded-lg shadow-sm overflow-hidden"
+          editorClassName="min-h-[400px] p-4"
           showToolbar={true}
-          editable={!disabled} // Tiptap usa 'editable'
+          editable={!disabled}
         />
       </div>
     </div>
@@ -180,7 +182,6 @@ const DocumentEditPage: React.FC = () => {
   const { confirmDeletion } = useConfirmDialog();
   const editorRef = useRef<EditorRef>(null);
 
-  const [latestVersion, setLatestVersion] = useState<Version | null>(null);
   const draftKey = `documentDraft_${id ?? 'new'}`;
   const savedDraft = (() => {
     if (typeof window === 'undefined') return null;
@@ -193,6 +194,21 @@ const DocumentEditPage: React.FC = () => {
     }
   })();
 
+  const {
+    register,
+    handleSubmit,
+    reset,
+    getValues,
+    formState: { errors },
+  } = useForm<FormData>({
+    resolver: yupResolver(schema),
+    defaultValues: {
+      title: savedDraft?.title || '',
+      description: savedDraft?.description || '',
+    },
+  });
+
+  const [latestVersion, setLatestVersion] = useState<Version | null>(null);
   const [editorInitialContent, setEditorInitialContent] = useState(
     savedDraft?.content || ''
   );
@@ -207,7 +223,7 @@ const DocumentEditPage: React.FC = () => {
   const { sendMessage, subscribe } = useWebSocket();
 
   const isEditing = Boolean(id);
-
+  
   const saveDraftToStorage = useCallback(
     (content?: string) => {
       const values = getValues();
@@ -235,20 +251,6 @@ const DocumentEditPage: React.FC = () => {
     { errorMessage: 'Erro ao carregar documento.', immediate: isEditing }
   );
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    getValues,
-    formState: { errors, dirtyFields },
-  } = useForm<FormData>({
-    resolver: yupResolver(schema),
-    defaultValues: {
-      title: savedDraft?.title || '',
-      description: savedDraft?.description || '',
-    },
-  });
-
   const loadLatestVersion = useCallback(
     async (docId: number) => {
       try {
@@ -269,11 +271,11 @@ const DocumentEditPage: React.FC = () => {
           }
         }
       } catch (error) {
-      console.error('DocumentEditPage: ❌ Erro ao carregar versões:', error);
-      toast.error('Erro ao carregar o conteúdo da última versão do documento');
-        if (!savedDraft) {
-          setEditorInitialContent('');
-        }
+        console.error('DocumentEditPage: ❌ Erro ao carregar versões:', error);
+        toast.error('Erro ao carregar o conteúdo da última versão do documento');
+          if (!savedDraft) {
+            setEditorInitialContent('');
+          }
       }
     },
     [savedDraft]
@@ -304,7 +306,7 @@ const DocumentEditPage: React.FC = () => {
           if (!savedDraft) {
             reset({ title: '', description: '' });
             setLatestVersion(null);
-            setEditorInitialContent(''); // Tiptap receberá string vazia como prop 'content'
+            setEditorInitialContent(''); 
           }
           setHasUnsavedChanges(Boolean(savedDraft));
         }
@@ -312,7 +314,6 @@ const DocumentEditPage: React.FC = () => {
   }, [
     isEditing, id, reset, loadLatestVersion,
     documentData, documentLoading, documentError, savedDraft
-
   ]);
 
 
@@ -324,24 +325,18 @@ const DocumentEditPage: React.FC = () => {
 
   const handleEditorContentChange = useCallback((newContent: string) => {
     debugLog('DocumentEditPage: ✏️ Conteúdo do editor (Tiptap) alterado.');
-    // Para Tiptap, uma string vazia pode ser representada como '<p></p>' ou similar.
-    // A comparação precisa ser mais inteligente ou simplesmente assumir que qualquer `onChange` do editor é uma mudança.
-    // Ou, o TiptapEditor pode internamente comparar antes de chamar onChange.
-    // Por segurança, marcamos como alterado se o editor chamar.
     setHasUnsavedChanges(true);
     saveDraftToStorage(newContent);
-    // Não precisamos definir editorInitialContent aqui, pois onContentChange é para mudanças do usuário.
-    // editorInitialContent é para o conteúdo que *vem* dos dados.
   }, [saveDraftToStorage]);
 
   const handleExportPdf = useCallback(() => {
     if (!editorRef.current) return;
     const html = editorRef.current.getContent();
-    const title = isEditing && documentData ? documentData.title : 'documento';
+    const title = getValues('title') || 'documento';
     const versionLabel = latestVersion ? `v${latestVersion.versionNumber}` : 'draft';
     const filename = `${sanitizeFilename(title)}_${versionLabel}.pdf`;
     exportHtmlToPdf(html, filename);
-  }, [isEditing, documentData, latestVersion]);
+  }, [getValues, latestVersion]);
 
 
   useEffect(() => {
@@ -372,8 +367,6 @@ const DocumentEditPage: React.FC = () => {
 
   const onSubmitDocument = async (data: FormData) => {
     debugLog('DocumentEditPage: 💾 Tentando salvar documento (com Tiptap):', data);
-
-
     setActionLoading(true);
 
     let currentEditorHTML = '';
@@ -393,7 +386,6 @@ const DocumentEditPage: React.FC = () => {
         return;
     }
 
-
     try {
       let docIdToUse = isEditing ? Number(id) : undefined;
 
@@ -411,7 +403,6 @@ const DocumentEditPage: React.FC = () => {
           infoUpdated = true;
         }
 
-        // Tiptap pode retornar <p></p> para conteúdo vazio.
         const currentEditorIsEmpty = currentEditorHTML === '<p></p>' || currentEditorHTML === '';
         const latestVersionContent = latestVersion?.content || '';
         const latestVersionIsEmpty = latestVersionContent === '<p></p>' || latestVersionContent === '';
@@ -422,7 +413,7 @@ const DocumentEditPage: React.FC = () => {
         if (editorContentActuallyChanged || (commitMessage.trim() !== '' && (!currentEditorIsEmpty || latestVersion))) {
             await versionsApi.create({
               documentId: docIdToUse,
-              content: currentEditorHTML, // Salva o HTML do Tiptap
+              content: currentEditorHTML,
               commitMessage: commitMessage.trim() || (editorContentActuallyChanged ? 'Atualização de conteúdo' : 'Alterações nos metadados com mensagem de versão'),
             });
             versionCreated = true;
@@ -432,14 +423,12 @@ const DocumentEditPage: React.FC = () => {
             toast.success('Documento atualizado com sucesso!');
             localStorage.removeItem(draftKey);
         } else {
-            // react-hot-toast doesn't provide a dedicated `info` helper.
-            // Use the default toast function to display informational messages.
             toast('Nenhuma alteração detectada para salvar.');
         }
 
       } else {
         debugLog('DocumentEditPage: 🆕 Criando novo documento (Tiptap)');
-        if (!user?.id) { /* ... */ return; } // Autenticação
+        if (!user?.id) { throw new Error("Usuário não autenticado"); } 
         const newDocPayload = {
             title: data.title,
             description: data.description,
@@ -447,8 +436,7 @@ const DocumentEditPage: React.FC = () => {
         };
         const newDoc = await documentsApi.create(newDocPayload);
         docIdToUse = newDoc.id;
-
-        // Salva a primeira versão se houver conteúdo no Tiptap
+        
         if (currentEditorHTML.trim() !== '' && currentEditorHTML !== '<p></p>') {
           await versionsApi.create({
             documentId: docIdToUse,
@@ -467,7 +455,7 @@ const DocumentEditPage: React.FC = () => {
       setCommitMessage('');
       if (docIdToUse) {
         await refetchDocument();
-        await loadLatestVersion(docIdToUse); // Isso definirá editorInitialContent para o Tiptap
+        await loadLatestVersion(docIdToUse); 
       }
       reset(data);
 
@@ -489,6 +477,7 @@ const DocumentEditPage: React.FC = () => {
     try {
       await documentsApi.delete(documentData.id);
       toast.success('Documento excluído com sucesso!');
+      localStorage.removeItem(draftKey);
       navigate('/student/documents', { replace: true });
     } catch (error: any) {
       console.error('DocumentEditPage: ❌ Erro ao excluir documento:', error);
@@ -512,7 +501,7 @@ const DocumentEditPage: React.FC = () => {
   }
 
   const pageTitle = isEditing
-    ? `Editando: ${documentData?.title || 'Carregando...'}`
+    ? `Editando: ${getValues('title') || 'Carregando...'}`
     : 'Novo Documento';
 
   const canModifyDocument = !isEditing || (documentData?.status === 'DRAFT' || documentData?.status === 'REVISION');

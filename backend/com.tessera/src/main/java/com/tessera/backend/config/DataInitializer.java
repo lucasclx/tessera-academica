@@ -7,13 +7,16 @@ import com.tessera.backend.repository.RoleRepository;
 import com.tessera.backend.repository.UserRepository;
 import com.tessera.backend.exception.RoleNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -31,6 +34,9 @@ public class DataInitializer implements CommandLineRunner {
     
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Value("${app.default.admin.password:}")
+    private String defaultAdminPassword;
     
     @Override
     public void run(String... args) throws Exception {
@@ -42,9 +48,25 @@ public class DataInitializer implements CommandLineRunner {
         // Cria um admin default se não existir
         if (!userRepository.existsByEmail("admin@tessera.com")) {
             User adminUser = new User();
-            adminUser.setName("Administrador");
+            adminUser.setName("Administrador Padrão");
             adminUser.setEmail("admin@tessera.com");
-            adminUser.setPassword(passwordEncoder.encode("admin123"));
+            
+            String password;
+            if (defaultAdminPassword != null && !defaultAdminPassword.isEmpty()) {
+                password = defaultAdminPassword;
+                logger.warn("Usando senha de administrador padrão definida em 'app.default.admin.password'.");
+            } else {
+                password = generateRandomPassword();
+                logger.warn("==========================================================================================");
+                logger.warn("ATENÇÃO: Senha de administrador padrão não foi definida (APP_DEFAULT_ADMIN_PASSWORD).");
+                logger.warn("Uma senha aleatória e segura foi gerada. Anote-a para o primeiro login:");
+                logger.warn("Usuário: admin@tessera.com");
+                logger.warn("Senha: {}", password);
+                logger.warn("É altamente recomendável alterar esta senha após o primeiro login.");
+                logger.warn("==========================================================================================");
+            }
+
+            adminUser.setPassword(passwordEncoder.encode(password));
             adminUser.setStatus(UserStatus.APPROVED);
             adminUser.setRegistrationDate(LocalDateTime.now());
             adminUser.setApprovalDate(LocalDateTime.now());
@@ -58,7 +80,7 @@ public class DataInitializer implements CommandLineRunner {
             
             userRepository.save(adminUser);
 
-            logger.info("Admin padrão criado: admin@tessera.com / admin123");
+            logger.info("Usuário administrador padrão criado com sucesso para: admin@tessera.com");
         }
     }
     
@@ -69,5 +91,12 @@ public class DataInitializer implements CommandLineRunner {
             roleRepository.save(role);
             logger.info("Role criada: {}", name);
         }
+    }
+
+    private String generateRandomPassword() {
+        SecureRandom random = new SecureRandom();
+        byte[] bytes = new byte[12]; // Gera 16 caracteres Base64
+        random.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 }

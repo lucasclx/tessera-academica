@@ -7,7 +7,7 @@ import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
-import io.jsonwebtoken.security.SignatureException; // Use this for newer versions
+import io.jsonwebtoken.security.SignatureException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +18,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 
+import jakarta.annotation.PostConstruct;
 import java.security.Key;
 import java.util.Arrays;
 import java.util.Collection;
@@ -25,19 +26,33 @@ import java.util.Date;
 import java.util.stream.Collectors;
 
 @Component
-public class JwtTokenProvider { // Certifique-se que esta é a única classe pública no arquivo
+public class JwtTokenProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(JwtTokenProvider.class);
 
+    // Corrigido para corresponder ao application.properties
     @Value("${app.jwt.secret}")
     private String jwtSecret;
 
     @Value("${app.jwt.expiration}")
     private int jwtExpirationInMs;
 
-    private Key getSigningKey() {
+    private Key signingKey;
+
+    @PostConstruct
+    public void init() {
+        // Validação da chave secreta na inicialização
+        if (jwtSecret == null || jwtSecret.length() < 32) {
+            logger.error("A chave secreta JWT ('app.jwt.secret') deve ter pelo menos 256 bits (32 caracteres). A aplicação não é segura.");
+            // Considerar lançar uma exceção aqui para impedir a inicialização em produção
+            // throw new IllegalStateException("JWT Secret is not secure.");
+        }
         byte[] keyBytes = jwtSecret.getBytes();
-        return Keys.hmacShaKeyFor(keyBytes);
+        this.signingKey = Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    private Key getSigningKey() {
+        return this.signingKey;
     }
 
     public String generateToken(Authentication authentication) {

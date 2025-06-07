@@ -20,25 +20,21 @@ public class BackupService {
     @Value("${tessera.backup.enabled:true}")
     private boolean backupEnabled;
 
-    @Value("${tessera.backup.path:/backups}") // Certifique-se que este diretório existe e tem permissão de escrita
+    @Value("${tessera.backup.path:/backups}")
     private String backupPath;
 
     @Value("${tessera.backup.retention-days:30}")
     private int retentionDays;
 
-    @Value("${tessera.backup.mysqldump.path:mysqldump}") // Caminho para o executável mysqldump
+    @Value("${tessera.backup.mysqldump.path:mysqldump}")
     private String mysqldumpPath;
 
-    // Injetar propriedades do datasource
     @Value("${spring.datasource.username}")
     private String dbUsername;
 
     @Value("${spring.datasource.password}")
     private String dbPassword;
 
-    // Extrair host, port, dbName do spring.datasource.url ou adicionar propriedades específicas
-    // Para simplificar, vamos assumir que você tem essas como propriedades separadas ou as extrairá
-    // da URL do datasource se necessário. Por agora, usando placeholders.
     @Value("${DB_HOST:localhost}")
     private String dbHost;
 
@@ -49,69 +45,65 @@ public class BackupService {
     private String dbName;
 
 
-    @Scheduled(cron = "${tessera.backup.schedule:0 2 * * * *}") // Default: 2 AM every day
+    @Scheduled(cron = "${tessera.backup.schedule:0 2 * * * *}")
     public void createDatabaseBackup() {
         if (!backupEnabled) {
             logger.info("Backup de banco de dados está desabilitado.");
             return;
         }
-        if (dbUsername == null || dbUsername.isEmpty() || dbPassword == null || dbPassword.isEmpty()){
-            logger.warn("Credenciais do banco de dados (usuário/senha) não configuradas para backup. Pulando.");
+        if (dbUsername == null || dbUsername.isEmpty()) {
+            logger.warn("Nome de usuário do banco de dados não configurado para backup. Pulando.");
             return;
         }
 
-
         try {
             String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-            String backupFileName = String.format("tessera_backup_%s.sql", timestamp);
+            String backupFileName = String.format("tessera_backup_%s.sql.gz", timestamp); // Comprimir backup
             Path backupDir = Paths.get(backupPath);
             Path backupFilePath = backupDir.resolve(backupFileName);
 
-            // Criar diretório se não existir
             if (!Files.exists(backupDir)) {
                 Files.createDirectories(backupDir);
                 logger.info("Diretório de backup criado em: {}", backupDir.toAbsolutePath());
             }
 
             logger.info("Iniciando backup do banco de dados para: {}", backupFilePath);
-
-            ProcessBuilder pb = new ProcessBuilder(
+            
+            // Usar gzip para comprimir o backup
+            ProcessBuilder mysqldumpPb = new ProcessBuilder(
                 mysqldumpPath,
                 "--user=" + dbUsername,
-                "--password=" + dbPassword,
                 "--host=" + dbHost,
                 "--port=" + dbPort,
-                "--single-transaction", // Garante consistência para InnoDB
-                "--routines",           // Inclui stored procedures e functions
-                "--triggers",           // Inclui triggers
-                "--databases", dbName   // Especifica o banco de dados a ser "dumpado"
-                                        // Usar --databases para incluir o "CREATE DATABASE" no dump
-                                        // ou apenas o nome do banco para dumpar apenas as tabelas.
+                "--single-transaction",
+                "--routines",
+                "--triggers",
+                dbName
             );
-            
-            // Redirecionar a saída do processo para o arquivo de backup
-            pb.redirectOutput(backupFilePath.toFile());
-            // Redirecionar erros para o log do Java para depuração
-            pb.redirectErrorStream(true); 
 
-
-            Process process = pb.start();
+            // *** CORREÇÃO DE SEGURANÇA ***
+            // Passar a senha via variável de ambiente para o processo, em vez de argumento de linha de comando
+            mysqldumpPb.environment().put("MYSQL_PWD", dbPassword);
             
-            // Capturar a saída do processo (incluindo erros se redirectErrorStream(true))
-            try (var reader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    logger.info("mysqldump output: {}", line);
-                }
+            ProcessBuilder gzipPb = new ProcessBuilder("gzip", "-c");
+            gzipPb.redirectOutput(backupFilePath.toFile());
+            
+            // Iniciar os dois processos e conectá-los (pipe)
+            Process mysqldumpProcess = mysqldumpPb.start();
+            Process gzipProcess = gzipPb.start();
+
+            try (var out = mysqldumpProcess.getInputStream(); var in = gzipProcess.getOutputStream()) {
+                out.transferTo(in);
             }
 
-            int exitCode = process.waitFor();
+            int mysqldumpExitCode = mysqldumpProcess.waitFor();
+            int gzipExitCode = gzipProcess.waitFor();
 
-            if (exitCode == 0) {
-                logger.info("Backup do banco de dados criado com sucesso: {}", backupFilePath.toAbsolutePath());
+            if (mysqldumpExitCode == 0 && gzipExitCode == 0) {
+                logger.info("Backup do banco de dados criado e comprimido com sucesso: {}", backupFilePath.toAbsolutePath());
                 cleanupOldBackups();
             } else {
-                logger.error("Falha ao criar backup do banco de dados. Código de saída: {}. Verifique os logs do mysqldump.", exitCode);
+                logger.error("Falha ao criar backup. Código de saída mysqldump: {}, gzip: {}.", mysqldumpExitCode, gzipExitCode);
             }
 
         } catch (IOException | InterruptedException e) {
@@ -133,13 +125,12 @@ public class BackupService {
 
             Files.list(backupDir)
                 .filter(Files::isRegularFile)
-                .filter(path -> path.getFileName().toString().startsWith("tessera_backup_") && path.getFileName().toString().endsWith(".sql"))
+                .filter(path -> path.getFileName().toString().matches("tessera_backup_.*\\.sql(\\.gz)?$"))
                 .filter(path -> {
                     try {
-                        // Extrair data do nome do arquivo
                         String fileName = path.getFileName().toString();
                         String datePart = fileName.substring("tessera_backup_".length(), fileName.indexOf(".sql"));
-                        String dateOnly = datePart.substring(0, datePart.indexOf("_")); // "yyyyMMdd"
+                        String dateOnly = datePart.substring(0, datePart.indexOf("_"));
                         LocalDateTime fileDate = LocalDateTime.parse(dateOnly + "000000", DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
                         return fileDate.isBefore(cutoffDate);
                     } catch (Exception e) {

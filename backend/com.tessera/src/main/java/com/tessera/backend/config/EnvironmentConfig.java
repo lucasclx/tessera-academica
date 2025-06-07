@@ -17,68 +17,59 @@ import java.util.Properties;
 public class EnvironmentConfig {
 
     private final ConfigurableEnvironment environment;
-
     private static final Logger logger = LoggerFactory.getLogger(EnvironmentConfig.class);
+
+    // Injeta o valor da propriedade 'app.jwt.secret' do application.properties
+    @Value("${app.jwt.secret}")
+    private String jwtSecret;
 
     public EnvironmentConfig(ConfigurableEnvironment environment) {
         this.environment = environment;
     }
 
-    @Value("${JWT_SECRET:}")
-    private String jwtSecret;
-
-    @Value("${DB_PASSWORD:}")
-    private String dbPassword;
-
-    @Value("${MAIL_USERNAME:}")
-    private String mailUsername;
-
     @PostConstruct
-    public void loadDotEnvFile() {
+    public void loadDotEnvAndValidate() {
+        // Tenta carregar o arquivo .env para sobrescrever propriedades, útil para desenvolvimento local.
         try {
-            // Carrega o arquivo .env
             Properties envProps = new Properties();
             FileInputStream input = new FileInputStream(".env");
             envProps.load(input);
             input.close();
 
-            // Adiciona as propriedades ao ambiente Spring
             PropertiesPropertySource envPropertySource = new PropertiesPropertySource("dotenv", envProps);
             environment.getPropertySources().addFirst(envPropertySource);
-
             logger.info("✅ Arquivo .env carregado com sucesso!");
 
             // Re-resolve as propriedades após carregar o .env
-            this.jwtSecret = environment.getProperty("JWT_SECRET", "");
-            this.dbPassword = environment.getProperty("DB_PASSWORD", "");
-            this.mailUsername = environment.getProperty("MAIL_USERNAME", "");
+            this.jwtSecret = environment.getProperty("app.jwt.secret", "");
 
         } catch (IOException e) {
-            logger.warn("⚠️  Aviso: Não foi possível carregar o arquivo .env: {}", e.getMessage());
-            logger.warn("💡 Certifique-se de que o arquivo .env existe na raiz do projeto");
+            logger.warn("⚠️  Aviso: Não foi possível carregar o arquivo .env. Usando configurações do application.properties ou variáveis de ambiente do sistema.");
         }
 
-        validateEnvironment();
+        validateRequiredEnvironment();
     }
 
-    private void validateEnvironment() {
-        if (jwtSecret.isEmpty() || jwtSecret.equals("fallback-secret-key-for-development-only")) {
-            logger.warn("⚠️  AVISO: JWT_SECRET não configurado ou usando valor padrão inseguro!");
-            logger.warn("   Configure a variável JWT_SECRET no arquivo .env");
+    private void validateRequiredEnvironment() {
+        logger.info("Verificando configurações de ambiente...");
+
+        // Validação Crítica: Segredo JWT
+        if (jwtSecret == null || jwtSecret.isEmpty() || jwtSecret.equals("fallback-secret-key-for-development-only-is-very-long-and-secure")) {
+            logger.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            logger.error("!!! VULNERABILIDADE CRÍTICA: JWT_SECRET não está configurado ou usa o valor padrão.     !!!");
+            logger.error("!!! Defina a variável de ambiente 'APP_JWT_SECRET' com um valor longo e aleatório.         !!!");
+            logger.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            // Em um ambiente de produção real, você poderia lançar uma exceção para impedir a inicialização
+            // throw new IllegalStateException("JWT_SECRET must be configured for production.");
+        } else {
+            logger.info("✅ Segredo JWT configurado corretamente.");
         }
 
-        if (dbPassword.isEmpty()) {
-            logger.warn("⚠️  AVISO: DB_PASSWORD não configurado!");
-            logger.warn("   Configure a variável DB_PASSWORD no arquivo .env");
-        }
-
-        if (mailUsername.isEmpty()) {
+        // Validação Informativa: Configuração de Email
+        if (environment.getProperty("spring.mail.username") == null || environment.getProperty("spring.mail.username").isEmpty()) {
             logger.info("ℹ️  INFO: MAIL_USERNAME não configurado. Funcionalidades de email serão limitadas.");
+        } else {
+             logger.info("✅ Configuração de Email detectada.");
         }
-
-        logger.info("✅ Configuração de ambiente carregada:");
-        logger.info("   - JWT configurado: {}", !jwtSecret.isEmpty());
-        logger.info("   - Database configurado: {}", !dbPassword.isEmpty());
-        logger.info("   - Email configurado: {}", !mailUsername.isEmpty());
     }
 }

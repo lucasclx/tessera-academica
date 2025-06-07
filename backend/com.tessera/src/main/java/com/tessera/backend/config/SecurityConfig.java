@@ -3,6 +3,7 @@ package com.tessera.backend.config;
 import com.tessera.backend.security.JwtAuthenticationFilter;
 import com.tessera.backend.security.UserDetailsServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -20,6 +21,9 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
+import java.util.Arrays;
+import java.util.Collections;
+
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -30,6 +34,9 @@ public class SecurityConfig {
 
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @Value("${app.cors.allowed-origins:http://localhost:3000}")
+    private String[] allowedOrigins;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -57,13 +64,12 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
-                        "/auth/register",
-                        "/auth/login",
+                        "/auth/**", // Libera /auth/register e /auth/login
                         // Libera os endpoints do Swagger/OpenAPI
                         "/v3/api-docs/**",
                         "/swagger-ui/**",
                         "/swagger-ui.html",
-                        "/ws/**"
+                        "/ws/**" // Endpoint do WebSocket
                 ).permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers("/advisor/**").hasRole("ADVISOR") 
@@ -76,34 +82,18 @@ public class SecurityConfig {
 
         return http.build();
     }
-
-    @Bean
-    public CorsFilter corsFilter() { // Este bean pode ser redundante se corsConfigurationSource é usado diretamente
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        CorsConfiguration config = new CorsConfiguration();
-        config.setAllowCredentials(true);
-        // config.addAllowedOrigin("http://localhost:3000"); // Se ainda usar
-        config.addAllowedOrigin("http://localhost:3000"); // Frontend URL Vite
-        config.addAllowedOriginPattern("*"); // Para desenvolvimento, pode ser mais permissivo, mas restrinja em produção
-        config.addAllowedHeader("*");
-        config.addAllowedMethod("*");
-        source.registerCorsConfiguration("/**", config);
-        return new CorsFilter(source);
-    }
-
+    
     @Bean
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        // config.addAllowedOrigin("http://localhost:3000");
-        config.addAllowedOrigin("http://localhost:3000");
-        config.addAllowedOriginPattern("*"); // Adicionado para flexibilidade em dev
-        config.addAllowedHeader("*");
-        config.addAllowedMethod("*");
+        // Carrega as origens permitidas a partir da propriedade de configuração
+        config.setAllowedOrigins(Arrays.asList(allowedOrigins));
+        config.setAllowedHeaders(Collections.singletonList("*"));
+        config.setAllowedMethods(Collections.singletonList("*"));
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
-        // Adicionar configuração específica para /ws/** se necessário, embora "/**" deva cobrir.
-        // source.registerCorsConfiguration("/ws/**", config); // Geralmente não é necessário se "/**" já está configurado assim.
         return source;
     }
 }

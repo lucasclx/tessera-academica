@@ -503,13 +503,15 @@ export const collaboratorsApi = {
     api.post<DocumentCollaborator>(`/documents/${documentId}/collaborators`, payload),
   removeCollaborator: (documentId: number, collaboratorId: number) =>
     api.delete<void>(`/documents/${documentId}/collaborators/${collaboratorId}`),
+  // *** CORREÇÃO APLICADA AQUI ***
   updatePermissions: (documentId: number, collaboratorId: number, permission: string) =>
-    api.put<DocumentCollaborator>(`/documents/${documentId}/collaborators/${collaboratorId}/permissions`, JSON.stringify(permission), {
-      headers: { 'Content-Type': 'application/json' } // Assegurar que o backend espera JSON String
+    api.put<DocumentCollaborator>(`/documents/${documentId}/collaborators/${collaboratorId}/permissions`, permission, {
+      headers: { 'Content-Type': 'application/json' }
     }),
+  // *** CORREÇÃO APLICADA AQUI ***
   updateRole: (documentId: number, collaboratorId: number, role: string) =>
-    api.put<DocumentCollaborator>(`/documents/${documentId}/collaborators/${collaboratorId}/role`, JSON.stringify(role), {
-      headers: { 'Content-Type': 'application/json' } // Assegurar que o backend espera JSON String
+    api.put<DocumentCollaborator>(`/documents/${documentId}/collaborators/${collaboratorId}/role`, role, {
+      headers: { 'Content-Type': 'application/json' }
     }),
   promoteToPrimary: (documentId: number, collaboratorId: number) =>
     api.put<DocumentCollaborator>(`/documents/${documentId}/collaborators/${collaboratorId}/promote`),
