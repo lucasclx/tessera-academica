@@ -17,10 +17,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-import java.util.List;
+// import org.springframework.web.filter.CorsFilter; // <<< REMOVER ESTE IMPORT
 
 @Configuration
 @EnableWebSecurity
@@ -54,17 +52,22 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Usa a configuração de CORS definida abaixo
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
-                        "/auth/**", // Liberar todos endpoints de /auth
+                        "/auth/register",
+                        "/auth/login",
+                        // Libera os endpoints do Swagger/OpenAPI
                         "/v3/api-docs/**",
                         "/swagger-ui/**",
                         "/swagger-ui.html",
-                        "/ws/**" // Liberar o endpoint de WebSocket
+                        "/ws/**"
                 ).permitAll()
+                .requestMatchers("/admin/**").hasRole("ADMIN")
+                .requestMatchers("/advisor/**").hasRole("ADVISOR") 
+                .requestMatchers("/student/**").hasRole("STUDENT") 
                 .anyRequest().authenticated()
             );
 
@@ -74,21 +77,32 @@ public class SecurityConfig {
         return http.build();
     }
 
+    // O BEAN ABAIXO FOI REMOVIDO
+    /*
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        // Permite requisições da sua aplicação frontend
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
-        // Permite todos os métodos HTTP (GET, POST, PUT, etc.)
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        // Permite todos os headers
-        configuration.setAllowedHeaders(List.of("*"));
-        // Permite o envio de credenciais (cookies, tokens de autorização)
-        configuration.setAllowCredentials(true);
-
+    public CorsFilter corsFilter() { 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        // Aplica essa configuração a todas as rotas da sua API
-        source.registerCorsConfiguration("/**", configuration);
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowCredentials(true);
+        config.addAllowedOrigin("http://localhost:3000"); // Frontend URL Vite
+        config.addAllowedOriginPattern("*"); 
+        config.addAllowedHeader("*");
+        config.addAllowedMethod("*");
+        source.registerCorsConfiguration("/**", config);
+        return new CorsFilter(source);
+    }
+    */
+
+    @Bean
+    public UrlBasedCorsConfigurationSource corsConfigurationSource() {
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowCredentials(true);
+        config.addAllowedOrigin("http://localhost:3000");
+        config.addAllowedOriginPattern("*");
+        config.addAllowedHeader("*");
+        config.addAllowedMethod("*");
+        source.registerCorsConfiguration("/**", config);
         return source;
     }
 }

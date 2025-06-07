@@ -1,4 +1,3 @@
-// src/components/common/DataTable.tsx - CORRIGIDO
 import React from 'react';
 
 interface Column<T> {
@@ -67,7 +66,7 @@ function DataTable<T extends Record<string, any>>({
         <tbody className="bg-white divide-y divide-gray-200">
           {data.map((item, index) => (
             <tr 
-              key={item.id || index}
+              key={`datatable-row-${item.id}-${index}`}
               className={`${onRowClick ? 'cursor-pointer hover:bg-gray-50' : ''}`}
               onClick={() => onRowClick?.(item)}
             >
