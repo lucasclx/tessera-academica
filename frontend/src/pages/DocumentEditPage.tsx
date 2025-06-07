@@ -172,16 +172,50 @@ const DocumentEditPage: React.FC = () => {
   const editorRef = useRef<EditorRef>(null);
 
   const [latestVersion, setLatestVersion] = useState<Version | null>(null);
-  const [editorInitialContent, setEditorInitialContent] = useState('');
+  const draftKey = `documentDraft_${id ?? 'new'}`;
+  const savedDraft = (() => {
+    if (typeof window === 'undefined') return null;
+    const raw = localStorage.getItem(draftKey);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as { title: string; description?: string; content: string };
+    } catch {
+      return null;
+    }
+  })();
+
+  const [editorInitialContent, setEditorInitialContent] = useState(
+    savedDraft?.content || ''
+  );
   const [commitMessage, setCommitMessage] = useState('');
   const [pageLoading, setPageLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(Boolean(savedDraft));
   const [activeEditors, setActiveEditors] = useState<{ id: number; name: string }[]>([]);
 
   const { sendMessage, subscribe } = useWebSocket();
 
   const isEditing = Boolean(id);
+
+  const saveDraftToStorage = useCallback(
+    (content?: string) => {
+      const values = getValues();
+      const draft = {
+        title: values.title,
+        description: values.description || '',
+        content:
+          content !== undefined
+            ? content
+            : editorRef.current?.getContent() || '',
+      };
+      try {
+        localStorage.setItem(draftKey, JSON.stringify(draft));
+      } catch {
+        // ignore storage errors
+      }
+    },
+    [draftKey, getValues]
+  );
 
 
   const { data: documentData, loading: documentLoading, refetch: refetchDocument, error: documentError } = useApiData<DocumentDetailDTO>(
@@ -194,68 +228,88 @@ const DocumentEditPage: React.FC = () => {
     register,
     handleSubmit,
     reset,
+    getValues,
     formState: { errors, dirtyFields },
   } = useForm<FormData>({
     resolver: yupResolver(schema),
-    defaultValues: { title: '', description: '' }
+    defaultValues: {
+      title: savedDraft?.title || '',
+      description: savedDraft?.description || '',
+    },
   });
 
-  const loadLatestVersion = useCallback(async (docId: number) => {
-    try {
-      debugLog('DocumentEditPage: 📥 Carregando versões do documento', docId);
-      const versions = await versionsApi.getByDocument(docId);
-      if (versions.length > 0) {
-        const latest = versions[0];
-        debugLog('DocumentEditPage: 📝 Última versão encontrada:', latest.versionNumber);
-        setLatestVersion(latest);
-        setEditorInitialContent(latest.content);
-      } else {
-        debugLog('DocumentEditPage: 📝 Nenhuma versão encontrada para doc existente, editor vazio.');
-        setLatestVersion(null);
-        setEditorInitialContent('');
-      }
-    } catch (error) {
+  const loadLatestVersion = useCallback(
+    async (docId: number) => {
+      try {
+        debugLog('DocumentEditPage: 📥 Carregando versões do documento', docId);
+        const versions = await versionsApi.getByDocument(docId);
+        if (versions.length > 0) {
+          const latest = versions[0];
+          debugLog('DocumentEditPage: 📝 Última versão encontrada:', latest.versionNumber);
+          setLatestVersion(latest);
+          if (!savedDraft) {
+            setEditorInitialContent(latest.content);
+          }
+        } else {
+          debugLog('DocumentEditPage: 📝 Nenhuma versão encontrada para doc existente, editor vazio.');
+          setLatestVersion(null);
+          if (!savedDraft) {
+            setEditorInitialContent('');
+          }
+        }
+      } catch (error) {
       console.error('DocumentEditPage: ❌ Erro ao carregar versões:', error);
       toast.error('Erro ao carregar o conteúdo da última versão do documento');
-      setEditorInitialContent('');
-    }
-  }, []);
+        if (!savedDraft) {
+          setEditorInitialContent('');
+        }
+      }
+    },
+    [savedDraft]
+  );
 
   useEffect(() => {
     const currentOverallLoading = isEditing && documentLoading;
     setPageLoading(currentOverallLoading);
 
-    if (!currentOverallLoading) {
-      if (isEditing) {
-        if (documentData) {
-          debugLog('DocumentEditPage: 🔄 Sincronizando dados do documento existente com formulário', documentData);
-          reset({
-            title: documentData.title,
-            description: documentData.description || '',
-          });
-          loadLatestVersion(Number(id));
-        } else if (documentError) {
-            toast.error("Falha ao carregar dados do documento para edição.");
+      if (!currentOverallLoading) {
+        if (isEditing) {
+          if (documentData) {
+            debugLog('DocumentEditPage: 🔄 Sincronizando dados do documento existente com formulário', documentData);
+            if (!savedDraft) {
+              reset({
+                title: documentData.title,
+                description: documentData.description || '',
+              });
+              loadLatestVersion(Number(id));
+            } else {
+              loadLatestVersion(Number(id));
+            }
+          } else if (documentError) {
+              toast.error("Falha ao carregar dados do documento para edição.");
+          }
+        } else {
+          debugLog('DocumentEditPage: 🆕 Novo documento - resetando formulário e definindo editorInitialContent');
+          if (!savedDraft) {
+            reset({ title: '', description: '' });
+            setLatestVersion(null);
+            setEditorInitialContent(''); // Tiptap receberá string vazia como prop 'content'
+          }
+          setHasUnsavedChanges(Boolean(savedDraft));
         }
-      } else {
-        debugLog('DocumentEditPage: 🆕 Novo documento - resetando formulário e definindo editorInitialContent');
-        reset({ title: '', description: '' });
-        setLatestVersion(null);
-        setEditorInitialContent(''); // Tiptap receberá string vazia como prop 'content'
-        setHasUnsavedChanges(false);
       }
-    }
   }, [
     isEditing, id, reset, loadLatestVersion,
-    documentData, documentLoading, documentError,
-    
+    documentData, documentLoading, documentError, savedDraft
+
   ]);
 
 
   const handleFormChange = useCallback(() => {
     debugLog('DocumentEditPage: 📝 Formulário alterado');
     setHasUnsavedChanges(true);
-  }, []);
+    saveDraftToStorage();
+  }, [saveDraftToStorage]);
 
   const handleEditorContentChange = useCallback((newContent: string) => {
     debugLog('DocumentEditPage: ✏️ Conteúdo do editor (Tiptap) alterado.');
@@ -264,9 +318,10 @@ const DocumentEditPage: React.FC = () => {
     // Ou, o TiptapEditor pode internamente comparar antes de chamar onChange.
     // Por segurança, marcamos como alterado se o editor chamar.
     setHasUnsavedChanges(true);
+    saveDraftToStorage(newContent);
     // Não precisamos definir editorInitialContent aqui, pois onContentChange é para mudanças do usuário.
     // editorInitialContent é para o conteúdo que *vem* dos dados.
-  }, []);
+  }, [saveDraftToStorage]);
 
 
   useEffect(() => {
@@ -355,6 +410,7 @@ const DocumentEditPage: React.FC = () => {
 
         if (infoUpdated || versionCreated) {
             toast.success('Documento atualizado com sucesso!');
+            localStorage.removeItem(draftKey);
         } else {
             // react-hot-toast doesn't provide a dedicated `info` helper.
             // Use the default toast function to display informational messages.
@@ -381,6 +437,7 @@ const DocumentEditPage: React.FC = () => {
           });
         }
         toast.success('Documento criado com sucesso!');
+        localStorage.removeItem(draftKey);
         navigate(`/student/documents/${docIdToUse}/edit`, { replace: true });
         setActionLoading(false);
         return;
