@@ -64,7 +64,14 @@ public class DocumentService {
         final User student = currentUser;
         User advisor = null;
 
-
+        if (documentDTO.getAdvisorId() != null) {
+            advisor = userRepository.findById(documentDTO.getAdvisorId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Orientador não encontrado com ID: " + documentDTO.getAdvisorId()));
+            if (!userHasRole(advisor, "ADVISOR")) {
+                throw new IllegalArgumentException("Usuário informado não possui papel de orientador.");
+            }
+        }
 
         Document document = new Document();
         document.setTitle(documentDTO.getTitle());
@@ -415,6 +422,7 @@ public class DocumentService {
 
         User primaryAdvisor = document.getPrimaryAdvisor();
         if (primaryAdvisor != null) {
+            dto.setAdvisorId(primaryAdvisor.getId());
             dto.setAdvisorName(primaryAdvisor.getName());
         }
         // Se primaryAdvisor for nulo, advisorId e advisorName no DTO permanecerão nulos.
