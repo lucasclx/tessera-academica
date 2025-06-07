@@ -243,9 +243,11 @@ npm run lint
 
 ### Editor Avançado
 - Editor WYSIWYG com TipTap
-- Formatação rica (negrito, itálico, listas, tabelas)
+ - Formatação rica (negrito, itálico, listas, tabelas, subscrito e sobrescrito)
 - Inserção de imagens e links
 - Histórico de mudanças entre versões
+ - Avaliada a adição de recursos de citação e referências, porém ainda não há
+   extensão oficial do TipTap disponível
 
 ### Sistema de Notificações
 - Notificações em tempo real via WebSocket

@@ -1,5 +1,5 @@
 // src/pages/DocumentViewPage.tsx - OTIMIZADO
-import React, { useState, useEffect, Suspense, useCallback } from 'react';
+import React, { useState, useEffect, Suspense, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeftIcon,
@@ -7,6 +7,7 @@ import {
   ClockIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
+  ArrowDownTrayIcon,
   UserIcon,
   CalendarIcon,
   ChatBubbleLeftEllipsisIcon,
@@ -27,6 +28,7 @@ import { useApiData } from '../hooks/useApiData';
 import { formatDate, formatDateTime } from '../utils/dateUtils';
 import { getDocumentStatusInfo } from '../utils/statusUtils';
 import { canEditDocument, canSubmitDocument, canPerformAdvisorActions } from '../utils/documentUtils';
+import { exportElementToPdf, sanitizeFilename } from '../utils/pdfExport';
 
 // Lazy load dos componentes das abas
 const CommentThread = React.lazy(() => import('../components/Comments/CommentThread'));
@@ -135,6 +137,7 @@ const DocumentViewPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'content' | 'versions' | 'comments' | 'collaborators' | 'diff'>('content');
   const [versionToCompare1, setVersionToCompare1] = useState<any>(null);
   const [versionToCompare2, setVersionToCompare2] = useState<any>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // Hook otimizado para buscar documento
   const { data: document, loading, refetch } = useApiData<DocumentDetail>(
@@ -178,6 +181,13 @@ const DocumentViewPage: React.FC = () => {
       toast.error(error.response?.data?.message || 'Erro ao alterar status.');
     }
   }, [document, refetch]);
+
+  const handleExportPdf = useCallback(() => {
+    if (!contentRef.current || !document) return;
+    const versionLabel = selectedVersion ? `v${selectedVersion.versionNumber}` : 'conteudo';
+    const filename = `${sanitizeFilename(document.title)}_${versionLabel}.pdf`;
+    exportElementToPdf(contentRef.current, filename);
+  }, [document, selectedVersion]);
 
   if (loading || !document) {
     return <LoadingSpinner size="lg" message="Carregando documento..." fullScreen />;
@@ -226,6 +236,10 @@ const DocumentViewPage: React.FC = () => {
               Voltar
             </button>
             <DocumentActions document={document} onStatusChange={handleStatusChange} />
+            <button onClick={handleExportPdf} className="btn btn-primary">
+              <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
+              Exportar PDF
+            </button>
           </>
         }
       />
@@ -268,9 +282,10 @@ const DocumentViewPage: React.FC = () => {
                       <span>Por {selectedVersion.createdByName} em {formatDate(selectedVersion.createdAt)}</span>
                     </div>
                   </div>
-                  <div 
+                  <div
+                    ref={contentRef}
                     className="prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none p-4 border rounded-md bg-gray-50"
-                    dangerouslySetInnerHTML={{ __html: selectedVersion.content }} 
+                    dangerouslySetInnerHTML={{ __html: selectedVersion.content }}
                   />
                 </>
               ) : (
