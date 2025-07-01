@@ -25,7 +25,7 @@ import {
   AlignLeftIcon, AlignCenterIcon, AlignRightIcon, AlignJustifyIcon,
   ListIcon, ListOrderedIcon, QuoteIcon, CodeIcon, LinkIcon, ImageIcon,
   TableIcon, UndoIcon, RedoIcon, Heading1Icon, Heading2Icon, Heading3Icon, PilcrowIcon,
-  SigmaIcon, FunctionSquareIcon
+  SigmaIcon, FunctionSquareIcon, SubscriptIcon, SuperscriptIcon, MessageSquareIcon
 
 } from 'lucide-react';
 
@@ -114,13 +114,11 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
       attributes: { class: `prose prose-sm sm:prose lg:prose-base max-w-none focus:outline-none p-4 ${!editable ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'} ${editorClassName}` },
     },
     onCreate: ({ editor: createdEditor}) => {
-        // console.log("TiptapEditor: onCreate disparado");
         if (!createdEditor.isDestroyed) {
             setIsEditorReallyReady(true);
         }
     },
     onDestroy: () => {
-        // console.log("TiptapEditor: onDestroy disparado");
         setIsEditorReallyReady(false);
     }
   }, [extensions]);
@@ -246,7 +244,7 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
     );
   };
 
-  const bubbleMenuPluginKey = useMemo(() => new PluginKey('bubbleMenuKey-' + Math.random().toString(36).substr(2, 9)), []);
+  const bubbleMenuPluginKey = useMemo(() => new PluginKey('bubbleMenuKey-' + Date.now()), [editor]);
 
   if (!editor || !isEditorReallyReady) {
     return (
@@ -273,12 +271,16 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
           }}
           className="bubble-menu bg-gray-800 text-white px-3 py-1.5 rounded-lg shadow-xl flex items-center space-x-1 border border-gray-700 z-50"
           shouldShow={({ editor: currentEditor, view: _view, state, from, to }) => {
-            if (!currentEditor || currentEditor.isDestroyed || !isEditorReallyReady) return false;
-            const { selection } = state;
-            const { empty } = selection;
-            // const hasFocus = _view.hasFocus(); // Removido hasFocus daqui, pois pode ser problemático
-            if (empty) return false; // Só mostra se a seleção não estiver vazia
-            return state.doc.textBetween(from, to, ' ').trim().length > 0;
+            try {
+              if (!currentEditor || currentEditor.isDestroyed || !isEditorReallyReady) return false;
+              const { selection } = state;
+              const { empty } = selection;
+              if (empty) return false;
+              const selectedText = state.doc.textBetween(from, to, ' ').trim();
+              return selectedText.length > 0;
+            } catch (e) {
+              return false;
+            }
           }}
         >
           <button onClick={() => editor.chain().focus().toggleBold().run()} disabled={!editable || !editor.can().chain().focus().toggleBold().run()} className={`p-1.5 rounded ${editor.isActive('bold') ? 'bg-primary-500 text-white' : 'hover:bg-gray-700'} disabled:opacity-50`} title="Negrito (Ctrl+B)"><BoldIcon size={16} /></button>
@@ -297,7 +299,7 @@ const TiptapEditor = forwardRef<EditorRef, EditorProps>(({
               className="p-1.5 rounded hover:bg-gray-700 disabled:opacity-50"
               title="Comentar seleção"
             >
-              <ChatBubbleLeftEllipsisIcon className="h-4 w-4" />
+              <MessageSquareIcon className="h-4 w-4" />
             </button>
           )}
           <button onClick={() => { const previousUrl = editor.getAttributes('link').href; const url = window.prompt('URL do link:', previousUrl || 'https://'); if (url === null) return; if (url === '') { editor.chain().focus().extendMarkRange('link').unsetLink().run(); return; } editor.chain().focus().extendMarkRange('link').setLink({ href: url, target: '_blank' }).run();}} disabled={!editable} className={`p-1.5 rounded ${editor.isActive('link') ? 'bg-primary-500 text-white' : 'hover:bg-gray-700'} disabled:opacity-50`} title="Link"><LinkIcon size={16} /></button>

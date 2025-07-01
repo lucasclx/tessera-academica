@@ -10,6 +10,8 @@ import {
   ClockIcon,
   TrashIcon,
   ArrowDownTrayIcon,
+  ChatBubbleLeftEllipsisIcon,
+  XMarkIcon,
 
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../store/authStore';
@@ -23,6 +25,7 @@ import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import { formatDateTime } from '../utils/dateUtils';
 import { useWebSocket } from '../components/providers/WebSocketProvider';
 import { exportHtmlToPdf, sanitizeFilename } from '../utils/pdfExport';
+import CommentThread from '../components/Comments/CommentThread';
 
 const schema = yup.object({
   title: yup
@@ -208,6 +211,20 @@ const DocumentEditPage: React.FC = () => {
 
   const isEditing = Boolean(id);
 
+  const {
+    register,
+    handleSubmit,
+    reset,
+    getValues,
+    formState: { errors },
+  } = useForm<FormData>({
+    resolver: yupResolver(schema),
+    defaultValues: {
+      title: savedDraft?.title || '',
+      description: savedDraft?.description || '',
+    },
+  });
+
   const saveDraftToStorage = useCallback(
     (content?: string) => {
       const values = getValues();
@@ -228,29 +245,23 @@ const DocumentEditPage: React.FC = () => {
     [draftKey, getValues]
   );
 
-
   const { data: documentData, loading: documentLoading, refetch: refetchDocument, error: documentError } = useApiData<DocumentDetailDTO>(
     isEditing && id ? `/documents/${id}` : null,
     [id, isEditing],
     { errorMessage: 'Erro ao carregar documento.', immediate: isEditing }
   );
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    getValues,
-    formState: { errors, dirtyFields },
-  } = useForm<FormData>({
-    resolver: yupResolver(schema),
-    defaultValues: {
-      title: savedDraft?.title || '',
-      description: savedDraft?.description || '',
-    },
-  });
-
+  const loadingVersionsRef = useRef<Set<number>>(new Set());
+  
   const loadLatestVersion = useCallback(
     async (docId: number) => {
+      // Previne múltiplas chamadas simultâneas para o mesmo documento
+      if (loadingVersionsRef.current.has(docId)) {
+        return;
+      }
+      
+      loadingVersionsRef.current.add(docId);
+      
       try {
         debugLog('DocumentEditPage: 📥 Carregando versões do documento', docId);
         const versions = await versionsApi.getByDocument(docId);
@@ -274,33 +285,40 @@ const DocumentEditPage: React.FC = () => {
         if (!savedDraft) {
           setEditorInitialContent('');
         }
+      } finally {
+        loadingVersionsRef.current.delete(docId);
       }
     },
     [savedDraft]
   );
 
+  const lastProcessedDocumentId = useRef<number | null>(null);
+  
   useEffect(() => {
     const currentOverallLoading = isEditing && documentLoading;
     setPageLoading(currentOverallLoading);
 
       if (!currentOverallLoading) {
-        if (isEditing) {
-          if (documentData) {
+        if (isEditing && id) {
+          const docId = Number(id);
+          if (documentData && lastProcessedDocumentId.current !== docId) {
             debugLog('DocumentEditPage: 🔄 Sincronizando dados do documento existente com formulário', documentData);
+            lastProcessedDocumentId.current = docId;
+            
             if (!savedDraft) {
               reset({
                 title: documentData.title,
                 description: documentData.description || '',
               });
-              loadLatestVersion(Number(id));
-            } else {
-              loadLatestVersion(Number(id));
             }
+            loadLatestVersion(docId);
           } else if (documentError) {
               toast.error("Falha ao carregar dados do documento para edição.");
           }
-        } else {
+        } else if (!isEditing) {
           debugLog('DocumentEditPage: 🆕 Novo documento - resetando formulário e definindo editorInitialContent');
+          lastProcessedDocumentId.current = null;
+          
           if (!savedDraft) {
             reset({ title: '', description: '' });
             setLatestVersion(null);
@@ -310,8 +328,7 @@ const DocumentEditPage: React.FC = () => {
         }
       }
   }, [
-    isEditing, id, reset, loadLatestVersion,
-    documentData, documentLoading, documentError, savedDraft
+    isEditing, id, documentData, documentLoading, documentError, savedDraft
 
   ]);
 
@@ -406,7 +423,7 @@ const DocumentEditPage: React.FC = () => {
         if (formMetaChanged) {
           await documentsApi.update(docIdToUse, {
             title: data.title,
-            description: data.description,
+            description: data.description || undefined,
           });
           infoUpdated = true;
         }
@@ -442,7 +459,7 @@ const DocumentEditPage: React.FC = () => {
         if (!user?.id) { /* ... */ return; } // Autenticação
         const newDocPayload = {
             title: data.title,
-            description: data.description,
+            description: data.description || undefined,
             studentId: user.id,
         };
         const newDoc = await documentsApi.create(newDocPayload);
