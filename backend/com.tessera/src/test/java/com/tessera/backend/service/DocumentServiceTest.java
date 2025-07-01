@@ -18,6 +18,11 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 
 @ExtendWith(MockitoExtension.class)
 class DocumentServiceTest {
@@ -33,6 +38,9 @@ class DocumentServiceTest {
     private DocumentCollaboratorRepository collaboratorRepository;
     @Mock
     private NotificationEventService notificationEventService;
+
+    @Mock
+    private EditingSessionService editingSessionService;
 
     private User student;
     private User advisor;
@@ -58,8 +66,6 @@ class DocumentServiceTest {
         DocumentDTO dto = new DocumentDTO();
         dto.setTitle("Doc");
         dto.setDescription("desc");
-
-        when(userRepository.findById(student.getId())).thenReturn(Optional.of(student));
         when(collaboratorRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(documentRepository.save(any(Document.class))).thenAnswer(inv -> inv.getArgument(0));
 

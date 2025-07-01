@@ -16,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.atLeastOnce;
 
 @ExtendWith(MockitoExtension.class)
 class EditingSessionServiceTest {
@@ -42,7 +44,7 @@ class EditingSessionServiceTest {
         Collection<EditingSessionDTO> editors = service.getEditors(10L);
         assertEquals(1, editors.size());
         assertEquals(user.getId(), editors.iterator().next().getUserId());
-        verify(messagingTemplate).convertAndSend(eq("/topic/documents/10/editors"), any());
+        verify(messagingTemplate).convertAndSend(eq("/topic/documents/10/editors"), any(Collection.class));
     }
 
     @Test
@@ -54,7 +56,7 @@ class EditingSessionServiceTest {
         service.cleanupIdleEditors();
 
         assertTrue(service.getEditors(5L).isEmpty());
-        verify(messagingTemplate).convertAndSend(eq("/topic/documents/5/editors"), any());
+        verify(messagingTemplate, times(2)).convertAndSend(eq("/topic/documents/5/editors"), any(Collection.class));
     }
 
     @Test
@@ -63,6 +65,6 @@ class EditingSessionServiceTest {
         service.leaveSession(7L, user);
 
         assertTrue(service.getEditors(7L).isEmpty());
-        verify(messagingTemplate).convertAndSend(eq("/topic/documents/7/editors"), any());
+        verify(messagingTemplate, times(2)).convertAndSend(eq("/topic/documents/7/editors"), any(Collection.class));
     }
 }

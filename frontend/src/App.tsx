@@ -140,9 +140,14 @@ const App: React.FC = () => {
         </Suspense>
       </Router>
 
-      {/* React Query DevTools (apenas em desenvolvimento) */}
+      {/* React Query DevTools (apenas em desenvolvimento) - SEM LOGO */}
       {import.meta.env?.DEV && (
-        <ReactQueryDevtools initialIsOpen={false} />
+        <ReactQueryDevtools 
+          initialIsOpen={false}
+          toggleButtonProps={{
+            style: { display: 'none' }
+          }}
+        />
       )}
     </QueryClientProvider>
   );

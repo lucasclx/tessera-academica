@@ -1,4 +1,4 @@
-// src/components/providers/AppProviders.tsx - CORRIGIDO
+// src/components/providers/AppProviders.tsx
 import React from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
@@ -47,6 +47,9 @@ export const AppProviders: React.FC<AppProvidersProps> = ({ children }) => {
         <ReactQueryDevtools
           initialIsOpen={false}
           position="bottom-right"
+          toggleButtonProps={{
+            style: { display: 'none' }
+          }}
         />
       )}
     </QueryClientProvider>

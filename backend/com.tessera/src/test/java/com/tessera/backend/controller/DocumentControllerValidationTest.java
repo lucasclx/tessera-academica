@@ -37,6 +37,9 @@ class DocumentControllerValidationTest {
     @MockBean
     private UserRepository userRepository;
 
+    @MockBean
+    private com.tessera.backend.security.JwtTokenProvider jwtTokenProvider;
+
     @Test
     void createDocumentWithBlankTitleReturnsBadRequest() throws Exception {
         DocumentDTO dto = new DocumentDTO();

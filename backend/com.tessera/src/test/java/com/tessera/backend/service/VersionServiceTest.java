@@ -33,6 +33,9 @@ class VersionServiceTest {
     @Mock
     private NotificationEventService notificationEventService;
 
+    @Mock
+    private EditingSessionService editingSessionService;
+
     private Document document;
     private User coauthor;
 

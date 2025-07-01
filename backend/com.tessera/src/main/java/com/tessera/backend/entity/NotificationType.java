@@ -23,6 +23,14 @@ public enum NotificationType {
     USER_APPROVED("Usuário aprovado", "✅"),
     USER_REJECTED("Usuário rejeitado", "❌"),
     
+    // Colaboradores
+    COLLABORATOR_ADDED("Colaborador adicionado", "👥"),
+    COLLABORATOR_REMOVED("Colaborador removido", "👥"),
+    COLLABORATOR_ROLE_CHANGED("Papel alterado", "🔄"),
+    
+    // Status específicos
+    DOCUMENT_STATUS_CHANGED("Status alterado", "🔄"),
+    
     // Lembretes
     DEADLINE_APPROACHING("Prazo se aproximando", "⏰"),
     DEADLINE_OVERDUE("Prazo vencido", "🚨"),

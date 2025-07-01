@@ -19,7 +19,7 @@ import com.tessera.backend.entity.User;
 @Service
 public class EditingSessionService {
 
-    private static class EditorInfo {
+    public static class EditorInfo {
         private final String name;
         private volatile long lastActive;
 
@@ -32,7 +32,7 @@ public class EditingSessionService {
             lastActive = System.currentTimeMillis();
         }
 
-        void setLastActive(long lastActive) {
+        public void setLastActive(long lastActive) {
             this.lastActive = lastActive;
         }
     }

@@ -38,7 +38,7 @@ public class DocumentDetailDTO extends DocumentDTO {
     // Construtor a partir de DocumentDTO
     public DocumentDetailDTO(DocumentDTO documentDTO) {
         super(documentDTO.getId(), documentDTO.getTitle(), documentDTO.getDescription(),
-              documentDTO.getStatus(), documentDTO.getStudentName(), documentDTO.getAdvisorName(),
+              documentDTO.getStatus(), documentDTO.getAdvisorId(), documentDTO.getStudentName(), documentDTO.getAdvisorName(),
               documentDTO.getCreatedAt(), documentDTO.getUpdatedAt(),
               documentDTO.getSubmittedAt(), documentDTO.getApprovedAt(),
               documentDTO.getRejectedAt(), documentDTO.getRejectionReason(),
